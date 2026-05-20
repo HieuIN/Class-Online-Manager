@@ -4,7 +4,23 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository, D
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles, RolesGuard } from '../../common/roles.guard';
 import { Response } from 'express';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import PDFDocument = require('pdfkit');
+
+const findUnicodeFont = () => {
+  const windir = process.env.WINDIR || 'C:\\Windows';
+  const candidates = [
+    process.env.PDF_FONT_PATH,
+    join(process.cwd(), 'assets', 'fonts', 'Roboto-Regular.ttf'),
+    join(process.cwd(), 'assets', 'fonts', 'NotoSans-Regular.ttf'),
+    join(windir, 'Fonts', 'arial.ttf'),
+    join(windir, 'Fonts', 'calibri.ttf'),
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+  ].filter(Boolean) as string[];
+  return candidates.find((path) => existsSync(path));
+};
 
 @Entity('payments')
 export class Payment {
@@ -103,8 +119,8 @@ export class PaymentsController {
     const cleanName = String(p.studentName || 'student')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/đ/g, 'd')
-      .replace(/Đ/g, 'D')
+      .replace(/\u0111/g, 'd')
+      .replace(/\u0110/g, 'D')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'student';
@@ -115,6 +131,11 @@ export class PaymentsController {
 
     const doc = new PDFDocument({ size: 'A4', margin: 48 });
     doc.pipe(res);
+    const unicodeFont = findUnicodeFont();
+    if (unicodeFont) {
+      doc.registerFont('app-regular', unicodeFont);
+      doc.font('app-regular');
+    }
 
     doc.fontSize(22).fillColor('#0F6E56').text('ClassManager', { continued: true });
     doc.fontSize(11).fillColor('#666').text('  Invoice', { align: 'right' });

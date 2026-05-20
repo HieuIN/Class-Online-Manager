@@ -100,7 +100,14 @@ export class PaymentsController {
     const paid = +p.paid_amount || 0;
     const remain = Math.max(0, amount - paid);
     const money = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + ' VND';
-    const cleanName = String(p.studentName || 'student').replace(/[^\w-]+/g, '-').replace(/-+/g, '-');
+    const cleanName = String(p.studentName || 'student')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'student';
     const filename = `hoa-don-${cleanName}-${now.toISOString().slice(0, 10)}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');

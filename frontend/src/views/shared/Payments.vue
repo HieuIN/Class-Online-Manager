@@ -90,13 +90,23 @@ const confirmPay = async () => {
   reload();
 };
 
+const slugify = (text) => {
+  return String(text || 'hoc-vien')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'hoc-vien';
+};
+
 const downloadInvoice = async (row) => {
   const blob = await paymentsApi.downloadInvoice(row.id);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const name = (row.studentName || 'hoc-vien').replace(/[^\w-]+/g, '-');
   a.href = url;
-  a.download = `hoa-don-${name}.pdf`;
+  a.download = `hoa-don-${slugify(row.studentName)}.pdf`;
   a.click();
   URL.revokeObjectURL(url);
 };

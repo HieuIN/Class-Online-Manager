@@ -76,6 +76,11 @@
             <el-option v-for="c in courses" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="Giáo viên phụ trách">
+          <el-select v-model="newCls.teacherId" placeholder="Chọn giáo viên" clearable>
+            <el-option v-for="t in teachers" :key="t.id" :label="t.fullName" :value="t.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="Tên lớp"><el-input v-model="newCls.name" placeholder="VD: HSK3 – Tối 2-4-6" /></el-form-item>
         <el-form-item label="Tổng số buổi"><el-input-number v-model="newCls.totalSessions" :min="1" /></el-form-item>
         <el-form-item label="Học phí (VND)"><el-input-number v-model="newCls.tuitionFee" :min="0" :step="100000" /></el-form-item>
@@ -172,6 +177,7 @@ const classes = computed(() => classStore.classes);
 const selected = computed(() => classStore.selected);
 const students = ref([]);
 const allStudents = ref([]);
+const teachers = ref([]);
 const courses = ref([]);
 const showCreate = ref(false);
 const showEnroll = ref(false);
@@ -183,7 +189,7 @@ const searchStudent = ref('');
 const enrolling = ref(false);
 const creating = ref(false);
 
-const newCls = reactive({ courseId: null, name: '', totalSessions: 20, tuitionFee: 3000000, scheduleNote: '' });
+const newCls = reactive({ courseId: null, teacherId: null, name: '', totalSessions: 20, tuitionFee: 3000000, scheduleNote: '' });
 const schedule = reactive({ autoGenerate: false, startDate: dayjs().format('YYYY-MM-DD'), weekdays: [1, 3, 5], startTime: '19:00', endTime: '21:00' });
 const newStudent = reactive({ fullName: '', email: '', phone: '', password: 'password123', enrollNow: true });
 
@@ -204,9 +210,13 @@ const loadAllStudents = async () => {
   try { allStudents.value = await usersApi.list('STUDENT'); } catch {}
 };
 
+const loadTeachers = async () => {
+  try { teachers.value = await usersApi.list('TEACHER'); } catch {}
+};
+
 const closeCreate = () => {
   showCreate.value = false; editMode.value = false; editId.value = null;
-  Object.assign(newCls, { courseId: null, name: '', totalSessions: 20, tuitionFee: 3000000, scheduleNote: '' });
+  Object.assign(newCls, { courseId: null, teacherId: null, name: '', totalSessions: 20, tuitionFee: 3000000, scheduleNote: '' });
   Object.assign(schedule, { autoGenerate: false, startDate: dayjs().format('YYYY-MM-DD'), weekdays: [1, 3, 5], startTime: '19:00', endTime: '21:00' });
 };
 
@@ -256,7 +266,7 @@ const onCardCmd = async (cmd, c) => {
   if (cmd === 'edit') {
     editMode.value = true; editId.value = c.id;
     Object.assign(newCls, {
-      courseId: c.course_id, name: c.name,
+      courseId: c.course_id, teacherId: c.teacher_id || null, name: c.name,
       totalSessions: c.total_sessions, tuitionFee: +c.tuition_fee,
       scheduleNote: c.schedule_note,
     });
@@ -325,6 +335,7 @@ onMounted(async () => {
   await classStore.fetchClasses();
   courses.value = await coursesApi.list();
   await loadAllStudents();
+  await loadTeachers();
   loadStudents();
 });
 </script>

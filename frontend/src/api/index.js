@@ -5,6 +5,8 @@ export const authApi = {
   register: (data) => http.post('/auth/register', data),
   me: () => http.get('/auth/me'),
   changePassword: (oldPwd, newPwd) => http.post('/auth/change-password', { oldPassword: oldPwd, newPassword: newPwd }),
+  forgotPassword: (email) => http.post('/auth/forgot-password', { email }),
+  resetPassword: (token, newPassword) => http.post('/auth/reset-password', { token, newPassword }),
 };
 
 export const usersApi = {

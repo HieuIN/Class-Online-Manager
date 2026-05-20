@@ -25,6 +25,18 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id              SERIAL PRIMARY KEY,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash      VARCHAR(64) NOT NULL UNIQUE,
+    expires_at      TIMESTAMP NOT NULL,
+    used_at         TIMESTAMP,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+CREATE INDEX idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
+
 -- =====================================================
 -- COURSES (Khóa học)
 -- =====================================================
@@ -90,6 +102,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     topic           VARCHAR(255),
     status          VARCHAR(20) DEFAULT 'PLANNED', -- PLANNED / DONE / DELAYED / CANCELLED
     note            TEXT,
+    meeting_url     TEXT,                          -- Link Zoom/Google Meet
     created_at      TIMESTAMP DEFAULT NOW(),
     CONSTRAINT sessions_status_check CHECK (status IN ('PLANNED','DONE','DELAYED','CANCELLED'))
 );

@@ -17,6 +17,9 @@
           Đăng nhập
         </el-button>
       </el-form>
+      <div class="forgot-row">
+        <router-link to="/forgot-password">Quên mật khẩu?</router-link>
+      </div>
       <div class="hint">
         <strong>Tài khoản demo</strong> (password: <code>password123</code>):<br/>
         <span class="row"><span>👩‍🏫 GV: teacher@cm.com</span></span>
@@ -58,4 +61,7 @@ const onLogin = async () => {
 .hint { margin-top: 22px; padding: 14px; background: #f5f4f0; border-radius: 8px; font-size: 12px; color: #666; line-height: 1.8; }
 .hint .row { display: block; }
 .hint code { background: #fff; padding: 1px 6px; border-radius: 4px; }
+.forgot-row { text-align: right; margin-top: 12px; font-size: 13px; }
+.forgot-row a { color: #0F6E56; text-decoration: none; font-weight: 500; }
+.forgot-row a:hover { text-decoration: underline; }
 </style>

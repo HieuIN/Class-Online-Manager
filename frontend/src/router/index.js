@@ -3,6 +3,8 @@ import { useAuthStore } from '@/stores/auth';
 
 const routes = [
   { path: '/login', component: () => import('@/views/auth/Login.vue'), meta: { public: true } },
+  { path: '/forgot-password', component: () => import('@/views/auth/ForgotPassword.vue'), meta: { public: true } },
+  { path: '/reset-password', component: () => import('@/views/auth/ResetPassword.vue'), meta: { public: true } },
   {
     path: '/',
     component: () => import('@/views/AppLayout.vue'),

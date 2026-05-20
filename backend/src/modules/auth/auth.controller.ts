@@ -28,4 +28,14 @@ export class AuthController {
   changePassword(@CurrentUser() user: any, @Body() body: { oldPassword: string; newPassword: string }) {
     return this.authService.changePassword(user.id, body.oldPassword, body.newPassword);
   }
+
+  @Post('forgot-password')
+  forgotPassword(@Body() body: { email: string }) {
+    return this.authService.forgotPassword(body.email);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() body: { token: string; newPassword: string }) {
+    return this.authService.resetPassword(body.token, body.newPassword);
+  }
 }

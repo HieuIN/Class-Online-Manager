@@ -11,6 +11,20 @@
 
     <el-row :gutter="14">
       <el-col :span="12">
+        <el-card class="mb-4">
+          <template #header><span class="section-title">Buổi học sắp tới</span></template>
+          <div v-if="upcomingSessions.length === 0" class="empty">Không có buổi học sắp tới</div>
+          <div v-for="s in upcomingSessions" :key="s.id" class="session-row">
+            <div class="session-info">
+              <div class="session-title">Buổi {{ s.session_no }} – {{ s.topic || 'Chưa có chủ đề' }}</div>
+              <div class="session-meta">
+                {{ fmtDate(s.planned_date) }}
+                <span v-if="s.start_time"> • {{ s.start_time.slice(0, 5) }}</span>
+              </div>
+            </div>
+            <el-button v-if="canJoinSession(s)" type="success" size="small" @click="joinSession(s)">Tham gia</el-button>
+          </div>
+        </el-card>
         <el-card>
           <template #header><span class="section-title">Bài tập cần nộp</span></template>
           <div v-if="pendingAssign.length === 0" class="empty">Không có bài nào cần nộp 🎉</div>
@@ -49,8 +63,9 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useClassStore } from '@/stores/class';
 import ClassPicker from '@/components/ClassPicker.vue';
-import { attendanceApi, gradesApi, assignmentsApi, submissionsApi, notificationsApi } from '@/api';
+import { attendanceApi, gradesApi, assignmentsApi, submissionsApi, notificationsApi, sessionsApi } from '@/api';
 import { fmtDate, fmtDateTime, gradeClassify } from '@/utils/format';
+import dayjs from 'dayjs';
 
 const auth = useAuthStore();
 const classStore = useClassStore();
@@ -59,9 +74,28 @@ const attRecords = ref([]);
 const avg = ref({ average: null });
 const pendingAssign = ref([]);
 const unreadNotif = ref(0);
+const allSessions = ref([]);
 
 const attendancePct = computed(() => attStats.value.total ? Math.round(attStats.value.present / attStats.value.total * 100) : 100);
 const classification = computed(() => gradeClassify(avg.value.average).label);
+
+const upcomingSessions = computed(() => {
+  const now = dayjs();
+  return allSessions.value
+    .filter(s => s.status === 'PLANNED' && !dayjs(s.planned_date).isBefore(now, 'day'))
+    .sort((a, b) => dayjs(a.planned_date).valueOf() - dayjs(b.planned_date).valueOf())
+    .slice(0, 3);
+});
+
+const getMeetingUrl = (s) => s.meeting_url || s.meetingUrl || '';
+const sessionStart = (s) => s.start_time ? dayjs(`${s.planned_date} ${s.start_time}`) : dayjs(s.planned_date).startOf('day');
+const canJoinSession = (s) => {
+  const url = getMeetingUrl(s);
+  if (!url) return false;
+  const diffHours = sessionStart(s).diff(dayjs(), 'hour', true);
+  return diffHours >= 0 && diffHours <= 24;
+};
+const joinSession = (s) => window.open(getMeetingUrl(s), '_blank');
 
 const dotClass = (s) => ({ PRESENT:'dot-p', ABSENT:'dot-a', LATE:'dot-l' }[s] || 'dot-p');
 const dotShort = (s) => ({ PRESENT:'✓', ABSENT:'✗', LATE:'T' }[s] || '?');
@@ -72,6 +106,7 @@ const reload = async () => {
   attStats.value = await attendanceApi.stats(auth.user.id, cid);
   attRecords.value = await attendanceApi.byStudent(auth.user.id, cid);
   avg.value = await gradesApi.average(auth.user.id, cid);
+  allSessions.value = await sessionsApi.list(cid);
   const all = await assignmentsApi.list(cid);
   const subs = await submissionsApi.byStudent(auth.user.id, cid);
   pendingAssign.value = all.filter(a => {
@@ -99,4 +134,9 @@ onMounted(reload);
 .dot-l { background: #FAEEDA; color: #854F0B; }
 .att-summary { display:flex; gap: 16px; font-size: 13px; }
 .empty { padding: 20px; text-align: center; color: #aaa; }
+.session-row { display:flex; justify-content:space-between; align-items:center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f0ee; }
+.session-row:last-child { border-bottom: none; }
+.session-info { min-width: 0; }
+.session-title { font-weight: 500; font-size: 13px; color: #333; }
+.session-meta { font-size: 12px; color: #888; margin-top: 3px; }
 </style>

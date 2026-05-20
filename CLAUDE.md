@@ -108,11 +108,11 @@ psql -U postgres -d class_manager
 - Export CSV bảng điểm + điểm danh
 
 ### 🔜 Phase A – Nâng cấp đáng kể (chưa làm)
-- [ ] Link Zoom/Google Meet cho mỗi session (field `meeting_url`)
+- [x] Link Zoom/Google Meet cho mỗi session (field `meeting_url`)
 - [ ] Reminder tự động trước buổi học 1h (email/Telegram)
 - [ ] Hóa đơn PDF + Báo cáo doanh thu theo tháng
 - [ ] Tự sinh lịch học khi tạo lớp (T2-T4-T6, 19h-21h → 24 buổi)
-- [ ] Quên mật khẩu / reset qua email
+- [x] Quên mật khẩu / reset qua email
 
 ### 🔮 Phase B – Tăng giá trị
 - [ ] Forum/Chat trong lớp (Socket.IO realtime)

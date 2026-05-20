@@ -16,6 +16,7 @@ export class ClassSession {
   @Column({ nullable: true }) topic: string;
   @Column({ default: 'PLANNED' }) status: string;
   @Column({ type: 'text', nullable: true }) note: string;
+  @Column({ name: 'meeting_url', type: 'text', nullable: true }) meetingUrl: string;
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
 }
 

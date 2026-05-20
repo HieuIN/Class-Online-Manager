@@ -1,8 +1,10 @@
 import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
+import { ConfigService } from '@nestjs/config';
 import { User } from '../users/user.entity';
 
 @Injectable()
@@ -10,6 +12,8 @@ export class AuthService {
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     private jwtService: JwtService,
+    private dataSource: DataSource,
+    private config: ConfigService,
   ) {}
 
   async login(email: string, password: string) {
@@ -60,5 +64,109 @@ export class AuthService {
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await this.userRepo.save(user);
     return { success: true };
+  }
+
+  async forgotPassword(email: string) {
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    const user = normalizedEmail
+      ? await this.userRepo.findOne({ where: { email: normalizedEmail, isActive: true } })
+      : null;
+
+    if (!user) return { success: true };
+
+    const token = randomBytes(32).toString('hex');
+    const tokenHash = this.hashToken(token);
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+    await this.dataSource.query(
+      `DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL`,
+      [user.id],
+    );
+    await this.dataSource.query(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
+      [user.id, tokenHash, expiresAt],
+    );
+
+    const frontendUrl = this.config.get<string>('FRONTEND_URL') || this.config.get<string>('CORS_ORIGIN') || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
+    const sent = await this.sendResetEmail(user, resetUrl);
+
+    const response: any = { success: true };
+    if (!sent && this.config.get<string>('NODE_ENV') !== 'production') {
+      response.devResetUrl = resetUrl;
+    }
+    return response;
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    if (!token) throw new BadRequestException('Token không hợp lệ');
+    if (!newPassword || newPassword.length < 6) {
+      throw new BadRequestException('Mật khẩu mới tối thiểu 6 ký tự');
+    }
+
+    const tokenHash = this.hashToken(token);
+    const rows = await this.dataSource.query(
+      `SELECT prt.id, prt.user_id
+       FROM password_reset_tokens prt
+       JOIN users u ON u.id = prt.user_id
+       WHERE prt.token_hash = $1
+         AND prt.used_at IS NULL
+         AND prt.expires_at > NOW()
+         AND u.is_active = TRUE
+       LIMIT 1`,
+      [tokenHash],
+    );
+    const reset = rows[0];
+    if (!reset) throw new BadRequestException('Link reset đã hết hạn hoặc không hợp lệ');
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.dataSource.query(
+      `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+      [passwordHash, reset.user_id],
+    );
+    await this.dataSource.query(
+      `UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`,
+      [reset.id],
+    );
+
+    return { success: true };
+  }
+
+  private hashToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private async sendResetEmail(user: User, resetUrl: string): Promise<boolean> {
+    const host = this.config.get<string>('SMTP_HOST');
+    const userName = this.config.get<string>('SMTP_USER');
+    const pass = this.config.get<string>('SMTP_PASS');
+    if (!host || !userName || !pass) {
+      console.log(`[auth] Password reset link for ${user.email}: ${resetUrl}`);
+      return false;
+    }
+
+    const nodemailer = await import('nodemailer');
+    const port = parseInt(this.config.get<string>('SMTP_PORT') || '587', 10);
+    const secure = this.config.get<string>('SMTP_SECURE') === 'true';
+    const from = this.config.get<string>('SMTP_FROM') || userName;
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user: userName, pass },
+    });
+
+    await transporter.sendMail({
+      from,
+      to: user.email,
+      subject: 'Reset mật khẩu ClassManager',
+      html: `
+        <p>Xin chào ${user.fullName || user.email},</p>
+        <p>Bạn vừa yêu cầu đặt lại mật khẩu ClassManager. Link này hết hạn sau 30 phút.</p>
+        <p><a href="${resetUrl}">Đặt lại mật khẩu</a></p>
+        <p>Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
+      `,
+    });
+    return true;
   }
 }

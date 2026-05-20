@@ -62,7 +62,19 @@
       <div v-if="upcomingSessions.length === 0" class="empty">Không có buổi nào kế hoạch</div>
       <div v-for="s in upcomingSessions" :key="s.id" class="upcoming-row">
         <div>
-          <div class="upcoming-topic">Buổi {{ s.session_no }} – {{ s.topic }}</div>
+          <div class="upcoming-topic">
+            Buổi {{ s.session_no }} – {{ s.topic }}
+            <el-button
+              v-if="getMeetingUrl(s)"
+              text
+              size="small"
+              class="link-copy"
+              title="Copy link Zoom/Meet"
+              @click="copyMeetingUrl(s)"
+            >
+              <el-icon><Link /></el-icon>
+            </el-button>
+          </div>
           <div class="upcoming-date">{{ formatDate(s.planned_date) }}</div>
         </div>
         <div>
@@ -90,6 +102,9 @@
             <el-option label="Đã dạy" value="DONE" />
             <el-option label="Bị hủy" value="CANCELLED" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="Link Zoom / Google Meet">
+          <el-input v-model="newSession.meeting_url" placeholder="https://zoom.us/j/..." />
         </el-form-item>
         <el-form-item label="Ghi chú"><el-input v-model="newSession.note" type="textarea" :rows="2" /></el-form-item>
       </el-form>
@@ -144,6 +159,7 @@
 import { ref, computed, watch, onMounted, reactive } from 'vue';
 import { useClassStore } from '@/stores/class';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Link } from '@element-plus/icons-vue';
 import ClassPicker from '@/components/ClassPicker.vue';
 import { classesApi, sessionsApi, attendanceApi } from '@/api';
 import { initials } from '@/utils/format';
@@ -162,7 +178,7 @@ const markRecords = ref([]);
 const saving = ref(false);
 
 const newSession = reactive({
-  session_no: 1, planned_date: '', actual_date: '', topic: '', status: 'PLANNED', note: '',
+  session_no: 1, planned_date: '', actual_date: '', topic: '', status: 'PLANNED', note: '', meeting_url: '',
 });
 
 const doneSessions = computed(() => sessions.value.filter(s => s.status === 'DONE'));
@@ -189,6 +205,14 @@ const dotClass = (s) => ({ PRESENT:'dot-p', ABSENT:'dot-a', LATE:'dot-l', LEFT_E
 const dotShort = (s) => ({ PRESENT:'✓', ABSENT:'✗', LATE:'T', LEFT_EARLY:'S' }[s] || '?');
 const formatShort = (d) => d ? dayjs(d).format('DD/MM') : '';
 const formatDate = (d) => d ? dayjs(d).format('DD/MM/YYYY') : '';
+const getMeetingUrl = (s) => s.meeting_url || s.meetingUrl || '';
+
+const copyMeetingUrl = async (s) => {
+  const url = getMeetingUrl(s);
+  if (!url) return;
+  await navigator.clipboard.writeText(url);
+  ElMessage.success('Đã copy link Zoom/Meet');
+};
 
 const reload = async () => {
   const cid = classStore.selectedId;
@@ -205,7 +229,7 @@ const openCreateSession = () => {
   Object.assign(newSession, {
     session_no: sessions.value.length + 1,
     planned_date: dayjs().format('YYYY-MM-DD'),
-    actual_date: '', topic: '', status: 'PLANNED', note: '',
+    actual_date: '', topic: '', status: 'PLANNED', note: '', meeting_url: '',
   });
   showSession.value = true;
 };
@@ -216,6 +240,7 @@ const editSession = (s) => {
   Object.assign(newSession, {
     session_no: s.session_no, planned_date: s.planned_date,
     actual_date: s.actual_date || '', topic: s.topic, status: s.status, note: s.note || '',
+    meeting_url: getMeetingUrl(s),
   });
   showSession.value = true;
 };
@@ -226,6 +251,7 @@ const saveSession = async () => {
     sessionNo: newSession.session_no, plannedDate: newSession.planned_date,
     actualDate: newSession.actual_date || null,
     topic: newSession.topic, status: newSession.status, note: newSession.note,
+    meetingUrl: newSession.meeting_url || null,
   };
   try {
     if (sessionEditMode.value) {
@@ -338,8 +364,9 @@ onMounted(reload);
 .legend > span { display:flex; align-items:center; gap: 5px; }
 .upcoming-row { display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid #f0f0ee; }
 .upcoming-row:last-child { border-bottom: none; }
-.upcoming-topic { font-weight: 500; font-size: 13px; }
+.upcoming-topic { display:flex; align-items:center; gap: 4px; font-weight: 500; font-size: 13px; }
 .upcoming-date { font-size: 11px; color: #888; margin-top: 2px; }
+.link-copy { padding: 0 2px; color: #0F6E56; }
 .empty { padding: 20px; text-align: center; color: #aaa; font-size: 13px; }
 .mark-toolbar { margin-bottom: 12px; }
 </style>

@@ -28,6 +28,37 @@ export class SessionsService {
   }
   findOne(id: number) { return this.repo.findOne({ where: { id } }); }
   create(data: Partial<ClassSession>) { return this.repo.save(this.repo.create(data)); }
+  async generate(data: { classId: number; startDate: string; weekdays: number[]; startTime?: string; endTime?: string; totalSessions: number }) {
+    const classId = +data.classId;
+    const totalSessions = Math.max(0, +data.totalSessions || 0);
+    const weekdays = Array.isArray(data.weekdays) ? data.weekdays.map(Number) : [];
+    if (!classId || !data.startDate || !weekdays.length || !totalSessions) return { created: 0, sessions: [] };
+
+    const sessions: Partial<ClassSession>[] = [];
+    const current = new Date(`${data.startDate}T00:00:00`);
+    let sessionNo = 1;
+    let guard = 0;
+    while (sessions.length < totalSessions && guard < 500) {
+      if (weekdays.includes(current.getDay())) {
+        const plannedDate = current.toISOString().slice(0, 10) as any;
+        sessions.push({
+          classId,
+          sessionNo,
+          plannedDate,
+          startTime: data.startTime || null,
+          endTime: data.endTime || null,
+          topic: `Buổi ${sessionNo}`,
+          status: 'PLANNED',
+        });
+        sessionNo++;
+      }
+      current.setDate(current.getDate() + 1);
+      guard++;
+    }
+
+    const saved = sessions.length ? await this.repo.save(this.repo.create(sessions)) : [];
+    return { created: saved.length, sessions: saved };
+  }
   async update(id: number, data: Partial<ClassSession>) {
     await this.repo.update(id, data);
     return this.findOne(id);
@@ -58,6 +89,7 @@ export class SessionsController {
   @Get('progress/:classId') progress(@Param('classId', ParseIntPipe) classId: number) {
     return this.service.getProgress(classId);
   }
+  @Post('generate') @Roles('ADMIN','TEACHER') generate(@Body() body: any) { return this.service.generate(body); }
   @Get(':id') findOne(@Param('id', ParseIntPipe) id: number) { return this.service.findOne(id); }
   @Post() @Roles('ADMIN','TEACHER') create(@Body() body: any) { return this.service.create(body); }
   @Patch(':id') @Roles('ADMIN','TEACHER') update(@Param('id', ParseIntPipe) id: number, @Body() body: any) { return this.service.update(id, body); }

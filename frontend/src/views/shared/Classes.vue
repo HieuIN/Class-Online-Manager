@@ -80,6 +80,34 @@
         <el-form-item label="Tổng số buổi"><el-input-number v-model="newCls.totalSessions" :min="1" /></el-form-item>
         <el-form-item label="Học phí (VND)"><el-input-number v-model="newCls.tuitionFee" :min="0" :step="100000" /></el-form-item>
         <el-form-item label="Lịch học"><el-input v-model="newCls.scheduleNote" placeholder="VD: Tối T2-T4-T6, 19:00-21:00" /></el-form-item>
+        <template v-if="!editMode">
+          <el-divider content-position="left">Tự sinh buổi học</el-divider>
+          <el-form-item>
+            <el-checkbox v-model="schedule.autoGenerate">Tự tạo lịch học sau khi tạo lớp</el-checkbox>
+          </el-form-item>
+          <template v-if="schedule.autoGenerate">
+            <el-form-item label="Ngày bắt đầu">
+              <el-date-picker v-model="schedule.startDate" type="date" value-format="YYYY-MM-DD" style="width:100%" />
+            </el-form-item>
+            <el-form-item label="Các thứ trong tuần">
+              <el-checkbox-group v-model="schedule.weekdays" class="weekday-group">
+                <el-checkbox :value="1">T2</el-checkbox>
+                <el-checkbox :value="2">T3</el-checkbox>
+                <el-checkbox :value="3">T4</el-checkbox>
+                <el-checkbox :value="4">T5</el-checkbox>
+                <el-checkbox :value="5">T6</el-checkbox>
+                <el-checkbox :value="6">T7</el-checkbox>
+                <el-checkbox :value="0">CN</el-checkbox>
+              </el-checkbox-group>
+            </el-form-item>
+            <el-form-item label="Giờ học">
+              <div class="time-row">
+                <el-time-picker v-model="schedule.startTime" format="HH:mm" value-format="HH:mm" placeholder="Bắt đầu" />
+                <el-time-picker v-model="schedule.endTime" format="HH:mm" value-format="HH:mm" placeholder="Kết thúc" />
+              </div>
+            </el-form-item>
+          </template>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="closeCreate">Hủy</el-button>
@@ -135,8 +163,9 @@
 import { ref, computed, reactive, watch, onMounted } from 'vue';
 import { useClassStore } from '@/stores/class';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { classesApi, coursesApi, enrollmentsApi, usersApi } from '@/api';
+import { classesApi, coursesApi, enrollmentsApi, sessionsApi, usersApi } from '@/api';
 import { initials, fmtDate } from '@/utils/format';
+import dayjs from 'dayjs';
 
 const classStore = useClassStore();
 const classes = computed(() => classStore.classes);
@@ -155,6 +184,7 @@ const enrolling = ref(false);
 const creating = ref(false);
 
 const newCls = reactive({ courseId: null, name: '', totalSessions: 20, tuitionFee: 3000000, scheduleNote: '' });
+const schedule = reactive({ autoGenerate: false, startDate: dayjs().format('YYYY-MM-DD'), weekdays: [1, 3, 5], startTime: '19:00', endTime: '21:00' });
 const newStudent = reactive({ fullName: '', email: '', phone: '', password: 'password123', enrollNow: true });
 
 const filteredStudents = computed(() => {
@@ -177,21 +207,49 @@ const loadAllStudents = async () => {
 const closeCreate = () => {
   showCreate.value = false; editMode.value = false; editId.value = null;
   Object.assign(newCls, { courseId: null, name: '', totalSessions: 20, tuitionFee: 3000000, scheduleNote: '' });
+  Object.assign(schedule, { autoGenerate: false, startDate: dayjs().format('YYYY-MM-DD'), weekdays: [1, 3, 5], startTime: '19:00', endTime: '21:00' });
 };
 
 const saveClass = async () => {
   if (!newCls.courseId || !newCls.name) { ElMessage.warning('Nhập khóa học + tên lớp'); return; }
+  if (!editMode.value && schedule.autoGenerate && (!schedule.startDate || !schedule.weekdays.length || !schedule.startTime || !schedule.endTime)) {
+    ElMessage.warning('Nhập đủ ngày bắt đầu, thứ trong tuần và giờ học');
+    return;
+  }
   try {
     if (editMode.value) {
       await classesApi.update(editId.value, newCls);
       ElMessage.success('Đã cập nhật');
     } else {
-      await classesApi.create(newCls);
-      ElMessage.success('Đã tạo lớp');
+      const created = await classesApi.create({
+        ...newCls,
+        startDate: schedule.autoGenerate ? schedule.startDate : undefined,
+        scheduleNote: buildScheduleNote(),
+      });
+      if (schedule.autoGenerate && created?.id) {
+        const result = await sessionsApi.generate({
+          classId: created.id,
+          startDate: schedule.startDate,
+          weekdays: schedule.weekdays,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          totalSessions: newCls.totalSessions,
+        });
+        ElMessage.success(`Đã tạo lớp và ${result.created || 0} buổi học`);
+      } else {
+        ElMessage.success('Đã tạo lớp');
+      }
     }
     closeCreate();
     await classStore.fetchClasses();
   } catch {}
+};
+
+const buildScheduleNote = () => {
+  if (!schedule.autoGenerate) return newCls.scheduleNote;
+  const labels = { 0: 'CN', 1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6', 6: 'T7' };
+  const days = [...schedule.weekdays].sort((a, b) => a - b).map(d => labels[d]).join('-');
+  return newCls.scheduleNote || `${days}, ${schedule.startTime}-${schedule.endTime}`;
 };
 
 const onCardCmd = async (cmd, c) => {
@@ -288,4 +346,6 @@ onMounted(async () => {
 .enroll-row:last-child { border-bottom: none; }
 .enroll-info { display:inline-block; vertical-align:middle; }
 .text-xs { font-size: 11px; color: #888; }
+.weekday-group { display:flex; flex-wrap:wrap; gap: 4px 12px; }
+.time-row { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
 </style>

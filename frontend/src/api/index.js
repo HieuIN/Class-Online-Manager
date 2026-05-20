@@ -44,6 +44,7 @@ export const enrollmentsApi = {
 export const sessionsApi = {
   list: (classId) => http.get('/sessions', { params: { classId } }),
   progress: (classId) => http.get(`/sessions/progress/${classId}`),
+  generate: (d) => http.post('/sessions/generate', d),
   create: (d) => http.post('/sessions', d),
   update: (id, d) => http.patch(`/sessions/${id}`, d),
   delete: (id) => http.delete(`/sessions/${id}`),

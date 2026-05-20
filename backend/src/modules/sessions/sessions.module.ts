@@ -3,6 +3,7 @@ import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles, RolesGuard } from '../../common/roles.guard';
+import { NotificationsModule, NotificationsService } from '../notifications/notifications.module';
 
 @Entity('sessions')
 export class ClassSession {
@@ -22,12 +23,19 @@ export class ClassSession {
 
 @Injectable()
 export class SessionsService {
-  constructor(@InjectRepository(ClassSession) private repo: Repository<ClassSession>) {}
+  constructor(
+    @InjectRepository(ClassSession) private repo: Repository<ClassSession>,
+    private notificationsService: NotificationsService,
+  ) {}
   findByClass(classId: number) {
     return this.repo.find({ where: { classId }, order: { sessionNo: 'ASC' } });
   }
   findOne(id: number) { return this.repo.findOne({ where: { id } }); }
-  create(data: Partial<ClassSession>) { return this.repo.save(this.repo.create(data)); }
+  async create(data: Partial<ClassSession>) {
+    const session = await this.repo.save(this.repo.create(data));
+    await this.notificationsService.runClassReminders();
+    return session;
+  }
   async generate(data: { classId: number; startDate: string; weekdays: number[]; startTime?: string; endTime?: string; totalSessions: number }) {
     const classId = +data.classId;
     const totalSessions = Math.max(0, +data.totalSessions || 0);
@@ -61,6 +69,7 @@ export class SessionsService {
   }
   async update(id: number, data: Partial<ClassSession>) {
     await this.repo.update(id, data);
+    await this.notificationsService.runClassReminders();
     return this.findOne(id);
   }
   remove(id: number) { return this.repo.delete(id); }
@@ -97,7 +106,7 @@ export class SessionsController {
 }
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ClassSession])],
+  imports: [TypeOrmModule.forFeature([ClassSession]), NotificationsModule],
   controllers: [SessionsController],
   providers: [SessionsService],
   exports: [SessionsService, TypeOrmModule],

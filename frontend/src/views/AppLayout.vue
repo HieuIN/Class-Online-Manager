@@ -73,6 +73,11 @@ const classStore = useClassStore();
 const unread = ref(0);
 let unreadTimer = null;
 const seenStorageKey = computed(() => `cm-notification-popups:${auth.user?.id || 'guest'}`);
+const handleReadChange = (event) => {
+  const detail = event.detail || {};
+  if (typeof detail.unread === 'number') unread.value = Math.max(0, detail.unread);
+  else if (typeof detail.delta === 'number') unread.value = Math.max(0, unread.value + detail.delta);
+};
 
 const roleLabel = computed(() => ({ TEACHER: 'Giáo viên', STUDENT: 'Học viên', ADMIN: 'Quản trị viên' }[auth.role] || ''));
 
@@ -172,10 +177,12 @@ const loadUnread = async () => {
 onMounted(async () => {
   await classStore.fetchClasses();
   loadUnread();
+  window.addEventListener('notifications:read-change', handleReadChange);
   unreadTimer = setInterval(loadUnread, 30000);
 });
 
 onUnmounted(() => {
+  window.removeEventListener('notifications:read-change', handleReadChange);
   if (unreadTimer) clearInterval(unreadTimer);
 });
 </script>

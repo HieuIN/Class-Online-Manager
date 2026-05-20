@@ -77,6 +77,7 @@ const markOne = async (n) => {
   if (n.isRead) return;
   await notificationsApi.markRead(n.id);
   n.isRead = true;
+  window.dispatchEvent(new CustomEvent('notifications:read-change', { detail: { delta: -1 } }));
 };
 
 const openRelated = async (n) => {
@@ -87,6 +88,7 @@ const openRelated = async (n) => {
 const markAll = async () => {
   await notificationsApi.markAllRead();
   notifications.value.forEach(n => (n.isRead = true));
+  window.dispatchEvent(new CustomEvent('notifications:read-change', { detail: { unread: 0 } }));
   ElMessage.success('Đã đánh dấu tất cả');
 };
 

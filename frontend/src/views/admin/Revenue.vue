@@ -116,10 +116,21 @@ const pieOption = computed(() => ({
   }],
 }));
 
-const load = async () => {
+const load = async (allowFallback = false) => {
   const [from, to] = range.value || [];
   if (!from || !to) return;
   rows.value = await paymentsApi.revenueReport(from, to);
+  if (allowFallback && rows.value.length === 0) {
+    const allRows = await paymentsApi.revenueReport('2000-01-01', dayjs().endOf('month').format('YYYY-MM-DD'));
+    if (allRows.length > 0) {
+      const latest = allRows.reduce((max, row) => dayjs(row.month).isAfter(max) ? dayjs(row.month) : max, dayjs(allRows[0].month));
+      range.value = [
+        latest.subtract(11, 'month').startOf('month').format('YYYY-MM-DD'),
+        latest.endOf('month').format('YYYY-MM-DD'),
+      ];
+      rows.value = await paymentsApi.revenueReport(range.value[0], range.value[1]);
+    }
+  }
 };
 
 const exportCsv = () => {
@@ -135,7 +146,7 @@ const exportCsv = () => {
   URL.revokeObjectURL(url);
 };
 
-onMounted(load);
+onMounted(() => load(true));
 </script>
 
 <style scoped>

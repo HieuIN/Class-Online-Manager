@@ -78,7 +78,7 @@
               <el-icon><Link /></el-icon>
             </el-button>
           </div>
-          <div class="upcoming-date">{{ formatDate(s.planned_date) }}</div>
+          <div class="upcoming-date">{{ formatDate(s.planned_date) }}{{ sessionTime(s) }}</div>
         </div>
         <div>
           <el-button size="small" @click="editSession(s)">Sửa</el-button>
@@ -98,6 +98,18 @@
         <el-form-item label="Ngày thực tế (nếu đã dạy)">
           <el-date-picker v-model="newSession.actual_date" type="date" value-format="YYYY-MM-DD" style="width:100%" />
         </el-form-item>
+        <el-row :gutter="10">
+          <el-col :span="12">
+            <el-form-item label="Giờ bắt đầu">
+              <el-time-picker v-model="newSession.start_time" format="HH:mm" value-format="HH:mm" placeholder="19:00" style="width:100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="Giờ kết thúc">
+              <el-time-picker v-model="newSession.end_time" format="HH:mm" value-format="HH:mm" placeholder="21:00" style="width:100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-form-item label="Chủ đề"><el-input v-model="newSession.topic" placeholder="VD: Ngữ pháp Chương 3" /></el-form-item>
         <el-form-item label="Trạng thái">
           <el-select v-model="newSession.status">
@@ -121,7 +133,7 @@
     <!-- Bulk attendance mark -->
     <el-dialog v-model="showMark" :title="markTitle" width="640px">
       <div v-if="markSession">
-        <p style="font-size:13px;color:#666">{{ markSession.topic }} – {{ formatDate(markSession.planned_date) }}</p>
+        <p style="font-size:13px;color:#666">{{ markSession.topic }} – {{ formatDate(markSession.planned_date) }}{{ sessionTime(markSession) }}</p>
         <div class="mark-toolbar">
           <el-button size="small" @click="markAll('PRESENT')">Tất cả có mặt</el-button>
           <el-button size="small" @click="markAll('ABSENT')">Tất cả vắng</el-button>
@@ -181,7 +193,7 @@ const markRecords = ref([]);
 const saving = ref(false);
 
 const newSession = reactive({
-  session_no: 1, planned_date: '', actual_date: '', topic: '', status: 'PLANNED', note: '', meeting_url: '',
+  session_no: 1, planned_date: '', actual_date: '', start_time: '19:00', end_time: '21:00', topic: '', status: 'PLANNED', note: '', meeting_url: '',
 });
 
 const doneSessions = computed(() => sessions.value.filter(s => s.status === 'DONE'));
@@ -209,6 +221,15 @@ const dotShort = (s) => ({ PRESENT:'✓', ABSENT:'✗', LATE:'T', LEFT_EARLY:'S'
 const formatShort = (d) => d ? dayjs(d).format('DD/MM') : '';
 const formatDate = (d) => d ? dayjs(d).format('DD/MM/YYYY') : '';
 const getMeetingUrl = (s) => s.meeting_url || s.meetingUrl || '';
+const getStartTime = (s) => s.start_time || s.startTime || '';
+const getEndTime = (s) => s.end_time || s.endTime || '';
+const shortTime = (t) => t ? String(t).slice(0, 5) : '';
+const sessionTime = (s) => {
+  const start = shortTime(getStartTime(s));
+  const end = shortTime(getEndTime(s));
+  if (!start && !end) return '';
+  return ` • ${start || '--:--'}${end ? `-${end}` : ''}`;
+};
 
 const copyMeetingUrl = async (s) => {
   const url = getMeetingUrl(s);
@@ -232,7 +253,7 @@ const openCreateSession = () => {
   Object.assign(newSession, {
     session_no: sessions.value.length + 1,
     planned_date: dayjs().format('YYYY-MM-DD'),
-    actual_date: '', topic: '', status: 'PLANNED', note: '', meeting_url: '',
+    actual_date: '', start_time: '19:00', end_time: '21:00', topic: '', status: 'PLANNED', note: '', meeting_url: '',
   });
   showSession.value = true;
 };
@@ -242,7 +263,8 @@ const editSession = (s) => {
   sessionEditId.value = s.id;
   Object.assign(newSession, {
     session_no: s.session_no, planned_date: s.planned_date,
-    actual_date: s.actual_date || '', topic: s.topic, status: s.status, note: s.note || '',
+    actual_date: s.actual_date || '', start_time: shortTime(getStartTime(s)) || '19:00', end_time: shortTime(getEndTime(s)) || '21:00',
+    topic: s.topic, status: s.status, note: s.note || '',
     meeting_url: getMeetingUrl(s),
   });
   showSession.value = true;
@@ -253,6 +275,8 @@ const saveSession = async () => {
   const payload = {
     sessionNo: newSession.session_no, plannedDate: newSession.planned_date,
     actualDate: newSession.actual_date || null,
+    startTime: newSession.start_time || null,
+    endTime: newSession.end_time || null,
     topic: newSession.topic, status: newSession.status, note: newSession.note,
     meetingUrl: newSession.meeting_url || null,
   };

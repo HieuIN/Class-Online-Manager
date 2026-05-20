@@ -102,7 +102,7 @@ export class PaymentsService {
       `SELECT DATE_TRUNC('month', p.paid_at) as month,
               c.id as class_id,
               c.name as class_name,
-              SUM(p.paid_amount)::numeric as revenue,
+              SUM(COALESCE(NULLIF(p.paid_amount, 0), p.amount))::numeric as revenue,
               COUNT(*)::int as payment_count
        FROM payments p JOIN classes c ON c.id = p.class_id
        WHERE p.paid_at BETWEEN $1 AND $2 AND p.status = 'PAID'

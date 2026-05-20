@@ -1,7 +1,8 @@
 import { Injectable, Module, Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, UseGuards, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -25,6 +26,13 @@ export class Material {
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
 }
 
+const uploadRoot = () => process.env.UPLOAD_DIR || './uploads';
+const ensureUploadDir = (folder: string) => {
+  const dir = join(process.cwd(), uploadRoot(), folder);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return dir;
+};
+
 @Injectable()
 export class MaterialsService {
   constructor(@InjectRepository(Material) private repo: Repository<Material>) {}
@@ -44,7 +52,7 @@ export class MaterialsController {
   @Roles('ADMIN','TEACHER')
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
-      destination: process.env.UPLOAD_DIR || './uploads',
+      destination: (_req, _file, cb) => cb(null, ensureUploadDir('materials')),
       filename: (_req, file, cb) => cb(null, `material-${Date.now()}${extname(file.originalname)}`),
     }),
     limits: { fileSize: 200 * 1024 * 1024 },
@@ -56,7 +64,7 @@ export class MaterialsController {
       chapter: body.chapter,
       lesson: body.lesson,
       materialType: body.materialType,
-      fileUrl: `/uploads/${file.filename}`,
+      fileUrl: `/uploads/materials/${file.filename}`,
       isRequired: body.isRequired === 'true' || body.isRequired === true,
       createdBy: user.id,
     });

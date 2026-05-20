@@ -11,6 +11,10 @@ async function bootstrap() {
   // Ensure uploads folder exists
   const uploadDir = join(process.cwd(), 'uploads');
   if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+  for (const folder of ['materials', 'submissions']) {
+    const subDir = join(uploadDir, folder);
+    if (!existsSync(subDir)) mkdirSync(subDir, { recursive: true });
+  }
 
   app.setGlobalPrefix('api', { exclude: ['uploads/(.*)'] });
 

@@ -1,7 +1,8 @@
 import { Injectable, Module, Controller, Get, Post, Patch, Body, Param, ParseIntPipe, Query, UseGuards, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository, DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -23,6 +24,13 @@ export class Submission {
   @Column({ name: 'graded_at', type: 'timestamp', nullable: true }) gradedAt: Date;
   @Column({ name: 'graded_by', nullable: true }) gradedBy: number;
 }
+
+const uploadRoot = () => process.env.UPLOAD_DIR || './uploads';
+const ensureUploadDir = (folder: string) => {
+  const dir = join(process.cwd(), uploadRoot(), folder);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return dir;
+};
 
 @Injectable()
 export class SubmissionsService {
@@ -99,7 +107,7 @@ export class SubmissionsController {
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
-      destination: process.env.UPLOAD_DIR || './uploads',
+      destination: (_req, _file, cb) => cb(null, ensureUploadDir('submissions')),
       filename: (_req, file, cb) => {
         const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
         cb(null, `submission-${unique}${extname(file.originalname)}`);
@@ -111,7 +119,7 @@ export class SubmissionsController {
     return this.service.submit({
       assignmentId: +body.assignmentId,
       studentId: user.id,
-      fileUrl: `/uploads/${file.filename}`,
+      fileUrl: `/uploads/submissions/${file.filename}`,
       fileName: file.originalname,
     });
   }

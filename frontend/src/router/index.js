@@ -18,6 +18,7 @@ const routes = [
       { path: 'assignments', component: () => import('@/views/teacher/Assignments.vue'), meta: { roles: ['TEACHER'] } },
       { path: 'progress', component: () => import('@/views/teacher/Progress.vue'), meta: { roles: ['TEACHER'] } },
       { path: 'materials', component: () => import('@/views/shared/Materials.vue') },
+      { path: 'forum', component: () => import('@/views/shared/Forum.vue'), meta: { roles: ['TEACHER','STUDENT'] } },
       { path: 'calendar', component: () => import('@/views/shared/Calendar.vue') },
       { path: 'analytics', component: () => import('@/views/teacher/Analytics.vue'), meta: { roles: ['TEACHER','ADMIN'] } },
       { path: 'payments', component: () => import('@/views/shared/Payments.vue'), meta: { roles: ['TEACHER','ADMIN'] } },

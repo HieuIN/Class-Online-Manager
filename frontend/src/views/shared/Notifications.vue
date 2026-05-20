@@ -15,7 +15,7 @@
             <span :class="['badge', typeClass(n.notifType)]">{{ typeLabel(n.notifType) }}</span>
             <span v-if="!n.isRead" class="badge badge-red">Mới</span>
           </div>
-          <div class="notif-content">{{ n.content }}</div>
+          <div class="notif-content">{{ displayContent(n.content) }}</div>
           <div class="notif-time">{{ fmtTime(n.createdAt) }}</div>
         </div>
         <el-button v-if="n.relatedUrl" size="small" type="primary" plain @click.stop="openRelated(n)">Mở</el-button>
@@ -62,6 +62,7 @@ const notifIcon = (t) => ({ REMINDER: '⏰' }[t] || '');
 const typeLabel = (t) => ({ ALERT_ABSENCE: 'Chuyên cần', ALERT_HOMEWORK: 'Bài tập', REMINDER: 'Nhắc lịch' }[t] || 'Thông báo');
 const typeClass = (t) => ({ ALERT_ABSENCE: 'badge-red', ALERT_HOMEWORK: 'badge-amber', REMINDER: 'badge-blue' }[t] || 'badge-gray');
 const fmtTime = (d) => dayjs(d).format('DD/MM/YYYY HH:mm');
+const displayContent = (content) => String(content || '').replace(/^session_id=\d+;\s*/, '');
 
 const load = async () => {
   notifications.value = await notificationsApi.list();

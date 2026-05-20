@@ -115,7 +115,7 @@ psql -U postgres -d class_manager
 - [x] Quên mật khẩu / reset qua email
 
 ### 🔮 Phase B – Tăng giá trị
-- [ ] Forum/Chat trong lớp (Socket.IO realtime)
+- [x] Forum/Bảng tin trong lớp (post + comment realtime Socket.IO)
 - [ ] Quiz online tự chấm
 - [ ] Certificate PDF cuối khóa
 - [ ] Học viên feedback ẩn danh

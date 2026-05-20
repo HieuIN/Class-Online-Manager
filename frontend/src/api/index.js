@@ -113,6 +113,15 @@ export const notificationsApi = {
   setRule: (classId, d) => http.post(`/notifications/rules/${classId}`, d),
 };
 
+export const classPostsApi = {
+  list: (classId) => http.get('/class-posts', { params: { classId } }),
+  create: (d) => http.post('/class-posts', d, d instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined),
+  delete: (id) => http.delete(`/class-posts/${id}`),
+  pin: (id) => http.patch(`/class-posts/${id}/pin`),
+  comments: (id) => http.get(`/class-posts/${id}/comments`),
+  addComment: (id, content) => http.post(`/class-posts/${id}/comments`, { content }),
+};
+
 export const calendarApi = {
   list: (start, end) => http.get('/calendar', { params: { start, end } }),
   create: (d) => http.post('/calendar', d),

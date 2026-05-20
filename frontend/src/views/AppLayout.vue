@@ -63,7 +63,7 @@ import { notificationsApi } from '@/api';
 import { initials } from '@/utils/format';
 import {
   House, School, Select, Histogram, Document, TrendCharts, Folder, Calendar,
-  PieChart, Money, Bell, SwitchButton, User, CaretTop, UserFilled, Reading,
+  PieChart, Money, Bell, SwitchButton, User, CaretTop, UserFilled, Reading, ChatDotRound,
 } from '@element-plus/icons-vue';
 
 const route = useRoute();
@@ -87,6 +87,7 @@ const teacherNav = [
   { path: '/attendance', label: 'Điểm danh', icon: Select },
   { path: '/grades', label: 'Quản lý điểm', icon: Histogram },
   { path: '/assignments', label: 'Bài tập', icon: Document },
+  { path: '/forum', label: 'Bảng tin', icon: ChatDotRound },
   { path: '/progress', label: 'Tiến độ', icon: TrendCharts },
   { path: '/materials', label: 'Tài liệu', icon: Folder },
   { path: '/calendar', label: 'Lịch học', icon: Calendar },
@@ -99,6 +100,7 @@ const studentNav = [
   { path: '/student/dashboard', label: 'Tổng quan', icon: House },
   { path: '/student/grades', label: 'Điểm của tôi', icon: Histogram },
   { path: '/student/assignments', label: 'Bài tập', icon: Document },
+  { path: '/forum', label: 'Bảng tin', icon: ChatDotRound },
   { path: '/student/attendance', label: 'Điểm danh', icon: Select },
   { path: '/materials', label: 'Tài liệu', icon: Folder },
   { path: '/calendar', label: 'Lịch học', icon: Calendar },

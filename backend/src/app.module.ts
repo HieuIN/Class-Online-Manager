@@ -18,6 +18,7 @@ import { MaterialsModule } from './modules/materials/materials.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
+import { ClassPostsModule } from './modules/class-posts/class-posts.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
     PaymentsModule,
     NotificationsModule,
     CalendarModule,
+    ClassPostsModule,
   ],
 })
 export class AppModule {}

@@ -110,7 +110,7 @@ psql -U postgres -d class_manager
 ### 🔜 Phase A – Nâng cấp đáng kể (chưa làm)
 - [x] Link Zoom/Google Meet cho mỗi session (field `meeting_url`)
 - [ ] Reminder tự động trước buổi học 1h (email/Telegram)
-- [ ] Hóa đơn PDF + Báo cáo doanh thu theo tháng
+- [ ] Hóa đơn PDF + Báo cáo doanh thu theo tháng (hóa đơn PDF đã xong)
 - [x] Tự sinh lịch học khi tạo lớp (T2-T4-T6, 19h-21h → 24 buổi)
 - [x] Quên mật khẩu / reset qua email
 

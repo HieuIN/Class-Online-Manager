@@ -29,6 +29,11 @@
         <el-table-column label="Ngày đóng" width="120">
           <template #default="{ row }">{{ row.paid_at ? fmtDate(row.paid_at) : '—' }}</template>
         </el-table-column>
+        <el-table-column label="Hóa đơn" width="110">
+          <template #default="{ row }">
+            <el-button size="small" @click="downloadInvoice(row)">PDF</el-button>
+          </template>
+        </el-table-column>
         <el-table-column label="Hành động" width="140">
           <template #default="{ row }">
             <el-button v-if="row.status !== 'PAID'" size="small" type="primary" @click="openPay(row)">Ghi nhận</el-button>
@@ -83,6 +88,17 @@ const confirmPay = async () => {
   ElMessage.success('Đã ghi nhận thanh toán');
   showPay.value = false;
   reload();
+};
+
+const downloadInvoice = async (row) => {
+  const blob = await paymentsApi.downloadInvoice(row.id);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const name = (row.studentName || 'hoc-vien').replace(/[^\w-]+/g, '-');
+  a.href = url;
+  a.download = `hoa-don-${name}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 watch(() => classStore.selectedId, reload);

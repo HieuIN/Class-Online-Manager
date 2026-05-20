@@ -100,6 +100,7 @@ export const paymentsApi = {
   summary: () => http.get('/payments/summary'),
   pay: (id, paidAmount) => http.patch(`/payments/${id}/pay`, { paidAmount }),
   create: (d) => http.post('/payments', d),
+  downloadInvoice: (id) => http.get(`/payments/${id}/invoice`, { responseType: 'blob' }),
 };
 
 export const notificationsApi = {

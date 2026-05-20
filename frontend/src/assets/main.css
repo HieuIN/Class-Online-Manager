@@ -1,0 +1,36 @@
+* { box-sizing: border-box; }
+body, html, #app {
+  margin: 0; padding: 0;
+  font-family: 'Be Vietnam Pro', 'Inter', -apple-system, sans-serif;
+  background: #F5F4F0;
+  color: #1a1a18;
+  height: 100%;
+}
+:root {
+  --primary: #1D9E75;
+  --primary-light: #E1F5EE;
+  --primary-dark: #0F6E56;
+}
+
+/* Element Plus overrides */
+.el-button--primary { background: var(--primary); border-color: var(--primary); }
+.el-button--primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+.el-menu-item.is-active { color: var(--primary-dark); background: var(--primary-light); }
+
+/* Custom badges */
+.badge { display: inline-flex; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+.badge-green { background: #EAF3DE; color: #3B6D11; }
+.badge-red { background: #FCEBEB; color: #A32D2D; }
+.badge-amber { background: #FAEEDA; color: #854F0B; }
+.badge-blue { background: #E6F1FB; color: #185FA5; }
+.badge-gray { background: #F1EFE8; color: #5F5E5A; }
+.badge-purple { background: #EEEDFE; color: #3C3489; }
+
+.metric-card {
+  background: #F5F4F0; border-radius: 9px; padding: 13px 16px;
+}
+.metric-label { font-size: 12px; color: #888; }
+.metric-value { font-size: 24px; font-weight: 600; line-height: 1.2; }
+.metric-sub { font-size: 11px; color: #aaa; }
+
+.section-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }

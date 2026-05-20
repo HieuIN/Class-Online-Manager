@@ -17,7 +17,10 @@
         <span :class="['badge', m.is_required ? 'badge-red' : 'badge-gray']">
           {{ m.is_required ? 'Bắt buộc' : 'Tham khảo' }}
         </span>
-        <el-button size="small" @click="download(m)">↓ Tải</el-button>
+        <el-button size="small" type="primary" plain @click="preview(m)">
+          {{ previewLabel(m) }}
+        </el-button>
+        <el-button size="small" text @click="download(m)">Tải</el-button>
       </div>
       <div v-if="items.length === 0" class="empty">Chưa có tài liệu</div>
     </el-card>
@@ -53,6 +56,23 @@
         <el-button type="primary" @click="addMat" :loading="uploading">Lưu</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showPreview" :title="previewItem?.title || 'Xem tài liệu'" width="82vw" class="preview-dialog">
+      <div v-if="previewItem" class="preview-body">
+        <iframe v-if="previewKind === 'iframe'" :src="previewUrl" class="preview-frame" />
+        <video v-else-if="previewKind === 'video'" :src="previewUrl" class="preview-media" controls playsinline />
+        <audio v-else-if="previewKind === 'audio'" :src="previewUrl" class="preview-audio" controls />
+        <img v-else-if="previewKind === 'image'" :src="previewUrl" class="preview-image" />
+        <div v-else class="preview-fallback">
+          <p>Loại tài liệu này không hỗ trợ xem trực tiếp ổn định trên trình duyệt.</p>
+          <el-button type="primary" @click="download(previewItem)">Mở hoặc tải tài liệu</el-button>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showPreview = false">Đóng</el-button>
+        <el-button v-if="previewItem" @click="download(previewItem)">Mở tab mới</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -69,6 +89,8 @@ const auth = useAuthStore();
 const canEdit = computed(() => auth.isTeacher || auth.isAdmin);
 const materials = ref([]);
 const showAdd = ref(false);
+const showPreview = ref(false);
+const previewItem = ref(null);
 const uploading = ref(false);
 const newMat = reactive({ title: '', chapter: '', lesson: '', materialType: 'PDF', isRequired: false, linkUrl: '' });
 const file = ref(null);
@@ -84,6 +106,29 @@ const grouped = computed(() => {
 });
 
 const typeIcon = (t) => ({ PDF: '📄', PPT: '📊', AUDIO: '🎵', VIDEO: '🎬', DOC: '📝', LINK: '🔗' }[t] || '📁');
+const materialUrl = (m) => m.link_url || m.linkUrl || m.file_url || m.fileUrl || '';
+const fileExt = (m) => materialUrl(m).split('?')[0].split('.').pop()?.toLowerCase() || '';
+const materialType = (m) => (m.material_type || m.materialType || '').toUpperCase();
+
+const previewLabel = (m) => {
+  const type = materialType(m);
+  if (type === 'AUDIO') return 'Nghe';
+  if (type === 'VIDEO') return 'Xem video';
+  return 'Xem';
+};
+
+const previewKindFor = (m) => {
+  const type = materialType(m);
+  const ext = fileExt(m);
+  if (type === 'AUDIO' || ['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'audio';
+  if (type === 'VIDEO' || ['mp4', 'webm', 'mov'].includes(ext)) return 'video';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
+  if (type === 'PDF' || ext === 'pdf' || type === 'LINK') return 'iframe';
+  return 'fallback';
+};
+
+const previewUrl = computed(() => previewItem.value ? materialUrl(previewItem.value) : '');
+const previewKind = computed(() => previewItem.value ? previewKindFor(previewItem.value) : 'fallback');
 
 const reload = async () => {
   const cls = classStore.selected;
@@ -117,9 +162,18 @@ const addMat = async () => {
   } finally { uploading.value = false; }
 };
 
+const preview = (m) => {
+  if (!materialUrl(m)) {
+    ElMessage.warning('Tài liệu chưa có link/file');
+    return;
+  }
+  previewItem.value = m;
+  showPreview.value = true;
+};
+
 const download = (m) => {
-  if (m.link_url) window.open(m.link_url, '_blank');
-  else if (m.file_url) window.open(m.file_url, '_blank');
+  const url = materialUrl(m);
+  if (url) window.open(url, '_blank');
 };
 
 watch(() => classStore.selectedId, reload);
@@ -136,4 +190,10 @@ onMounted(reload);
 .mat-title { font-size: 13px; font-weight: 500; }
 .mat-meta { font-size: 11px; color: #888; }
 .empty { padding: 20px; text-align: center; color: #aaa; }
+.preview-body { min-height: 60vh; display:flex; align-items:center; justify-content:center; background: #fafaf8; border-radius: 8px; overflow: hidden; }
+.preview-frame { width: 100%; height: 68vh; border: 0; background: #fff; }
+.preview-media { width: 100%; max-height: 68vh; background: #000; }
+.preview-audio { width: min(720px, 100%); }
+.preview-image { max-width: 100%; max-height: 68vh; object-fit: contain; }
+.preview-fallback { text-align:center; color: #666; padding: 28px; }
 </style>

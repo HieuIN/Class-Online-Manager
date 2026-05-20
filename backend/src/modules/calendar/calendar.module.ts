@@ -45,7 +45,15 @@ export class CalendarService {
     }
 
     const sessions = await this.dataSource.query(
-      `SELECT s.id, s.planned_date as "startTime", s.topic as title, c.name as "className", 'SESSION' as "eventType", c.id as "classId"
+      `SELECT s.id,
+              (s.planned_date + COALESCE(s.start_time, TIME '00:00')) as "startTime",
+              CASE WHEN s.end_time IS NULL THEN NULL ELSE (s.planned_date + s.end_time) END as "endTime",
+              s.topic as title,
+              s.meeting_url as "meetingUrl",
+              s.session_no as "sessionNo",
+              c.name as "className",
+              'SESSION' as "eventType",
+              c.id as "classId"
        FROM sessions s JOIN classes c ON c.id = s.class_id
        WHERE s.planned_date BETWEEN $1 AND $2 ${classFilter}`, params);
     events.push(...sessions);

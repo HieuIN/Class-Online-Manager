@@ -54,7 +54,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useClassStore } from '@/stores/class';
@@ -70,6 +70,7 @@ const router = useRouter();
 const auth = useAuthStore();
 const classStore = useClassStore();
 const unread = ref(0);
+let unreadTimer = null;
 
 const roleLabel = computed(() => ({ TEACHER: 'Giáo viên', STUDENT: 'Học viên', ADMIN: 'Quản trị viên' }[auth.role] || ''));
 
@@ -103,6 +104,7 @@ const adminNav = [
   { path: '/admin/courses', label: 'Khóa học', icon: Reading },
   { path: '/classes', label: 'Quản lý lớp', icon: School },
   { path: '/payments', label: 'Học phí', icon: Money },
+  { path: '/admin/revenue', label: 'Doanh thu', icon: TrendCharts },
   { path: '/analytics', label: 'Báo cáo', icon: PieChart },
   { path: '/notifications', label: 'Thông báo', icon: Bell },
 ];
@@ -127,7 +129,11 @@ const loadUnread = async () => {
 onMounted(async () => {
   await classStore.fetchClasses();
   loadUnread();
-  setInterval(loadUnread, 60000);
+  unreadTimer = setInterval(loadUnread, 30000);
+});
+
+onUnmounted(() => {
+  if (unreadTimer) clearInterval(unreadTimer);
 });
 </script>
 

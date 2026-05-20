@@ -8,15 +8,17 @@
     <el-card class="mb-4">
       <div v-if="notifications.length === 0" class="empty">Không có thông báo</div>
       <div v-for="n in notifications" :key="n.id" class="notif-row" @click="markOne(n)">
-        <span class="notif-dot" :style="{ background: dotColor(n.notifType) }"></span>
+        <span class="notif-dot" :style="{ background: dotColor(n.notifType) }">{{ notifIcon(n.notifType) }}</span>
         <div class="notif-body">
           <div class="notif-title">
             {{ n.title }}
+            <span :class="['badge', typeClass(n.notifType)]">{{ typeLabel(n.notifType) }}</span>
             <span v-if="!n.isRead" class="badge badge-red">Mới</span>
           </div>
           <div class="notif-content">{{ n.content }}</div>
           <div class="notif-time">{{ fmtTime(n.createdAt) }}</div>
         </div>
+        <el-button v-if="n.relatedUrl" size="small" type="primary" plain @click.stop="openRelated(n)">Mở</el-button>
       </div>
     </el-card>
 
@@ -55,7 +57,10 @@ const canEdit = computed(() => auth.isTeacher || auth.isAdmin);
 const notifications = ref([]);
 const rule = reactive({ maxTotalAbsences: 3, maxConsecutiveAbsences: 2, maxMissingAssignments: 2 });
 
-const dotColor = (t) => ({ ALERT_ABSENCE: '#E24B4A', ALERT_HOMEWORK: '#EF9F27' }[t] || '#378ADD');
+const dotColor = (t) => ({ ALERT_ABSENCE: '#E24B4A', ALERT_HOMEWORK: '#EF9F27', REMINDER: '#378ADD' }[t] || '#378ADD');
+const notifIcon = (t) => ({ REMINDER: '⏰' }[t] || '');
+const typeLabel = (t) => ({ ALERT_ABSENCE: 'Chuyên cần', ALERT_HOMEWORK: 'Bài tập', REMINDER: 'Nhắc lịch' }[t] || 'Thông báo');
+const typeClass = (t) => ({ ALERT_ABSENCE: 'badge-red', ALERT_HOMEWORK: 'badge-amber', REMINDER: 'badge-blue' }[t] || 'badge-gray');
 const fmtTime = (d) => dayjs(d).format('DD/MM/YYYY HH:mm');
 
 const load = async () => {
@@ -72,6 +77,11 @@ const markOne = async (n) => {
   if (n.isRead) return;
   await notificationsApi.markRead(n.id);
   n.isRead = true;
+};
+
+const openRelated = async (n) => {
+  await markOne(n);
+  window.open(n.relatedUrl, '_blank');
 };
 
 const markAll = async () => {
@@ -95,7 +105,7 @@ onMounted(load);
 .notif-row { display:flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f0ee; cursor: pointer; }
 .notif-row:last-child { border-bottom: none; }
 .notif-row:hover { background: #fafaf8; }
-.notif-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
+.notif-dot { width: 22px; height: 22px; border-radius: 50%; margin-top: 1px; flex-shrink: 0; display:flex; align-items:center; justify-content:center; font-size: 12px; color:#fff; }
 .notif-body { flex: 1; }
 .notif-title { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
 .notif-content { font-size: 12px; color: #666; }

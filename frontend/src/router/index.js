@@ -34,6 +34,7 @@ const routes = [
       { path: 'admin/dashboard', component: () => import('@/views/admin/AdminDashboard.vue'), meta: { roles: ['ADMIN'] } },
       { path: 'admin/users', component: () => import('@/views/admin/Users.vue'), meta: { roles: ['ADMIN'] } },
       { path: 'admin/courses', component: () => import('@/views/admin/Courses.vue'), meta: { roles: ['ADMIN'] } },
+      { path: 'admin/revenue', component: () => import('@/views/admin/Revenue.vue'), meta: { roles: ['ADMIN'] } },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

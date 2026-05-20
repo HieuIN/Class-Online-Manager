@@ -96,6 +96,21 @@ export class PaymentsService {
     for (const r of rows) out[r.status] = { total: +r.total, count: r.count };
     return out;
   }
+
+  async revenueReport(from: string, to: string) {
+    return this.dataSource.query(
+      `SELECT DATE_TRUNC('month', p.paid_at) as month,
+              c.id as class_id,
+              c.name as class_name,
+              SUM(p.paid_amount)::numeric as revenue,
+              COUNT(*)::int as payment_count
+       FROM payments p JOIN classes c ON c.id = p.class_id
+       WHERE p.paid_at BETWEEN $1 AND $2 AND p.status = 'PAID'
+       GROUP BY month, c.id, c.name
+       ORDER BY month, c.name`,
+      [from, to],
+    );
+  }
 }
 
 @Controller('payments')
@@ -103,6 +118,9 @@ export class PaymentsService {
 export class PaymentsController {
   constructor(private readonly service: PaymentsService) {}
   @Get('summary') @Roles('ADMIN') summary() { return this.service.summary(); }
+  @Get('revenue-report') @Roles('ADMIN') revenueReport(@Query('from') from: string, @Query('to') to: string) {
+    return this.service.revenueReport(from, to);
+  }
 
   @Get(':id/invoice')
   @Roles('ADMIN','TEACHER')

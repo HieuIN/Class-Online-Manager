@@ -50,6 +50,50 @@ export class NotificationsService {
 
   create(d: Partial<Notification>) { return this.notifRepo.save(this.notifRepo.create(d)); }
 
+  @Cron('0 */15 * * * *')
+  async runClassReminders() {
+    const sessions = await this.dataSource.query(
+      `SELECT s.id, s.class_id, s.session_no, s.start_time, s.meeting_url, c.name as class_name, c.teacher_id
+       FROM sessions s
+       JOIN classes c ON c.id = s.class_id
+       WHERE s.status = 'PLANNED'
+         AND s.start_time IS NOT NULL
+         AND s.planned_date = CURRENT_DATE
+         AND (s.planned_date + s.start_time) BETWEEN NOW() + INTERVAL '45 minutes' AND NOW() + INTERVAL '75 minutes'`,
+    );
+
+    let created = 0;
+    for (const s of sessions) {
+      const users = await this.dataSource.query(
+        `SELECT student_id as user_id FROM enrollments WHERE class_id = $1 AND is_active = true
+         UNION
+         SELECT $2::int as user_id WHERE $2::int IS NOT NULL`,
+        [s.class_id, s.teacher_id],
+      );
+      const time = String(s.start_time).slice(0, 5);
+      const content = `session_id=${s.id}; Lớp ${s.class_name} sẽ bắt đầu lúc ${time}. ${s.meeting_url ? 'Có link Zoom/Meet.' : 'Chưa có link Zoom/Meet.'}`;
+      for (const u of users) {
+        const exists = await this.notifRepo
+          .createQueryBuilder('n')
+          .where('n.userId = :userId', { userId: u.user_id })
+          .andWhere('n.notifType = :type', { type: 'REMINDER' })
+          .andWhere('n.content LIKE :needle', { needle: `%session_id=${s.id};%` })
+          .getCount();
+        if (exists) continue;
+        await this.create({
+          userId: u.user_id,
+          notifType: 'REMINDER',
+          title: 'Buổi học sắp bắt đầu',
+          content,
+          relatedUrl: s.meeting_url,
+        });
+        created++;
+      }
+      console.log(`[reminder] Class ${s.class_name} session ${s.session_no}: created ${created} notifications so far`);
+    }
+    return { sessions: sessions.length, notifications: created };
+  }
+
   getRule(classId: number) { return this.ruleRepo.findOne({ where: { classId } }); }
   async upsertRule(classId: number, data: Partial<AlertRule>) {
     const exist = await this.getRule(classId);
@@ -123,7 +167,11 @@ export class NotificationsController {
   @Get('rules/:classId') @Roles('ADMIN','TEACHER') getRule(@Param('classId', ParseIntPipe) classId: number) { return this.service.getRule(classId); }
   @Post('rules/:classId') @Roles('ADMIN','TEACHER') setRule(@Param('classId', ParseIntPipe) classId: number, @Body() body: any) { return this.service.upsertRule(classId, body); }
 
-  @Post('test-trigger') @Roles('ADMIN') trigger() { return this.service.runAlertCheck(); }
+  @Post('test-trigger') @Roles('ADMIN') async trigger() {
+    const alerts = await this.service.runAlertCheck();
+    const reminders = await this.service.runClassReminders();
+    return { alerts, reminders };
+  }
 }
 
 @Module({

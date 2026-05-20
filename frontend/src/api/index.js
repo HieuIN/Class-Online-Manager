@@ -98,6 +98,7 @@ export const materialsApi = {
 export const paymentsApi = {
   list: (params) => http.get('/payments', { params }),
   summary: () => http.get('/payments/summary'),
+  revenueReport: (from, to) => http.get('/payments/revenue-report', { params: { from, to } }),
   pay: (id, paidAmount) => http.patch(`/payments/${id}/pay`, { paidAmount }),
   create: (d) => http.post('/payments', d),
   downloadInvoice: (id) => http.get(`/payments/${id}/invoice`, { responseType: 'blob' }),

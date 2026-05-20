@@ -59,7 +59,7 @@ export class NotificationsService {
        WHERE s.status = 'PLANNED'
          AND s.start_time IS NOT NULL
          AND s.planned_date = CURRENT_DATE
-         AND (s.planned_date + s.start_time) BETWEEN NOW() + INTERVAL '45 minutes' AND NOW() + INTERVAL '75 minutes'`,
+         AND (s.planned_date + s.start_time) BETWEEN NOW() AND NOW() + INTERVAL '75 minutes'`,
     );
 
     let created = 0;

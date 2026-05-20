@@ -21,7 +21,10 @@
                 <div class="session-head">
                   <span class="s-no">B{{ s.session_no }}</span>
                   <span class="td">{{ formatShort(s.planned_date) }}</span>
-                  <el-button text size="small" @click="openSession(s)" style="padding:0;margin-top:2px;font-size:10px">Sửa</el-button>
+                  <div class="session-actions">
+                    <el-button text size="small" @click="editSession(s)">Sửa buổi</el-button>
+                    <el-button text size="small" @click="openSession(s)">Điểm danh</el-button>
+                  </div>
                 </div>
               </th>
               <th>Chuyên cần</th>
@@ -277,9 +280,16 @@ const deleteSession = async () => {
 };
 
 const markDone = async (s) => {
-  await sessionsApi.update(s.id, { status: 'DONE', actualDate: dayjs().format('YYYY-MM-DD') });
-  ElMessage.success('Đã đánh dấu hoàn thành');
-  reload();
+  try {
+    await ElMessageBox.confirm(
+      `Đánh dấu buổi ${s.session_no} là đã dạy? Thao tác này sẽ cập nhật tiến độ lớp.`,
+      'Xác nhận',
+      { type: 'warning', confirmButtonText: 'Đánh dấu đã dạy', cancelButtonText: 'Hủy' },
+    );
+    await sessionsApi.update(s.id, { status: 'DONE', actualDate: dayjs().format('YYYY-MM-DD') });
+    ElMessage.success('Đã đánh dấu hoàn thành');
+    reload();
+  } catch {}
 };
 
 const openSession = (s) => {
@@ -303,6 +313,13 @@ const markAll = (status) => {
 const saveMark = async () => {
   saving.value = true;
   try {
+    if (markSession.value.status === 'PLANNED') {
+      await ElMessageBox.confirm(
+        'Lưu điểm danh và đánh dấu buổi này là đã dạy?',
+        'Xác nhận',
+        { type: 'warning', confirmButtonText: 'Lưu và đánh dấu', cancelButtonText: 'Hủy' },
+      );
+    }
     await attendanceApi.bulkMark(markSession.value.id, markRecords.value.map(r => ({
       studentId: r.studentId, status: r.status, isExcused: r.isExcused, reason: r.reason,
     })));
@@ -313,6 +330,8 @@ const saveMark = async () => {
     ElMessage.success('Đã lưu điểm danh');
     showMark.value = false;
     reload();
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') console.error(e);
   } finally { saving.value = false; }
 };
 
@@ -350,8 +369,10 @@ onMounted(reload);
 .att-table th { background: #fafaf8; font-weight: 600; color: #888; font-size: 11px; padding: 4px; }
 .att-table th.sticky-col, .att-table td.sticky-col { text-align: left; min-width: 150px; position: sticky; left: 0; background: #fff; z-index: 1; }
 .att-table th.sticky-col { background: #fafaf8; }
-.session-col { min-width: 64px; }
+.session-col { min-width: 82px; }
 .session-head { display:flex; flex-direction:column; align-items:center; }
+.session-actions { display:flex; flex-direction:column; align-items:center; margin-top: 2px; }
+.session-actions .el-button { padding: 0; margin: 0; font-size: 10px; line-height: 14px; }
 .s-no { font-weight: 600; font-size: 11px; }
 .td { font-weight: 400; font-size: 9px; color: #aaa; }
 .student-cell { display:flex; align-items:center; gap: 8px; }

@@ -58,6 +58,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useClassStore } from '@/stores/class';
+import { ElNotification } from 'element-plus';
 import { notificationsApi } from '@/api';
 import { initials } from '@/utils/format';
 import {
@@ -71,6 +72,7 @@ const auth = useAuthStore();
 const classStore = useClassStore();
 const unread = ref(0);
 let unreadTimer = null;
+const seenStorageKey = computed(() => `cm-notification-popups:${auth.user?.id || 'guest'}`);
 
 const roleLabel = computed(() => ({ TEACHER: 'Giáo viên', STUDENT: 'Học viên', ADMIN: 'Quản trị viên' }[auth.role] || ''));
 
@@ -122,8 +124,49 @@ const pageTitle = computed(() => {
 
 const logout = () => { auth.logout(); router.push('/login'); };
 
+const getSeenPopupIds = () => {
+  try { return new Set(JSON.parse(sessionStorage.getItem(seenStorageKey.value) || '[]')); } catch { return new Set(); }
+};
+
+const saveSeenPopupIds = (ids) => {
+  sessionStorage.setItem(seenStorageKey.value, JSON.stringify([...ids].slice(-100)));
+};
+
+const cleanNotificationContent = (content) => String(content || '').replace(/^session_id=\d+;\s*/, '');
+
+const showNotificationPopup = (n) => {
+  ElNotification({
+    title: n.title || 'Thông báo mới',
+    message: cleanNotificationContent(n.content),
+    type: n.notifType === 'REMINDER' ? 'info' : 'warning',
+    position: 'bottom-right',
+    duration: 9000,
+    onClick: async () => {
+      try { await notificationsApi.markRead(n.id); unread.value = Math.max(0, unread.value - 1); } catch {}
+      if (n.relatedUrl) window.open(n.relatedUrl, '_blank');
+      else router.push('/notifications');
+    },
+  });
+};
+
 const loadUnread = async () => {
-  try { const r = await notificationsApi.unreadCount(); unread.value = +r || 0; } catch {}
+  try {
+    const list = await notificationsApi.list();
+    const unreadList = list.filter(n => !n.isRead);
+    unread.value = unreadList.length;
+
+    const seen = getSeenPopupIds();
+    const fresh = unreadList
+      .filter(n => !seen.has(n.id))
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .slice(-3);
+
+    for (const n of fresh) {
+      showNotificationPopup(n);
+      seen.add(n.id);
+    }
+    if (fresh.length) saveSeenPopupIds(seen);
+  } catch {}
 };
 
 onMounted(async () => {

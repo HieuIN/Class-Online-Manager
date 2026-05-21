@@ -154,7 +154,16 @@ export const calendarApi = {
   delete: (id) => http.delete(`/calendar/${id}`),
 };
 
+export const analyticsApi = {
+  compareClasses: (classIds) => http.get('/analytics/compare-classes', { params: { classIds: classIds.join(',') } }),
+  predictFinal: (classId) => http.get('/analytics/predict-final', { params: { classId } }),
+  attendanceHeatmap: (classId) => http.get('/analytics/attendance-heatmap', { params: { classId } }),
+  ranking: (classId) => http.get('/analytics/ranking', { params: { classId } }),
+  assignmentDifficulty: (classId) => http.get('/analytics/assignment-difficulty', { params: { classId } }),
+};
+
 export const reportsApi = {
   exportGrades: (classId) => http.get(`/reports/grades/${classId}`, { responseType: 'blob' }),
   exportAttendance: (classId) => http.get(`/reports/attendance/${classId}`, { responseType: 'blob' }),
+  studentFinal: (studentId, classId) => http.get(`/reports/student-final/${studentId}`, { params: { classId }, responseType: 'blob' }),
 };

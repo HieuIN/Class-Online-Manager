@@ -22,6 +22,7 @@ import { ClassPostsModule } from './modules/class-posts/class-posts.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { CertificatesModule } from './modules/certificates/certificates.module';
 import { AiSuggestionsModule } from './modules/ai-suggestions/ai-suggestions.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { AiSuggestionsModule } from './modules/ai-suggestions/ai-suggestions.mod
     QuizzesModule,
     CertificatesModule,
     AiSuggestionsModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}

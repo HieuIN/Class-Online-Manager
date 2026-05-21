@@ -61,6 +61,7 @@
               </td>
               <td class="center no-print">
                 <el-button size="small" @click="openFeedback(st)">Nhận xét</el-button>
+                <el-button size="small" plain @click="downloadFinalReport(st)">PDF</el-button>
               </td>
             </tr>
             <tr v-if="displayedStudents.length === 0">
@@ -130,7 +131,7 @@ import { ref, reactive, watch, onMounted, computed } from 'vue';
 import { useClassStore } from '@/stores/class';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ClassPicker from '@/components/ClassPicker.vue';
-import { aiSuggestionsApi, classesApi, gradeItemsApi, gradesApi } from '@/api';
+import { aiSuggestionsApi, classesApi, gradeItemsApi, gradesApi, reportsApi } from '@/api';
 import { initials, gradeClassify } from '@/utils/format';
 
 const classStore = useClassStore();
@@ -291,6 +292,15 @@ const exportCsv = () => {
   URL.revokeObjectURL(url);
 };
 const printGrades = () => window.print();
+const downloadFinalReport = async (st) => {
+  const blob = await reportsApi.studentFinal(st.id, classStore.selectedId);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `bao-cao-cuoi-khoa-${st.fullName}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 watch(() => classStore.selectedId, reload);
 onMounted(reload);

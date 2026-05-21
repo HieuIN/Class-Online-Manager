@@ -54,6 +54,7 @@ class-manager/
 - API gọi qua `src/api/index.js` (axios với JWT interceptor)
 - PWA dùng `vite-plugin-pwa`, manifest/icon ở `frontend/public`, layout mobile có hamburger sidebar trong `AppLayout.vue`
 - Batch UX: Calendar có timetable tuần + export `.ics`; Grades/Attendance/Assignments/Classes có search/filter cơ bản; Grades và Classes có print-friendly mode; Grades có sticker feedback nhanh.
+- Batch analytics: module `analytics` cung cấp compare classes, ranking, predict final, attendance heatmap, assignment difficulty; `reports/student-final/:studentId` sinh PDF báo cáo cuối khóa.
 - Format helpers ở `src/utils/format.js`: `fmtMoney`, `fmtDate`, `fmtDateTime`, `gradeClassify`, `submissionBadge`, `attendanceBadge`, `paymentBadge`, `initials`
 - Badge classes: `.badge-green` (success), `.badge-red` (danger), `.badge-amber` (warning), `.badge-blue` (info), `.badge-gray` (neutral), `.badge-purple`
 - Primary color: `#1D9E75` (dark `#0F6E56`, light `#E1F5EE`)
@@ -128,6 +129,7 @@ psql -U postgres -d class_manager
 - [x] Mobile PWA
 - [x] AI gợi ý nhận xét (dùng Claude API)
 - [x] Timetable tuần + export `.ics`, search/filter/sort cơ bản, print bảng điểm/danh sách lớp, sticker feedback nhanh
+- [x] Báo cáo PDF cuối khóa, ranking, heatmap chuyên cần, phân tích bài tập khó, so sánh lớp, dự đoán điểm cuối kỳ
 - [ ] Drag & drop sắp xếp cột điểm/session
 
 ## ⚠️ Gotchas đã gặp

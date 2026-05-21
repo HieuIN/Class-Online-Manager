@@ -19,6 +19,9 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { ClassPostsModule } from './modules/class-posts/class-posts.module';
+import { QuizzesModule } from './modules/quizzes/quizzes.module';
+import { CertificatesModule } from './modules/certificates/certificates.module';
+import { AiSuggestionsModule } from './modules/ai-suggestions/ai-suggestions.module';
 
 @Module({
   imports: [
@@ -51,6 +54,9 @@ import { ClassPostsModule } from './modules/class-posts/class-posts.module';
     NotificationsModule,
     CalendarModule,
     ClassPostsModule,
+    QuizzesModule,
+    CertificatesModule,
+    AiSuggestionsModule,
   ],
 })
 export class AppModule {}

@@ -2,6 +2,12 @@
   <div>
     <ClassPicker @change="reload" />
     <div class="action-bar">
+      <el-input v-model="studentSearch" placeholder="Tìm học viên..." clearable class="search-input" />
+      <el-select v-model="sessionStatusFilter" placeholder="Lọc buổi học" style="width:150px">
+        <el-option label="Sắp tới" value="PLANNED" />
+        <el-option label="Đã dạy" value="DONE" />
+        <el-option label="Tất cả" value="ALL" />
+      </el-select>
       <el-button type="primary" @click="openCreateSession">+ Tạo buổi học</el-button>
       <el-button @click="exportAtt">↓ Xuất Excel</el-button>
     </div>
@@ -31,7 +37,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="st in students" :key="st.id">
+            <tr v-for="st in displayedStudents" :key="st.id">
               <td class="sticky-col">
                 <div class="student-cell">
                   <el-avatar :size="26" :style="{ background: '#E1F5EE', color: '#0F6E56', fontSize:'10px', fontWeight:600 }">
@@ -61,9 +67,9 @@
     </el-card>
 
     <el-card>
-      <template #header><span class="section-title">Buổi học sắp tới ({{ upcomingSessions.length }})</span></template>
-      <div v-if="upcomingSessions.length === 0" class="empty">Không có buổi nào kế hoạch</div>
-      <div v-for="s in upcomingSessions" :key="s.id" class="upcoming-row">
+      <template #header><span class="section-title">Buổi học ({{ filteredSessionList.length }})</span></template>
+      <div v-if="filteredSessionList.length === 0" class="empty">Không có buổi học phù hợp</div>
+      <div v-for="s in filteredSessionList" :key="s.id" class="upcoming-row">
         <div>
           <div class="upcoming-topic">
             Buổi {{ s.session_no }} – {{ s.topic }}
@@ -184,6 +190,8 @@ const classStore = useClassStore();
 const students = ref([]);
 const sessions = ref([]);
 const matrix = ref([]);
+const studentSearch = ref('');
+const sessionStatusFilter = ref('PLANNED');
 const showSession = ref(false);
 const showMark = ref(false);
 const sessionEditMode = ref(false);
@@ -198,6 +206,15 @@ const newSession = reactive({
 
 const doneSessions = computed(() => sessions.value.filter(s => s.status === 'DONE'));
 const upcomingSessions = computed(() => sessions.value.filter(s => s.status === 'PLANNED'));
+const displayedStudents = computed(() => {
+  const q = studentSearch.value.toLowerCase().trim();
+  if (!q) return students.value;
+  return students.value.filter(st => st.fullName.toLowerCase().includes(q) || String(st.email || '').toLowerCase().includes(q));
+});
+const filteredSessionList = computed(() => {
+  if (sessionStatusFilter.value === 'ALL') return sessions.value;
+  return sessions.value.filter(s => s.status === sessionStatusFilter.value);
+});
 const markTitle = computed(() => markSession.value ? `Điểm danh – Buổi ${markSession.value.session_no}` : '');
 
 const getStatus = (studentId, sessionId) => {
@@ -318,7 +335,7 @@ const markDone = async (s) => {
 
 const openSession = (s) => {
   markSession.value = s;
-  markRecords.value = students.value.map(st => {
+  markRecords.value = displayedStudents.value.map(st => {
     const cur = matrix.value.find(m => m.studentId === st.id && m.sessionId === s.id);
     return {
       studentId: st.id, fullName: st.fullName,
@@ -363,7 +380,7 @@ const exportAtt = () => {
   // Export client-side: build CSV
   const rows = [];
   rows.push(['Học viên', ...doneSessions.value.map(s => `Buổi ${s.session_no} (${formatShort(s.planned_date)})`), 'Chuyên cần']);
-  for (const st of students.value) {
+  for (const st of displayedStudents.value) {
     rows.push([
       st.fullName,
       ...doneSessions.value.map(s => ({PRESENT:'Có',ABSENT:'Vắng',LATE:'Muộn',LEFT_EARLY:'Về sớm'}[getStatus(st.id, s.id)] || '')),
@@ -384,7 +401,8 @@ onMounted(reload);
 </script>
 
 <style scoped>
-.action-bar { display:flex; justify-content:flex-end; gap: 8px; margin-bottom: 14px; }
+.action-bar { display:flex; justify-content:flex-end; gap: 8px; margin-bottom: 14px; flex-wrap:wrap; }
+.search-input { width: 220px; margin-right:auto; }
 .header-line { display:flex; justify-content:space-between; align-items:center; }
 .mb-4 { margin-bottom: 14px; }
 .table-scroll { overflow-x: auto; }
@@ -414,4 +432,8 @@ onMounted(reload);
 .link-copy { padding: 0 2px; color: #0F6E56; }
 .empty { padding: 20px; text-align: center; color: #aaa; font-size: 13px; }
 .mark-toolbar { margin-bottom: 12px; }
+@media (max-width: 768px) {
+  .search-input { width: 100%; margin-right:0; }
+  .action-bar { justify-content:flex-start; }
+}
 </style>

@@ -1,20 +1,21 @@
 <template>
   <el-container class="layout">
-    <el-aside width="220px" class="sidebar">
+    <div v-if="mobileSidebarOpen" class="mobile-backdrop" @click="mobileSidebarOpen = false"></div>
+    <el-aside width="220px" :class="['sidebar', { open: mobileSidebarOpen }]">
       <div class="logo">
         <div class="logo-line">🎓 <span>ClassManager</span></div>
         <div class="role-tag">{{ roleLabel }}</div>
       </div>
-      <el-menu :default-active="$route.path" router class="menu">
+      <el-menu :default-active="$route.path" router class="menu" @select="closeMobileSidebar">
         <el-menu-item v-for="item in navItems" :key="item.path" :index="item.path">
           <el-icon><component :is="item.icon" /></el-icon>
-          <span>{{ item.label }}</span>
+          <span>{{ t(item.labelKey || item.label) }}</span>
         </el-menu-item>
       </el-menu>
       <div class="footer">
         <el-dropdown trigger="click" placement="top-start">
           <div class="user-info">
-            <el-avatar :size="34" style="background:#E1F5EE;color:#0F6E56;font-weight:600">{{ initials(auth.user?.fullName) }}</el-avatar>
+            <UserAvatar :user="auth.user || {}" :size="34" />
             <div class="info-text">
               <div class="name">{{ auth.user?.fullName }}</div>
               <div class="role">{{ roleLabel }}</div>
@@ -37,8 +38,21 @@
 
     <el-container>
       <el-header class="header">
-        <h2>{{ pageTitle }}</h2>
+        <div class="header-title">
+          <el-button class="mobile-menu-button" circle text @click="mobileSidebarOpen = true">
+            <el-icon><MenuIcon /></el-icon>
+          </el-button>
+          <h2>{{ pageTitle }}</h2>
+        </div>
         <div class="header-right">
+          <el-select v-model="settings.locale" size="small" style="width: 88px" @change="changeLocale">
+            <el-option label="VI" value="vi" />
+            <el-option label="EN" value="en" />
+            <el-option label="中文" value="zh" />
+          </el-select>
+          <el-button circle text @click="settings.toggleMode()">
+            <el-icon><component :is="settings.mode === 'dark' ? Sunny : Moon" /></el-icon>
+          </el-button>
           <el-badge :value="unread" :hidden="!unread" class="badge-bell">
             <el-button circle text @click="$router.push('/notifications')">
               <el-icon><Bell /></el-icon>
@@ -54,23 +68,28 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/auth';
 import { useClassStore } from '@/stores/class';
+import { useSettingsStore } from '@/stores/settings';
 import { ElNotification } from 'element-plus';
 import { notificationsApi } from '@/api';
-import { initials } from '@/utils/format';
+import UserAvatar from '@/components/UserAvatar.vue';
 import {
   House, School, Select, Histogram, Document, TrendCharts, Folder, Calendar,
-  PieChart, Money, Bell, SwitchButton, User, CaretTop, UserFilled, Reading, ChatDotRound,
+  PieChart, Money, Bell, SwitchButton, User, CaretTop, UserFilled, Reading, ChatDotRound, EditPen, Moon, Sunny, Menu as MenuIcon,
 } from '@element-plus/icons-vue';
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 const classStore = useClassStore();
+const settings = useSettingsStore();
+const { t, locale } = useI18n();
 const unread = ref(0);
+const mobileSidebarOpen = ref(false);
 let unreadTimer = null;
 const seenStorageKey = computed(() => `cm-notification-popups:${auth.user?.id || 'guest'}`);
 const handleReadChange = (event) => {
@@ -79,43 +98,45 @@ const handleReadChange = (event) => {
   else if (typeof detail.delta === 'number') unread.value = Math.max(0, unread.value + detail.delta);
 };
 
-const roleLabel = computed(() => ({ TEACHER: 'Giáo viên', STUDENT: 'Học viên', ADMIN: 'Quản trị viên' }[auth.role] || ''));
+const roleLabel = computed(() => ({ TEACHER: t('role.teacher'), STUDENT: t('role.student'), ADMIN: t('role.admin') }[auth.role] || ''));
 
 const teacherNav = [
-  { path: '/dashboard', label: 'Tổng quan', icon: House },
-  { path: '/classes', label: 'Quản lý lớp', icon: School },
-  { path: '/attendance', label: 'Điểm danh', icon: Select },
-  { path: '/grades', label: 'Quản lý điểm', icon: Histogram },
-  { path: '/assignments', label: 'Bài tập', icon: Document },
-  { path: '/forum', label: 'Bảng tin', icon: ChatDotRound },
-  { path: '/progress', label: 'Tiến độ', icon: TrendCharts },
-  { path: '/materials', label: 'Tài liệu', icon: Folder },
-  { path: '/calendar', label: 'Lịch học', icon: Calendar },
-  { path: '/analytics', label: 'Báo cáo', icon: PieChart },
-  { path: '/payments', label: 'Học phí', icon: Money },
-  { path: '/notifications', label: 'Thông báo', icon: Bell },
+  { path: '/dashboard', labelKey: 'menu.dashboard', icon: House },
+  { path: '/classes', labelKey: 'menu.classes', icon: School },
+  { path: '/attendance', labelKey: 'menu.attendance', icon: Select },
+  { path: '/grades', labelKey: 'menu.grades', icon: Histogram },
+  { path: '/assignments', labelKey: 'menu.assignments', icon: Document },
+  { path: '/quizzes', labelKey: 'menu.quiz', icon: EditPen },
+  { path: '/forum', labelKey: 'menu.forum', icon: ChatDotRound },
+  { path: '/progress', labelKey: 'menu.progress', icon: TrendCharts },
+  { path: '/materials', labelKey: 'menu.materials', icon: Folder },
+  { path: '/calendar', labelKey: 'menu.calendar', icon: Calendar },
+  { path: '/analytics', labelKey: 'menu.reports', icon: PieChart },
+  { path: '/payments', labelKey: 'menu.payments', icon: Money },
+  { path: '/notifications', labelKey: 'menu.notifications', icon: Bell },
 ];
 
 const studentNav = [
-  { path: '/student/dashboard', label: 'Tổng quan', icon: House },
-  { path: '/student/grades', label: 'Điểm của tôi', icon: Histogram },
-  { path: '/student/assignments', label: 'Bài tập', icon: Document },
-  { path: '/forum', label: 'Bảng tin', icon: ChatDotRound },
-  { path: '/student/attendance', label: 'Điểm danh', icon: Select },
-  { path: '/materials', label: 'Tài liệu', icon: Folder },
-  { path: '/calendar', label: 'Lịch học', icon: Calendar },
-  { path: '/notifications', label: 'Thông báo', icon: Bell },
+  { path: '/student/dashboard', labelKey: 'menu.dashboard', icon: House },
+  { path: '/student/grades', labelKey: 'menu.myGrades', icon: Histogram },
+  { path: '/student/assignments', labelKey: 'menu.assignments', icon: Document },
+  { path: '/student/quizzes', labelKey: 'menu.quiz', icon: EditPen },
+  { path: '/forum', labelKey: 'menu.forum', icon: ChatDotRound },
+  { path: '/student/attendance', labelKey: 'menu.attendance', icon: Select },
+  { path: '/materials', labelKey: 'menu.materials', icon: Folder },
+  { path: '/calendar', labelKey: 'menu.calendar', icon: Calendar },
+  { path: '/notifications', labelKey: 'menu.notifications', icon: Bell },
 ];
 
 const adminNav = [
-  { path: '/admin/dashboard', label: 'Tổng quan', icon: House },
-  { path: '/admin/users', label: 'Người dùng', icon: UserFilled },
-  { path: '/admin/courses', label: 'Khóa học', icon: Reading },
-  { path: '/classes', label: 'Quản lý lớp', icon: School },
-  { path: '/payments', label: 'Học phí', icon: Money },
-  { path: '/admin/revenue', label: 'Doanh thu', icon: TrendCharts },
-  { path: '/analytics', label: 'Báo cáo', icon: PieChart },
-  { path: '/notifications', label: 'Thông báo', icon: Bell },
+  { path: '/admin/dashboard', labelKey: 'menu.dashboard', icon: House },
+  { path: '/admin/users', labelKey: 'menu.users', icon: UserFilled },
+  { path: '/admin/courses', labelKey: 'menu.courses', icon: Reading },
+  { path: '/classes', labelKey: 'menu.classes', icon: School },
+  { path: '/payments', labelKey: 'menu.payments', icon: Money },
+  { path: '/admin/revenue', labelKey: 'menu.revenue', icon: TrendCharts },
+  { path: '/analytics', labelKey: 'menu.reports', icon: PieChart },
+  { path: '/notifications', labelKey: 'menu.notifications', icon: Bell },
 ];
 
 const navItems = computed(() => {
@@ -126,10 +147,20 @@ const navItems = computed(() => {
 
 const pageTitle = computed(() => {
   if (route.path === '/profile') return 'Hồ sơ cá nhân';
-  return navItems.value.find(n => n.path === route.path)?.label || 'ClassManager';
+  const item = navItems.value.find(n => n.path === route.path);
+  return item ? t(item.labelKey || item.label) : 'ClassManager';
 });
 
+const changeLocale = (value) => {
+  settings.setLocale(value);
+  locale.value = value;
+};
+
+watch(() => settings.locale, (value) => { locale.value = value; });
+watch(() => route.path, () => { mobileSidebarOpen.value = false; });
+
 const logout = () => { auth.logout(); router.push('/login'); };
+const closeMobileSidebar = () => { mobileSidebarOpen.value = false; };
 
 const getSeenPopupIds = () => {
   try { return new Set(JSON.parse(sessionStorage.getItem(seenStorageKey.value) || '[]')); } catch { return new Set(); }
@@ -177,6 +208,8 @@ const loadUnread = async () => {
 };
 
 onMounted(async () => {
+  settings.applyTheme();
+  locale.value = settings.locale;
   await classStore.fetchClasses();
   loadUnread();
   window.addEventListener('notifications:read-change', handleReadChange);
@@ -204,7 +237,43 @@ onUnmounted(() => {
 .info-text .name { font-size: 13px; font-weight: 500; }
 .info-text .role { font-size: 11px; color: #888; }
 .header { background: #fff; border-bottom: 1px solid rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:space-between; padding: 0 22px; }
+.header-title { min-width: 0; display:flex; align-items:center; gap: 8px; }
 .header h2 { font-size: 16px; font-weight: 600; margin: 0; }
 .header-right { display:flex; align-items:center; gap: 10px; }
 .main-content { background: #F5F4F0; padding: 18px 22px; }
+.mobile-menu-button { display: none; }
+.mobile-backdrop { display: none; }
+
+@media (max-width: 768px) {
+  .layout { height: 100dvh; }
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 220px !important;
+    z-index: 2100;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 0 12px 32px rgba(15, 110, 86, 0.18);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 2090;
+    background: rgba(0,0,0,0.34);
+  }
+  .mobile-menu-button { display: inline-flex; flex: 0 0 auto; }
+  .header { height: 56px; padding: 0 10px; gap: 8px; }
+  .header h2 {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .header-right { gap: 4px; }
+  .header-right :deep(.el-select) { width: 72px !important; }
+  .main-content { padding: 12px 10px; }
+}
 </style>

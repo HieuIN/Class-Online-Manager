@@ -5,8 +5,20 @@
       <el-button type="primary" @click="showCreate = true">+ Tạo lớp mới</el-button>
     </div>
 
+    <div class="filter-bar">
+      <el-input v-model="classSearch" placeholder="Tìm lớp..." clearable class="filter-input" />
+      <el-select v-model="teacherFilter" placeholder="Lọc giáo viên" clearable style="width:190px">
+        <el-option v-for="t in teachers" :key="t.id" :label="t.fullName" :value="t.id" />
+      </el-select>
+      <el-select v-model="classStatusFilter" placeholder="Trạng thái" style="width:140px">
+        <el-option label="Tất cả" value="ALL" />
+        <el-option label="Đang học" value="ACTIVE" />
+        <el-option label="Đã kết thúc" value="FINISHED" />
+      </el-select>
+    </div>
+
     <el-row :gutter="14" class="mb-4">
-      <el-col :span="12" v-for="c in classes" :key="c.id">
+      <el-col :span="12" v-for="c in displayedClasses" :key="c.id">
         <el-card :class="['class-card', classStore.selectedId === c.id ? 'selected' : '']" @click="classStore.select(c.id)" shadow="hover">
           <div class="cc-top">
             <div>
@@ -40,9 +52,14 @@
           <div>
             <el-button size="small" type="primary" @click="showEnroll = true">+ Thêm học viên</el-button>
             <el-button size="small" @click="showNewStudent = true">+ Tạo học viên mới</el-button>
+            <el-button size="small" @click="printClassList">In danh sách</el-button>
           </div>
         </div>
       </template>
+      <div class="print-title">
+        <h2>Danh sách lớp {{ selected.name }}</h2>
+        <p>Ngày in: {{ new Date().toLocaleDateString('vi-VN') }}</p>
+      </div>
       <el-table :data="students" size="small">
         <el-table-column label="Học viên" min-width="180">
           <template #default="{ row }">
@@ -58,6 +75,17 @@
         <el-table-column label="Điện thoại" prop="phone" width="120" />
         <el-table-column label="Ngày tham gia" width="130">
           <template #default="{ row }">{{ fmtDate(row.enrolledAt) }}</template>
+        </el-table-column>
+        <el-table-column label="Chứng chỉ" width="180">
+          <template #default="{ row }">
+            <div v-if="row.certificateId" class="cert-actions">
+              <span class="badge badge-green">Đã cấp</span>
+              <el-button size="small" @click="downloadCertificate(row.certificateId)">Tải</el-button>
+            </div>
+            <el-button v-else size="small" type="primary" plain :disabled="!canIssue(row)" @click="issueCertificate(row)">
+              Cấp chứng chỉ
+            </el-button>
+          </template>
         </el-table-column>
         <el-table-column label="Hành động" width="120">
           <template #default="{ row }">
@@ -168,7 +196,7 @@
 import { ref, computed, reactive, watch, onMounted } from 'vue';
 import { useClassStore } from '@/stores/class';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { classesApi, coursesApi, enrollmentsApi, sessionsApi, usersApi } from '@/api';
+import { certificatesApi, classesApi, coursesApi, enrollmentsApi, sessionsApi, usersApi } from '@/api';
 import { initials, fmtDate } from '@/utils/format';
 import dayjs from 'dayjs';
 
@@ -186,12 +214,29 @@ const editMode = ref(false);
 const editId = ref(null);
 const selectedStudentIds = ref([]);
 const searchStudent = ref('');
+const classSearch = ref('');
+const teacherFilter = ref(null);
+const classStatusFilter = ref('ALL');
 const enrolling = ref(false);
 const creating = ref(false);
 
 const newCls = reactive({ courseId: null, teacherId: null, name: '', totalSessions: 20, tuitionFee: 3000000, scheduleNote: '' });
 const schedule = reactive({ autoGenerate: false, startDate: dayjs().format('YYYY-MM-DD'), weekdays: [1, 3, 5], startTime: '19:00', endTime: '21:00' });
 const newStudent = reactive({ fullName: '', email: '', phone: '', password: 'password123', enrollNow: true });
+
+const displayedClasses = computed(() => {
+  const q = classSearch.value.toLowerCase().trim();
+  return classes.value.filter(c => {
+    const matchesSearch = !q || c.name.toLowerCase().includes(q) || String(c.teacherName || '').toLowerCase().includes(q);
+    const matchesTeacher = !teacherFilter.value || c.teacher_id === teacherFilter.value;
+    const progress = c.total_sessions ? (c.doneSessions / c.total_sessions) : 0;
+    const matchesStatus =
+      classStatusFilter.value === 'ALL' ||
+      (classStatusFilter.value === 'ACTIVE' && progress < 1) ||
+      (classStatusFilter.value === 'FINISHED' && progress >= 1);
+    return matchesSearch && matchesTeacher && matchesStatus;
+  });
+});
 
 const filteredStudents = computed(() => {
   const q = searchStudent.value.toLowerCase().trim();
@@ -200,6 +245,7 @@ const filteredStudents = computed(() => {
 });
 
 const isEnrolled = (sid) => students.value.some(s => s.id === sid);
+const canIssue = (row) => Number(row.averageScore || 0) >= 5;
 
 const loadStudents = async () => {
   if (!selected.value) return;
@@ -330,6 +376,27 @@ const unenroll = async (st) => {
   } catch {}
 };
 
+const issueCertificate = async (student) => {
+  try {
+    await ElMessageBox.confirm(`Cấp chứng chỉ cho "${student.fullName}"?`, 'Xác nhận', { type: 'warning' });
+    await certificatesApi.issue(student.enrollmentId);
+    ElMessage.success('Đã cấp chứng chỉ');
+    await loadStudents();
+  } catch {}
+};
+
+const downloadCertificate = async (id) => {
+  const blob = await certificatesApi.download(id);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `certificate-${id}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const printClassList = () => window.print();
+
 watch(() => classStore.selectedId, loadStudents);
 onMounted(async () => {
   await classStore.fetchClasses();
@@ -342,6 +409,9 @@ onMounted(async () => {
 
 <style scoped>
 .header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
+.filter-bar { display:flex; gap: 8px; flex-wrap:wrap; margin-bottom: 14px; }
+.filter-input { width: 240px; }
+.print-title { display:none; }
 .header-line { display:flex; justify-content:space-between; align-items:center; }
 .mb-4 { margin-bottom: 14px; }
 .class-card { cursor:pointer; transition: all 0.15s; }
@@ -359,4 +429,15 @@ onMounted(async () => {
 .text-xs { font-size: 11px; color: #888; }
 .weekday-group { display:flex; flex-wrap:wrap; gap: 4px 12px; }
 .time-row { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+.cert-actions { display:flex; align-items:center; gap: 8px; }
+@media (max-width: 768px) {
+  .filter-input { width: 100%; }
+}
+@media print {
+  :global(.sidebar), :global(.header), .header-bar, .filter-bar, :global(.el-card__header), :global(.no-print) { display:none !important; }
+  :global(.main-content) { padding: 0 !important; background: #fff !important; }
+  .print-title { display:block; margin-bottom: 12px; }
+  .print-title h2 { margin: 0 0 4px; font-size: 18px; }
+  .print-title p { margin: 0; font-size: 12px; color: #666; }
+}
 </style>

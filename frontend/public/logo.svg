@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title>ClassManager</title>
+  <rect width="512" height="512" rx="104" fill="#1D9E75"/>
+  <path d="M96 164 256 92l160 72-160 72-160-72Z" fill="#FFFFFF"/>
+  <path d="M150 212v88c0 38 48 70 106 70s106-32 106-70v-88l-106 48-106-48Z" fill="#E1F5EE"/>
+  <path d="M402 184v126" stroke="#FFFFFF" stroke-width="26" stroke-linecap="round"/>
+  <circle cx="402" cy="344" r="22" fill="#FFFFFF"/>
+  <path d="M190 312c18 18 42 27 66 27s48-9 66-27" stroke="#0F6E56" stroke-width="18" stroke-linecap="round" fill="none"/>
+</svg>

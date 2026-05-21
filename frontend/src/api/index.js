@@ -14,6 +14,7 @@ export const usersApi = {
   get: (id) => http.get(`/users/${id}`),
   create: (data) => http.post('/users', data),
   update: (id, data) => http.patch(`/users/${id}`, data),
+  uploadAvatar: (id, formData) => http.post(`/users/${id}/avatar`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => http.delete(`/users/${id}`),
 };
 
@@ -74,6 +75,10 @@ export const gradesApi = {
   bulkUpsert: (records) => http.post('/grades/bulk', { records }),
 };
 
+export const aiSuggestionsApi = {
+  suggestFeedback: (studentId, classId) => http.post('/ai/suggest-feedback', { studentId, classId }),
+};
+
 export const assignmentsApi = {
   list: (classId) => http.get('/assignments', { params: { classId } }),
   create: (d) => http.post('/assignments', d),
@@ -122,8 +127,29 @@ export const classPostsApi = {
   addComment: (id, content) => http.post(`/class-posts/${id}/comments`, { content }),
 };
 
+export const quizzesApi = {
+  list: (classId) => http.get('/quizzes', { params: { classId } }),
+  create: (d) => http.post('/quizzes', d),
+  update: (id, d) => http.patch(`/quizzes/${id}`, d),
+  delete: (id) => http.delete(`/quizzes/${id}`),
+  get: (id) => http.get(`/quizzes/${id}`),
+  full: (id) => http.get(`/quizzes/${id}/full`),
+  start: (id) => http.post(`/quizzes/${id}/start`),
+  attempts: (params) => http.get('/quiz-attempts', { params }),
+  attempt: (id) => http.get(`/quiz-attempts/${id}`),
+  submit: (id, answers) => http.post(`/quiz-attempts/${id}/submit`, { answers }),
+};
+
+export const certificatesApi = {
+  list: (params) => http.get('/certificates', { params }),
+  preview: (enrollmentId) => http.get(`/certificates/preview/${enrollmentId}`),
+  issue: (enrollmentId) => http.post(`/certificates/issue/${enrollmentId}`),
+  download: (id) => http.get(`/certificates/${id}/download`, { responseType: 'blob' }),
+};
+
 export const calendarApi = {
   list: (start, end) => http.get('/calendar', { params: { start, end } }),
+  exportIcs: (classId) => http.get('/calendar/export.ics', { params: { classId }, responseType: 'blob' }),
   create: (d) => http.post('/calendar', d),
   delete: (id) => http.delete(`/calendar/${id}`),
 };

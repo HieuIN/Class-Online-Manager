@@ -1,4 +1,4 @@
-import { Injectable, Module, Controller, Get, Post, Delete, Body, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
+import { Header, Injectable, Module, Controller, Get, Post, Delete, Body, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository, Between, DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -74,6 +74,62 @@ export class CalendarService {
 
   create(d: Partial<CalendarEvent>) { return this.repo.save(this.repo.create(d)); }
   remove(id: number) { return this.repo.delete(id); }
+
+  async exportClassIcs(classId: number, userId: number, role: string) {
+    if (!classId) return '';
+    const accessFilter =
+      role === 'TEACHER' ? 'AND c.teacher_id = $2' :
+      role === 'STUDENT' ? 'AND c.id IN (SELECT class_id FROM enrollments WHERE student_id = $2 AND is_active = true)' :
+      '';
+    const params = accessFilter ? [classId, userId] : [classId];
+    const sessions = await this.dataSource.query(
+      `SELECT s.id, s.session_no, s.planned_date, s.start_time, s.end_time, s.topic, s.meeting_url, c.name as "className"
+       FROM sessions s
+       JOIN classes c ON c.id = s.class_id
+       WHERE c.id = $1 ${accessFilter}
+       ORDER BY s.planned_date, s.start_time, s.session_no`,
+      params,
+    );
+
+    const escapeText = (value: any) => String(value || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\r?\n/g, '\\n');
+    const dt = (date: any, time?: string) => {
+      const d = new Date(`${String(date).slice(0, 10)}T${time || '00:00'}:00+07:00`);
+      return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    };
+    const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//ClassManager//Calendar//VI',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+    ];
+
+    for (const s of sessions) {
+      const start = dt(s.planned_date, s.start_time || '00:00');
+      const end = dt(s.planned_date, s.end_time || s.start_time || '00:00');
+      const title = `${s.className} - Buổi ${s.session_no}${s.topic ? `: ${s.topic}` : ''}`;
+      const description = [s.topic, s.meeting_url ? `Link học: ${s.meeting_url}` : ''].filter(Boolean).join('\n');
+      lines.push(
+        'BEGIN:VEVENT',
+        `UID:class-manager-session-${s.id}@classmanager`,
+        `DTSTAMP:${now}`,
+        `DTSTART:${start}`,
+        `DTEND:${end}`,
+        `SUMMARY:${escapeText(title)}`,
+        `DESCRIPTION:${escapeText(description)}`,
+      );
+      if (s.meeting_url) lines.push(`URL:${escapeText(s.meeting_url)}`);
+      lines.push('END:VEVENT');
+    }
+
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
+  }
 }
 
 @Controller('calendar')
@@ -89,6 +145,13 @@ export class CalendarController {
   @Get('range')
   range(@Query('start') start: string, @Query('end') end: string, @Query('classId') classId?: string) {
     return this.service.findRange(start, end, classId ? +classId : undefined);
+  }
+
+  @Get('export.ics')
+  @Header('Content-Type', 'text/calendar; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="class-manager-calendar.ics"')
+  exportIcs(@Query('classId', ParseIntPipe) classId: number, @CurrentUser() user: any) {
+    return this.service.exportClassIcs(classId, user.id, user.role);
   }
 
   @Post() @Roles('ADMIN','TEACHER') create(@Body() body: any) { return this.service.create(body); }

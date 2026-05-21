@@ -2,11 +2,22 @@
   <div>
     <ClassPicker @change="reload" />
     <div class="action-bar">
+      <el-input v-model="studentSearch" placeholder="Tìm học viên..." clearable class="search-input" />
+      <el-select v-model="gradeSort" placeholder="Sắp xếp" style="width:150px">
+        <el-option label="Tên A-Z" value="name" />
+        <el-option label="Điểm TB cao" value="avg-desc" />
+        <el-option label="Điểm TB thấp" value="avg-asc" />
+      </el-select>
       <el-button type="primary" @click="openCreate">+ Thêm cột điểm</el-button>
       <el-button @click="exportCsv">↓ Xuất Excel</el-button>
+      <el-button @click="printGrades">In bảng điểm</el-button>
     </div>
 
-    <el-card>
+    <el-card class="print-area">
+      <div class="print-title">
+        <h2>Bảng điểm {{ classStore.selected?.name || '' }}</h2>
+        <p>Ngày in: {{ new Date().toLocaleDateString('vi-VN') }}</p>
+      </div>
       <div class="table-wrap">
         <table class="grade-table">
           <thead>
@@ -21,11 +32,11 @@
               </th>
               <th class="center">Điểm TB</th>
               <th class="center">Xếp loại</th>
-              <th class="center">Chi tiết</th>
+              <th class="center no-print">Chi tiết</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="st in students" :key="st.id">
+            <tr v-for="st in displayedStudents" :key="st.id">
               <td>
                 <div class="student-cell">
                   <el-avatar :size="26" :style="{ background:'#E6F1FB', color:'#185FA5', fontSize:'10px', fontWeight:600 }">
@@ -48,11 +59,11 @@
                   {{ gradeClassify(avgFor(st.id)).label }}
                 </span>
               </td>
-              <td class="center">
+              <td class="center no-print">
                 <el-button size="small" @click="openFeedback(st)">Nhận xét</el-button>
               </td>
             </tr>
-            <tr v-if="students.length === 0">
+            <tr v-if="displayedStudents.length === 0">
               <td :colspan="items.length + 4" class="empty">Chưa có học viên nào trong lớp</td>
             </tr>
           </tbody>
@@ -61,7 +72,6 @@
       <div v-if="items.length === 0" class="empty">Chưa có cột điểm nào. Tạo cột điểm đầu tiên!</div>
     </el-card>
 
-    <!-- Create/Edit grade item -->
     <el-dialog v-model="showDialog" :title="editMode ? 'Sửa cột điểm' : 'Thêm cột điểm'" width="380px">
       <el-form label-position="top">
         <el-form-item label="Tên cột điểm"><el-input v-model="form.name" placeholder="VD: Giữa kỳ" /></el-form-item>
@@ -78,11 +88,23 @@
       </template>
     </el-dialog>
 
-    <!-- Feedback dialog -->
     <el-dialog v-model="showFeedback" title="Nhận xét tổng quát học viên" width="500px">
       <div v-if="feedbackStudent">
         <p><b>{{ feedbackStudent.fullName }}</b></p>
         <p style="font-size:12px;color:#888;margin-bottom:14px">Điểm TB: {{ avgFor(feedbackStudent.id) ?? '—' }}</p>
+        <div class="ai-feedback-box">
+          <div class="ai-feedback-actions">
+            <el-button size="small" type="primary" plain :loading="aiLoading" @click="suggestFeedback">
+              ✨ AI gợi ý
+            </el-button>
+          </div>
+          <el-input v-model="feedbackDraft" type="textarea" :rows="3" placeholder="Nhận xét tổng quát..." />
+          <div class="quick-feedback">
+            <el-button v-for="preset in feedbackPresets" :key="preset.text" size="small" plain @click="insertFeedbackPreset(preset.text)">
+              {{ preset.icon }} {{ preset.label }}
+            </el-button>
+          </div>
+        </div>
         <el-table :data="studentGrades" size="small">
           <el-table-column label="Cột điểm" prop="itemName" />
           <el-table-column label="Điểm" width="80">
@@ -96,6 +118,7 @@
         </el-table>
       </div>
       <template #footer>
+        <el-button type="primary" :disabled="!feedbackDraft.trim()" @click="saveFeedbackDraft">Lưu nhận xét</el-button>
         <el-button @click="showFeedback = false">Đóng</el-button>
       </template>
     </el-dialog>
@@ -103,24 +126,33 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted } from 'vue';
+import { ref, reactive, watch, onMounted, computed } from 'vue';
 import { useClassStore } from '@/stores/class';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ClassPicker from '@/components/ClassPicker.vue';
-import { classesApi, gradeItemsApi, gradesApi } from '@/api';
+import { aiSuggestionsApi, classesApi, gradeItemsApi, gradesApi } from '@/api';
 import { initials, gradeClassify } from '@/utils/format';
 
 const classStore = useClassStore();
 const students = ref([]);
 const items = ref([]);
-const grades = ref([]); // [{ studentId, gradeItemId, score, feedback }]
+const grades = ref([]);
 const showDialog = ref(false);
 const showFeedback = ref(false);
 const editMode = ref(false);
 const editId = ref(null);
 const feedbackStudent = ref(null);
 const studentGrades = ref([]);
+const feedbackDraft = ref('');
+const aiLoading = ref(false);
+const studentSearch = ref('');
+const gradeSort = ref('name');
 const form = reactive({ name: '', weight: 10, maxScore: 10 });
+const feedbackPresets = [
+  { icon: '🎉', label: 'Tiến bộ', text: 'Em có tiến bộ tốt, tiếp tục duy trì tinh thần học tập này.' },
+  { icon: '👏', label: 'Chăm chỉ', text: 'Em học tập chăm chỉ và có thái độ tích cực trong lớp.' },
+  { icon: '⭐', label: 'Luyện thêm', text: 'Em cần luyện thêm phần còn yếu và chủ động hoàn thành bài tập đều hơn.' },
+];
 
 const getScore = (sid, iid) => {
   const g = grades.value.find(g => g.studentId === sid && g.gradeItemId === iid);
@@ -134,6 +166,14 @@ const avgFor = (sid) => {
   }
   return tw ? +(ws / tw).toFixed(1) : null;
 };
+const displayedStudents = computed(() => {
+  const q = studentSearch.value.toLowerCase().trim();
+  let rows = q ? students.value.filter(st => st.fullName.toLowerCase().includes(q) || String(st.email || '').toLowerCase().includes(q)) : [...students.value];
+  if (gradeSort.value === 'avg-desc') rows.sort((a, b) => (avgFor(b.id) ?? -1) - (avgFor(a.id) ?? -1));
+  else if (gradeSort.value === 'avg-asc') rows.sort((a, b) => (avgFor(a.id) ?? 999) - (avgFor(b.id) ?? 999));
+  else rows.sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'));
+  return rows;
+});
 
 const reload = async () => {
   const cid = classStore.selectedId;
@@ -143,9 +183,7 @@ const reload = async () => {
   grades.value = [];
   for (const st of students.value) {
     const rows = await gradesApi.byStudent(st.id, cid);
-    rows.forEach(r => grades.value.push({
-      studentId: st.id, gradeItemId: r.grade_item_id, score: r.score, feedback: r.feedback,
-    }));
+    rows.forEach(r => grades.value.push({ studentId: st.id, gradeItemId: r.grade_item_id, score: r.score, feedback: r.feedback }));
   }
 };
 
@@ -163,13 +201,11 @@ const openCreate = () => {
   Object.assign(form, { name: '', weight: 10, maxScore: 10 });
   showDialog.value = true;
 };
-
 const openEdit = (item) => {
   editMode.value = true; editId.value = item.id;
   Object.assign(form, { name: item.name, weight: +item.weight, maxScore: +item.maxScore });
   showDialog.value = true;
 };
-
 const save = async () => {
   if (!form.name) { ElMessage.warning('Nhập tên cột điểm'); return; }
   try {
@@ -184,7 +220,6 @@ const save = async () => {
     reload();
   } catch {}
 };
-
 const deleteItem = async () => {
   try {
     await ElMessageBox.confirm('Xóa cột điểm này? Mọi điểm số trong cột sẽ bị xóa.', 'Xác nhận', { type: 'warning' });
@@ -199,22 +234,43 @@ const openFeedback = async (st) => {
   feedbackStudent.value = st;
   studentGrades.value = items.value.map(item => {
     const g = grades.value.find(g => g.studentId === st.id && g.gradeItemId === item.id);
-    return {
-      itemId: item.id, itemName: item.name,
-      score: g?.score, feedback: g?.feedback || '',
-    };
+    return { itemId: item.id, itemName: item.name, score: g?.score, feedback: g?.feedback || '' };
   });
+  feedbackDraft.value = studentGrades.value.find(row => row.feedback)?.feedback || '';
   showFeedback.value = true;
 };
-
+const syncLocalFeedback = (itemId, studentId, feedback) => {
+  const idx = grades.value.findIndex(g => g.studentId === studentId && g.gradeItemId === itemId);
+  if (idx >= 0) grades.value[idx].feedback = feedback;
+};
 const updateFeedback = async (row) => {
-  if (row.score == null) {
-    ElMessage.warning('Cần nhập điểm trước khi nhận xét');
-    return;
+  if (row.score == null) { ElMessage.warning('Cần nhập điểm trước khi nhận xét'); return; }
+  await gradesApi.upsert({ gradeItemId: row.itemId, studentId: feedbackStudent.value.id, score: +row.score, feedback: row.feedback });
+  syncLocalFeedback(row.itemId, feedbackStudent.value.id, row.feedback);
+  ElMessage.success('Đã lưu nhận xét');
+};
+const suggestFeedback = async () => {
+  if (!feedbackStudent.value || !classStore.selectedId) return;
+  aiLoading.value = true;
+  try {
+    const res = await aiSuggestionsApi.suggestFeedback(feedbackStudent.value.id, classStore.selectedId);
+    feedbackDraft.value = res.suggestion || '';
+  } finally {
+    aiLoading.value = false;
   }
-  await gradesApi.upsert({
-    gradeItemId: row.itemId, studentId: feedbackStudent.value.id,
-    score: +row.score, feedback: row.feedback,
+};
+const insertFeedbackPreset = (text) => {
+  feedbackDraft.value = feedbackDraft.value ? `${feedbackDraft.value.trim()}\n${text}` : text;
+};
+const saveFeedbackDraft = async () => {
+  if (!feedbackStudent.value || !feedbackDraft.value.trim()) return;
+  const rows = studentGrades.value.filter(row => row.score != null);
+  if (!rows.length) { ElMessage.warning('Cần nhập điểm trước khi nhận xét'); return; }
+  const feedback = feedbackDraft.value.trim();
+  await Promise.all(rows.map(row => gradesApi.upsert({ gradeItemId: row.itemId, studentId: feedbackStudent.value.id, score: +row.score, feedback })));
+  rows.forEach(row => {
+    row.feedback = feedback;
+    syncLocalFeedback(row.itemId, feedbackStudent.value.id, feedback);
   });
   ElMessage.success('Đã lưu nhận xét');
 };
@@ -222,15 +278,9 @@ const updateFeedback = async (row) => {
 const exportCsv = () => {
   const rows = [];
   rows.push(['Học viên', ...items.value.map(i => `${i.name} (${i.weight}%)`), 'Điểm TB', 'Xếp loại']);
-  for (const st of students.value) {
+  for (const st of displayedStudents.value) {
     const avg = avgFor(st.id);
-    const gc = gradeClassify(avg);
-    rows.push([
-      st.fullName,
-      ...items.value.map(i => getScore(st.id, i.id) ?? ''),
-      avg ?? '',
-      gc.label,
-    ]);
+    rows.push([st.fullName, ...items.value.map(i => getScore(st.id, i.id) ?? ''), avg ?? '', gradeClassify(avg).label]);
   }
   const csv = '\uFEFF' + rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -240,13 +290,16 @@ const exportCsv = () => {
   a.click();
   URL.revokeObjectURL(url);
 };
+const printGrades = () => window.print();
 
 watch(() => classStore.selectedId, reload);
 onMounted(reload);
 </script>
 
 <style scoped>
-.action-bar { display:flex; gap: 8px; justify-content:flex-end; margin-bottom: 14px; }
+.action-bar { display:flex; gap: 8px; justify-content:flex-end; margin-bottom: 14px; flex-wrap:wrap; }
+.search-input { width: 220px; margin-right:auto; }
+.print-title { display:none; }
 .table-wrap { overflow-x: auto; }
 .grade-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .grade-table th, .grade-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0ee; }
@@ -259,4 +312,21 @@ onMounted(reload);
 .student-cell { display:flex; align-items:center; gap: 8px; }
 .hint { font-size: 11px; color: #888; margin-left: 8px; }
 .empty { padding: 20px; text-align: center; color: #aaa; }
+.ai-feedback-box { margin-bottom: 14px; }
+.ai-feedback-actions { display:flex; justify-content:flex-end; margin-bottom: 8px; }
+.quick-feedback { display:flex; gap: 6px; flex-wrap:wrap; margin-top: 8px; }
+@media (max-width: 768px) {
+  .search-input { width: 100%; margin-right:0; }
+  .action-bar { justify-content:flex-start; }
+}
+@media print {
+  :global(.sidebar), :global(.header), .action-bar, .no-print { display:none !important; }
+  :global(.main-content) { padding: 0 !important; background: #fff !important; }
+  .print-title { display:block; margin-bottom: 12px; }
+  .print-title h2 { margin: 0 0 4px; font-size: 18px; }
+  .print-title p { margin: 0; font-size: 12px; color: #666; }
+  .table-wrap { overflow: visible; }
+  .grade-table { font-size: 11px; }
+  .grade-table th, .grade-table td { border: 1px solid #ddd; }
+}
 </style>

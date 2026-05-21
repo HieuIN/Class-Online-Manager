@@ -2,6 +2,14 @@
   <div>
     <ClassPicker @change="reload" />
     <div class="action-bar">
+      <el-input v-model="submissionSearch" placeholder="Tìm học viên..." clearable class="search-input" />
+      <el-select v-model="submissionStatusFilter" placeholder="Trạng thái" style="width:170px">
+        <el-option label="Tất cả" value="ALL" />
+        <el-option label="Chưa nộp" value="NOT_SUBMITTED" />
+        <el-option label="Đã nộp" value="SUBMITTED" />
+        <el-option label="Đã chấm" value="GRADED" />
+        <el-option label="Cần sửa" value="REVISION_REQUIRED" />
+      </el-select>
       <el-button type="primary" @click="showCreate = true">+ Tạo bài tập</el-button>
     </div>
 
@@ -58,7 +66,7 @@
                   <el-button size="small" @click="reloadMatrix">↻ Refresh</el-button>
                 </div>
               </template>
-              <el-table :data="matrix" size="small">
+              <el-table :data="filteredMatrix" size="small">
                 <el-table-column label="Học viên" prop="studentName" min-width="140" />
                 <el-table-column label="Trạng thái" width="120">
                   <template #default="{ row }">
@@ -177,7 +185,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted } from 'vue';
+import { ref, reactive, watch, onMounted, computed } from 'vue';
 import { useClassStore } from '@/stores/class';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ClassPicker from '@/components/ClassPicker.vue';
@@ -188,6 +196,8 @@ const classStore = useClassStore();
 const assignments = ref([]);
 const activeId = ref(null);
 const matrix = ref([]);
+const submissionSearch = ref('');
+const submissionStatusFilter = ref('ALL');
 const showCreate = ref(false);
 const showGrade = ref(false);
 const showView = ref(false);
@@ -197,6 +207,15 @@ const gradeRow = ref(null);
 const viewRow = ref(null);
 const gradeForm = reactive({ score: 0, teacherComment: '', status: 'GRADED' });
 const formAssign = reactive({ title: '', description: '', dueDate: '', isRequired: true });
+const filteredMatrix = computed(() => {
+  const q = submissionSearch.value.toLowerCase().trim();
+  return matrix.value.filter(row => {
+    const status = row.status || 'NOT_SUBMITTED';
+    const matchesStatus = submissionStatusFilter.value === 'ALL' || status === submissionStatusFilter.value;
+    const matchesSearch = !q || row.studentName.toLowerCase().includes(q);
+    return matchesStatus && matchesSearch;
+  });
+});
 
 const reload = async () => {
   const cid = classStore.selectedId;
@@ -296,7 +315,8 @@ onMounted(reload);
 </script>
 
 <style scoped>
-.action-bar { display:flex; justify-content:flex-end; margin-bottom: 14px; }
+.action-bar { display:flex; justify-content:flex-end; gap: 8px; margin-bottom: 14px; flex-wrap:wrap; }
+.search-input { width: 220px; margin-right:auto; }
 .header-line { display:flex; justify-content:space-between; align-items:center; }
 .info-row { font-size: 13px; margin-bottom: 8px; }
 .info-row .label { color: #888; margin-right: 6px; }
@@ -309,4 +329,8 @@ onMounted(reload);
 .preview-img { margin-top: 12px; }
 .preview-img img { max-width: 100%; max-height: 300px; border-radius: 6px; border: 1px solid #eee; }
 .result-box { background: #E1F5EE; padding: 12px; border-radius: 8px; margin-top: 14px; font-size: 13px; }
+@media (max-width: 768px) {
+  .search-input { width: 100%; margin-right:0; }
+  .action-bar { justify-content:flex-start; }
+}
 </style>

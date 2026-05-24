@@ -13,8 +13,11 @@
         <el-form-item label="Mật khẩu">
           <el-input v-model="form.password" type="password" placeholder="••••••••" size="large" show-password />
         </el-form-item>
+        <el-form-item v-if="pendingOtpUserId" label="Mã OTP">
+          <el-input v-model="form.otp" maxlength="6" placeholder="Nhập mã 6 số" size="large" />
+        </el-form-item>
         <el-button type="primary" native-type="submit" :loading="loading" style="width:100%;" size="large">
-          Đăng nhập
+          {{ pendingOtpUserId ? 'Xác minh OTP' : 'Đăng nhập' }}
         </el-button>
       </el-form>
       <div class="forgot-row">
@@ -34,19 +37,35 @@
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { ElMessage } from 'element-plus';
 
 const router = useRouter();
 const auth = useAuthStore();
-const form = reactive({ email: 'teacher@cm.com', password: 'password123' });
+const form = reactive({ email: 'teacher@cm.com', password: 'password123', otp: '' });
 const loading = ref(false);
+const pendingOtpUserId = ref(null);
+
+const redirectAfterLogin = () => {
+  if (auth.isStudent) router.push('/student/dashboard');
+  else if (auth.isAdmin) router.push('/admin/dashboard');
+  else router.push('/dashboard');
+};
 
 const onLogin = async () => {
   loading.value = true;
   try {
-    await auth.login(form.email, form.password);
-    if (auth.isStudent) router.push('/student/dashboard');
-    else if (auth.isAdmin) router.push('/admin/dashboard');
-    else router.push('/dashboard');
+    if (pendingOtpUserId.value) {
+      await auth.verify2fa(pendingOtpUserId.value, form.otp);
+      redirectAfterLogin();
+      return;
+    }
+    const res = await auth.login(form.email, form.password);
+    if (res.requiresOtp) {
+      pendingOtpUserId.value = res.userId;
+      ElMessage.info('Đã gửi mã OTP qua email hoặc log server');
+      return;
+    }
+    redirectAfterLogin();
   } finally { loading.value = false; }
 };
 </script>

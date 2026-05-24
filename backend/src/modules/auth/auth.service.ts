@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomInt } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../users/user.entity';
 
@@ -23,6 +23,15 @@ export class AuthService {
     }
     if (!user.isActive) throw new UnauthorizedException('Tài khoản đã bị khóa');
 
+    if (user.twoFactorEnabled) {
+      await this.sendLoginOtp(user);
+      return { requiresOtp: true, userId: user.id };
+    }
+
+    return this.signUser(user);
+  }
+
+  private signUser(user: User) {
     const payload = { sub: user.id, email: user.email, role: user.role, fullName: user.fullName };
     return {
       accessToken: this.jwtService.sign(payload),
@@ -34,6 +43,20 @@ export class AuthService {
         avatarUrl: user.avatarUrl,
       },
     };
+  }
+
+  async verifyOtp(userId: number, code: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId, isActive: true } });
+    if (!user) throw new UnauthorizedException();
+    const [otp] = await this.dataSource.query(
+      `SELECT id FROM login_otps
+       WHERE user_id = $1 AND code = $2 AND used_at IS NULL AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId, code],
+    );
+    if (!otp) throw new UnauthorizedException('OTP khong hop le hoac da het han');
+    await this.dataSource.query(`UPDATE login_otps SET used_at = NOW() WHERE id = $1`, [otp.id]);
+    return this.signUser(user);
   }
 
   async register(data: { email: string; password: string; fullName: string; phone?: string; role?: string }) {
@@ -134,6 +157,37 @@ export class AuthService {
 
   private hashToken(token: string) {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private async sendLoginOtp(user: User) {
+    const code = String(randomInt(100000, 999999));
+    await this.dataSource.query(
+      `INSERT INTO login_otps (user_id, code, expires_at) VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
+      [user.id, code],
+    );
+
+    const host = this.config.get<string>('SMTP_HOST');
+    const userName = this.config.get<string>('SMTP_USER');
+    const pass = this.config.get<string>('SMTP_PASS');
+    if (!host || !userName || !pass) {
+      console.log(`[auth] OTP for ${user.email}: ${code}`);
+      return false;
+    }
+
+    const nodemailer = await import('nodemailer');
+    const transporter = nodemailer.createTransport({
+      host,
+      port: parseInt(this.config.get<string>('SMTP_PORT') || '587', 10),
+      secure: this.config.get<string>('SMTP_SECURE') === 'true',
+      auth: { user: userName, pass },
+    });
+    await transporter.sendMail({
+      from: this.config.get<string>('SMTP_FROM') || userName,
+      to: user.email,
+      subject: 'ClassManager OTP',
+      text: `Ma OTP ClassManager cua ban: ${code}`,
+    });
+    return true;
   }
 
   private async sendResetEmail(user: User, resetUrl: string): Promise<boolean> {

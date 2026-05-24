@@ -61,8 +61,22 @@ export class ClassesService {
   async getStudentsInClass(classId: number) {
     return this.dataSource.query(
       `SELECT u.id, u.email, u.phone, u.full_name as "fullName", u.avatar_url as "avatarUrl",
-              e.enrolled_at as "enrolledAt"
-       FROM enrollments e JOIN users u ON u.id = e.student_id
+              e.id as "enrollmentId", e.enrolled_at as "enrolledAt",
+              cert.id as "certificateId", cert.cert_number as "certNumber",
+              avg_score.average as "averageScore"
+       FROM enrollments e
+       JOIN users u ON u.id = e.student_id
+       LEFT JOIN certificates cert ON cert.enrollment_id = e.id
+       LEFT JOIN LATERAL (
+         SELECT
+           CASE
+             WHEN SUM(gi.weight) > 0 THEN SUM(g.score * gi.weight) / SUM(gi.weight)
+             ELSE AVG(g.score)
+           END as average
+         FROM grades g
+         JOIN grade_items gi ON gi.id = g.grade_item_id
+         WHERE g.student_id = u.id AND gi.class_id = e.class_id AND g.score IS NOT NULL
+       ) avg_score ON true
        WHERE e.class_id = $1 AND e.is_active = true ORDER BY u.full_name`,
       [classId],
     );

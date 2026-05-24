@@ -23,6 +23,9 @@ import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { CertificatesModule } from './modules/certificates/certificates.module';
 import { AiSuggestionsModule } from './modules/ai-suggestions/ai-suggestions.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { LearningExtrasModule } from './modules/learning-extras/learning-extras.module';
+import { FinanceExtrasModule } from './modules/finance-extras/finance-extras.module';
+import { OpsExtrasModule } from './modules/ops-extras/ops-extras.module';
 
 @Module({
   imports: [
@@ -59,6 +62,9 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     CertificatesModule,
     AiSuggestionsModule,
     AnalyticsModule,
+    LearningExtrasModule,
+    FinanceExtrasModule,
+    OpsExtrasModule,
   ],
 })
 export class AppModule {}

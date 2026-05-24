@@ -1,0 +1,33 @@
+{
+  "menu": {
+    "dashboard": "Tổng quan",
+    "classes": "Quản lý lớp",
+    "attendance": "Điểm danh",
+    "grades": "Quản lý điểm",
+    "myGrades": "Điểm của tôi",
+    "assignments": "Bài tập",
+    "quiz": "Quiz",
+    "forum": "Bảng tin",
+    "progress": "Tiến độ",
+    "materials": "Tài liệu",
+    "calendar": "Lịch học",
+    "reports": "Báo cáo",
+    "payments": "Học phí",
+    "notifications": "Thông báo",
+    "users": "Người dùng",
+    "courses": "Khóa học",
+    "revenue": "Doanh thu",
+    "profile": "Hồ sơ cá nhân"
+  },
+  "role": {
+    "admin": "Quản trị viên",
+    "teacher": "Giáo viên",
+    "student": "Học viên"
+  },
+  "common": {
+    "logout": "Đăng xuất",
+    "profile": "Hồ sơ",
+    "language": "Ngôn ngữ",
+    "theme": "Giao diện"
+  }
+}

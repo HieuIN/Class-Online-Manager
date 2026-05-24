@@ -16,6 +16,16 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async login(email, password) {
       const res = await authApi.login(email, password);
+      if (res.requiresOtp) return res;
+      this.setSession(res);
+      return res;
+    },
+    async verify2fa(userId, code) {
+      const res = await authApi.verify2fa(userId, code);
+      this.setSession(res);
+      return res;
+    },
+    setSession(res) {
       this.user = res.user;
       this.token = res.accessToken;
       localStorage.setItem('token', res.accessToken);

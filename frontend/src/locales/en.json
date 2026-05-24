@@ -1,0 +1,33 @@
+{
+  "menu": {
+    "dashboard": "Dashboard",
+    "classes": "Classes",
+    "attendance": "Attendance",
+    "grades": "Gradebook",
+    "myGrades": "My grades",
+    "assignments": "Assignments",
+    "quiz": "Quiz",
+    "forum": "Class feed",
+    "progress": "Progress",
+    "materials": "Materials",
+    "calendar": "Calendar",
+    "reports": "Reports",
+    "payments": "Tuition",
+    "notifications": "Notifications",
+    "users": "Users",
+    "courses": "Courses",
+    "revenue": "Revenue",
+    "profile": "Profile"
+  },
+  "role": {
+    "admin": "Administrator",
+    "teacher": "Teacher",
+    "student": "Student"
+  },
+  "common": {
+    "logout": "Log out",
+    "profile": "Profile",
+    "language": "Language",
+    "theme": "Theme"
+  }
+}

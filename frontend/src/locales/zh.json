@@ -1,0 +1,33 @@
+{
+  "menu": {
+    "dashboard": "总览",
+    "classes": "班级管理",
+    "attendance": "考勤",
+    "grades": "成绩管理",
+    "myGrades": "我的成绩",
+    "assignments": "作业",
+    "quiz": "测验",
+    "forum": "班级动态",
+    "progress": "进度",
+    "materials": "资料",
+    "calendar": "课程表",
+    "reports": "报告",
+    "payments": "学费",
+    "notifications": "通知",
+    "users": "用户",
+    "courses": "课程",
+    "revenue": "收入",
+    "profile": "个人资料"
+  },
+  "role": {
+    "admin": "管理员",
+    "teacher": "教师",
+    "student": "学生"
+  },
+  "common": {
+    "logout": "退出登录",
+    "profile": "个人资料",
+    "language": "语言",
+    "theme": "主题"
+  }
+}

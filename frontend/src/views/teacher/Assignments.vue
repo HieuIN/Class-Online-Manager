@@ -22,6 +22,7 @@
                 <div class="header-line">
                   <span class="section-title">Thông tin bài tập</span>
                   <div>
+                    <el-button size="small" @click="openComments(a)">Thảo luận</el-button>
                     <el-button size="small" @click="openEdit(a)">Sửa</el-button>
                     <el-button size="small" type="danger" plain @click="deleteAssign(a)">Xóa</el-button>
                   </div>
@@ -181,6 +182,22 @@
         <el-button type="primary" @click="gradeFromView">Chấm bài này</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showComments" title="Thread bài tập" width="560px">
+      <div class="comments-box">
+        <div v-for="c in comments" :key="c.id" class="comment-row">
+          <b>{{ c.authorName || 'Người dùng' }}</b>
+          <span class="text-xs">{{ fmtDateTime(c.createdAt) }}</span>
+          <p>{{ c.content }}</p>
+        </div>
+        <div v-if="!comments.length" class="empty">Chưa có bình luận</div>
+      </div>
+      <el-input v-model="commentText" type="textarea" :rows="3" placeholder="Nhập bình luận..." />
+      <template #footer>
+        <el-button @click="showComments = false">Đóng</el-button>
+        <el-button type="primary" @click="addComment">Gửi</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -205,6 +222,10 @@ const editMode = ref(false);
 const editId = ref(null);
 const gradeRow = ref(null);
 const viewRow = ref(null);
+const showComments = ref(false);
+const commentAssignment = ref(null);
+const comments = ref([]);
+const commentText = ref('');
 const gradeForm = reactive({ score: 0, teacherComment: '', status: 'GRADED' });
 const formAssign = reactive({ title: '', description: '', dueDate: '', isRequired: true });
 const filteredMatrix = computed(() => {
@@ -281,6 +302,19 @@ const deleteAssign = async (a) => {
   } catch {}
 };
 
+const openComments = async (assignment) => {
+  commentAssignment.value = assignment;
+  comments.value = await assignmentsApi.comments(assignment.id);
+  showComments.value = true;
+};
+
+const addComment = async () => {
+  if (!commentAssignment.value || !commentText.value.trim()) return;
+  await assignmentsApi.addComment(commentAssignment.value.id, commentText.value.trim());
+  commentText.value = '';
+  comments.value = await assignmentsApi.comments(commentAssignment.value.id);
+};
+
 const openGrade = (row) => {
   gradeRow.value = row;
   gradeForm.score = row.score || 0;
@@ -329,6 +363,9 @@ onMounted(reload);
 .preview-img { margin-top: 12px; }
 .preview-img img { max-width: 100%; max-height: 300px; border-radius: 6px; border: 1px solid #eee; }
 .result-box { background: #E1F5EE; padding: 12px; border-radius: 8px; margin-top: 14px; font-size: 13px; }
+.comments-box { max-height: 320px; overflow:auto; margin-bottom: 12px; }
+.comment-row { padding: 8px 0; border-bottom: 1px solid #eee; }
+.comment-row p { margin: 4px 0 0; }
 @media (max-width: 768px) {
   .search-input { width: 100%; margin-right:0; }
   .action-bar { justify-content:flex-start; }

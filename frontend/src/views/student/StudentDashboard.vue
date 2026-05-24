@@ -39,6 +39,16 @@
         </el-card>
       </el-col>
       <el-col :span="12">
+        <el-card v-if="certificates.length" class="mb-4 certificate-card">
+          <template #header><span class="section-title">Chứng chỉ của bạn</span></template>
+          <div v-for="cert in certificates" :key="cert.id" class="cert-row">
+            <div>
+              <div class="cert-title">{{ cert.courseName || cert.className }}</div>
+              <div class="cert-meta">{{ cert.cert_number }} · {{ cert.classification }} · {{ cert.final_score }}</div>
+            </div>
+            <el-button size="small" type="primary" @click="downloadCertificate(cert.id)">Tải PDF</el-button>
+          </div>
+        </el-card>
         <el-card>
           <template #header><span class="section-title">Điểm danh gần đây</span></template>
           <div class="att-grid">
@@ -63,7 +73,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useClassStore } from '@/stores/class';
 import ClassPicker from '@/components/ClassPicker.vue';
-import { attendanceApi, gradesApi, assignmentsApi, submissionsApi, notificationsApi, sessionsApi } from '@/api';
+import { attendanceApi, gradesApi, assignmentsApi, submissionsApi, notificationsApi, sessionsApi, certificatesApi } from '@/api';
 import { fmtDate, fmtDateTime, gradeClassify } from '@/utils/format';
 import dayjs from 'dayjs';
 
@@ -75,6 +85,7 @@ const avg = ref({ average: null });
 const pendingAssign = ref([]);
 const unreadNotif = ref(0);
 const allSessions = ref([]);
+const certificates = ref([]);
 
 const attendancePct = computed(() => attStats.value.total ? Math.round(attStats.value.present / attStats.value.total * 100) : 100);
 const classification = computed(() => gradeClassify(avg.value.average).label);
@@ -114,6 +125,17 @@ const reload = async () => {
     return !s || s.status === 'NOT_SUBMITTED' || s.status === 'REVISION_REQUIRED';
   });
   unreadNotif.value = (await notificationsApi.unreadCount()) || 0;
+  certificates.value = await certificatesApi.list({ studentId: auth.user.id });
+};
+
+const downloadCertificate = async (id) => {
+  const blob = await certificatesApi.download(id);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `certificate-${id}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 watch(() => classStore.selectedId, reload);
@@ -139,4 +161,7 @@ onMounted(reload);
 .session-info { min-width: 0; }
 .session-title { font-weight: 500; font-size: 13px; color: #333; }
 .session-meta { font-size: 12px; color: #888; margin-top: 3px; }
+.cert-row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.cert-title { font-weight:600; font-size:13px; }
+.cert-meta { color:#888; font-size:12px; margin-top:3px; }
 </style>

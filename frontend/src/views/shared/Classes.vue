@@ -32,6 +32,7 @@
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="edit">Sửa</el-dropdown-item>
+                    <el-dropdown-item command="duplicate">Nhân bản</el-dropdown-item>
                     <el-dropdown-item command="delete" divided>Xóa</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -189,6 +190,18 @@
         <el-button type="primary" @click="createStudent" :loading="creating">Tạo</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showDuplicate" title="Nhân bản lớp" width="420px">
+      <el-form label-position="top">
+        <el-form-item label="Tên lớp mới"><el-input v-model="duplicateForm.name" /></el-form-item>
+        <el-form-item label="Lịch học"><el-input v-model="duplicateForm.scheduleNote" /></el-form-item>
+        <el-form-item><el-checkbox v-model="duplicateForm.copySessions">Sao chép buổi học</el-checkbox></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showDuplicate = false">Hủy</el-button>
+        <el-button type="primary" @click="duplicateClass">Tạo bản sao</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -219,6 +232,9 @@ const teacherFilter = ref(null);
 const classStatusFilter = ref('ALL');
 const enrolling = ref(false);
 const creating = ref(false);
+const showDuplicate = ref(false);
+const duplicateSource = ref(null);
+const duplicateForm = reactive({ name: '', scheduleNote: '', copySessions: true });
 
 const newCls = reactive({ courseId: null, teacherId: null, name: '', totalSessions: 20, tuitionFee: 3000000, scheduleNote: '' });
 const schedule = reactive({ autoGenerate: false, startDate: dayjs().format('YYYY-MM-DD'), weekdays: [1, 3, 5], startTime: '19:00', endTime: '21:00' });
@@ -317,6 +333,10 @@ const onCardCmd = async (cmd, c) => {
       scheduleNote: c.schedule_note,
     });
     showCreate.value = true;
+  } else if (cmd === 'duplicate') {
+    duplicateSource.value = c;
+    Object.assign(duplicateForm, { name: `${c.name} Kế tiếp`, scheduleNote: c.schedule_note || '', copySessions: true });
+    showDuplicate.value = true;
   } else if (cmd === 'delete') {
     try {
       await ElMessageBox.confirm(`Xóa lớp "${c.name}"? Toàn bộ dữ liệu (điểm danh, điểm, bài tập, học phí...) sẽ bị xóa.`, 'Xác nhận', { type: 'warning' });
@@ -325,6 +345,14 @@ const onCardCmd = async (cmd, c) => {
       await classStore.fetchClasses();
     } catch {}
   }
+};
+
+const duplicateClass = async () => {
+  if (!duplicateSource.value || !duplicateForm.name) { ElMessage.warning('Nhập tên lớp mới'); return; }
+  await classesApi.duplicate(duplicateSource.value.id, duplicateForm);
+  ElMessage.success('Đã nhân bản lớp');
+  showDuplicate.value = false;
+  await classStore.fetchClasses();
 };
 
 const bulkEnroll = async () => {

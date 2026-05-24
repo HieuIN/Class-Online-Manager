@@ -34,8 +34,10 @@
             <el-button size="small" @click="downloadInvoice(row)">PDF</el-button>
           </template>
         </el-table-column>
-        <el-table-column label="Hành động" width="140">
+        <el-table-column label="Hành động" width="220">
           <template #default="{ row }">
+            <el-button size="small" @click="openInstallments(row)">Đợt</el-button>
+            <el-button size="small" @click="openQr(row)">QR</el-button>
             <el-button v-if="row.status !== 'PAID'" size="small" type="primary" @click="openPay(row)">Ghi nhận</el-button>
           </template>
         </el-table-column>
@@ -55,6 +57,34 @@
         <el-button type="primary" @click="confirmPay">Xác nhận</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showInstallments" title="Đóng học phí nhiều đợt" width="620px">
+      <el-table :data="installments" size="small">
+        <el-table-column prop="due_date" label="Hạn" width="120">
+          <template #default="{ row }">{{ fmtDate(row.due_date) }}</template>
+        </el-table-column>
+        <el-table-column label="Số tiền"><template #default="{ row }">{{ fmtMoney(row.amount) }}</template></el-table-column>
+        <el-table-column label="Đã đóng"><template #default="{ row }">{{ fmtMoney(row.paid_amount) }}</template></el-table-column>
+        <el-table-column prop="status" label="Trạng thái" width="110" />
+        <el-table-column width="120">
+          <template #default="{ row }"><el-button size="small" type="primary" @click="payInstallment(row)">Thu đợt</el-button></template>
+        </el-table-column>
+      </el-table>
+      <el-divider />
+      <div class="installment-form">
+        <el-date-picker v-model="installmentForm.dueDate" type="date" value-format="YYYY-MM-DD" placeholder="Hạn nộp" />
+        <el-input-number v-model="installmentForm.amount" :min="0" :step="100000" />
+        <el-button type="primary" @click="createInstallment">Thêm đợt</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog v-model="showQr" title="VietQR chuyển khoản" width="420px">
+      <div v-if="qrInfo" class="qr-box">
+        <img :src="qrInfo.qrUrl" alt="VietQR" />
+        <b>{{ fmtMoney(qrInfo.amount) }}</b>
+        <p>Nội dung: {{ qrInfo.content }}</p>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -71,6 +101,12 @@ const payments = ref([]);
 const showPay = ref(false);
 const payRow = ref(null);
 const payAmount = ref(0);
+const showInstallments = ref(false);
+const showQr = ref(false);
+const installments = ref([]);
+const installmentPayment = ref(null);
+const installmentForm = ref({ dueDate: '', amount: 0 });
+const qrInfo = ref(null);
 
 const totalPaid = computed(() => payments.value.filter(p => p.status === 'PAID').reduce((s, p) => s + +p.amount, 0));
 const totalUnpaid = computed(() => payments.value.filter(p => p.status !== 'PAID').reduce((s, p) => s + (+p.amount - +p.paid_amount), 0));
@@ -88,6 +124,31 @@ const confirmPay = async () => {
   ElMessage.success('Đã ghi nhận thanh toán');
   showPay.value = false;
   reload();
+};
+
+const openInstallments = async (row) => {
+  installmentPayment.value = row;
+  installmentForm.value = { dueDate: row.due_date, amount: Math.max(0, +row.amount - +row.paid_amount) };
+  installments.value = await paymentsApi.installments(row.id);
+  showInstallments.value = true;
+};
+
+const createInstallment = async () => {
+  if (!installmentPayment.value || !installmentForm.value.dueDate || !installmentForm.value.amount) return;
+  await paymentsApi.createInstallment(installmentPayment.value.id, installmentForm.value);
+  installments.value = await paymentsApi.installments(installmentPayment.value.id);
+  reload();
+};
+
+const payInstallment = async (row) => {
+  await paymentsApi.payInstallment(row.id, +row.amount - +row.paid_amount);
+  installments.value = await paymentsApi.installments(installmentPayment.value.id);
+  reload();
+};
+
+const openQr = async (row) => {
+  qrInfo.value = await paymentsApi.vietqr(row.id);
+  showQr.value = true;
 };
 
 const slugify = (text) => {
@@ -117,4 +178,7 @@ onMounted(reload);
 
 <style scoped>
 .mb-4 { margin-bottom: 14px; }
+.installment-form { display:flex; gap: 8px; align-items:center; flex-wrap:wrap; }
+.qr-box { display:flex; flex-direction:column; align-items:center; gap: 10px; text-align:center; }
+.qr-box img { width: 280px; max-width: 100%; border: 1px solid #eee; border-radius: 8px; }
 </style>

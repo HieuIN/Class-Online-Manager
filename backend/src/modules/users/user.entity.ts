@@ -32,6 +32,15 @@ export class User {
   @Column({ name: 'parent_phone', nullable: true })
   parentPhone: string;
 
+  @Column({ name: 'birth_date', type: 'date', nullable: true })
+  birthDate: string;
+
+  @Column({ name: 'two_factor_enabled', default: false })
+  twoFactorEnabled: boolean;
+
+  @Column({ name: 'commission_rate', type: 'numeric', precision: 5, scale: 2, default: 0 })
+  commissionRate: number;
+
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 

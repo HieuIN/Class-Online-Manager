@@ -10,6 +10,45 @@ body, html, #app {
   --primary: #1D9E75;
   --primary-light: #E1F5EE;
   --primary-dark: #0F6E56;
+  --bg-primary: #F5F4F0;
+  --bg-secondary: #ffffff;
+  --text-primary: #1a1a18;
+  --text-secondary: #666;
+  --border: rgba(0,0,0,0.08);
+}
+html.dark {
+  --bg-primary: #1a1a18;
+  --bg-secondary: #242422;
+  --text-primary: #f0f0ee;
+  --text-secondary: #b8b8b2;
+  --border: rgba(255,255,255,0.12);
+  --primary-light: rgba(29, 158, 117, 0.18);
+}
+body, html, #app { background: var(--bg-primary); color: var(--text-primary); }
+html.dark .el-card,
+html.dark .el-header,
+html.dark .sidebar,
+html.dark .el-dialog,
+html.dark .el-table,
+html.dark .el-table tr,
+html.dark .el-table th.el-table__cell {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+html.dark .main-content,
+html.dark .metric-card,
+html.dark .stat-mini {
+  background: var(--bg-primary);
+}
+html.dark .el-card,
+html.dark .el-header,
+html.dark .sidebar {
+  border-color: var(--border);
+}
+html.dark .el-menu,
+html.dark .el-menu-item {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 /* Element Plus overrides */

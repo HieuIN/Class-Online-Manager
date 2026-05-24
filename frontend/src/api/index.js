@@ -7,6 +7,7 @@ export const authApi = {
   changePassword: (oldPwd, newPwd) => http.post('/auth/change-password', { oldPassword: oldPwd, newPassword: newPwd }),
   forgotPassword: (email) => http.post('/auth/forgot-password', { email }),
   resetPassword: (token, newPassword) => http.post('/auth/reset-password', { token, newPassword }),
+  verify2fa: (userId, code) => http.post('/auth/verify-2fa', { userId, code }),
 };
 
 export const usersApi = {
@@ -32,6 +33,7 @@ export const classesApi = {
   students: (id) => http.get(`/classes/${id}/students`),
   create: (d) => http.post('/classes', d),
   update: (id, d) => http.patch(`/classes/${id}`, d),
+  duplicate: (id, d) => http.post(`/classes/${id}/duplicate`, d),
   delete: (id) => http.delete(`/classes/${id}`),
 };
 
@@ -83,6 +85,8 @@ export const assignmentsApi = {
   list: (classId) => http.get('/assignments', { params: { classId } }),
   create: (d) => http.post('/assignments', d),
   update: (id, d) => http.patch(`/assignments/${id}`, d),
+  comments: (id) => http.get(`/assignments/${id}/comments`),
+  addComment: (id, content) => http.post(`/assignments/${id}/comments`, { content }),
   delete: (id) => http.delete(`/assignments/${id}`),
 };
 
@@ -107,6 +111,11 @@ export const paymentsApi = {
   pay: (id, paidAmount) => http.patch(`/payments/${id}/pay`, { paidAmount }),
   create: (d) => http.post('/payments', d),
   downloadInvoice: (id) => http.get(`/payments/${id}/invoice`, { responseType: 'blob' }),
+  installments: (id) => http.get(`/payments/${id}/installments`),
+  createInstallment: (id, d) => http.post(`/payments/${id}/installments`, d),
+  payInstallment: (id, paidAmount) => http.patch(`/payment-installments/${id}/pay`, { paidAmount }),
+  vietqr: (id) => http.get(`/payments/${id}/vietqr`),
+  commissions: (month) => http.get('/payments/teacher-commissions', { params: { month } }),
 };
 
 export const notificationsApi = {
@@ -166,4 +175,35 @@ export const reportsApi = {
   exportGrades: (classId) => http.get(`/reports/grades/${classId}`, { responseType: 'blob' }),
   exportAttendance: (classId) => http.get(`/reports/attendance/${classId}`, { responseType: 'blob' }),
   studentFinal: (studentId, classId) => http.get(`/reports/student-final/${studentId}`, { params: { classId }, responseType: 'blob' }),
+};
+
+export const learningExtrasApi = {
+  submitAnonymousFeedback: (classId, d) => http.post(`/anonymous-feedback/${classId}`, d),
+  anonymousFeedbackStats: (classId) => http.get(`/anonymous-feedback/${classId}`),
+  decks: (classId) => http.get('/flashcards/decks', { params: { classId } }),
+  createDeck: (d) => http.post('/flashcards/decks', d),
+  cards: (deckId) => http.get(`/flashcards/decks/${deckId}/cards`),
+  createCard: (deckId, d) => http.post(`/flashcards/decks/${deckId}/cards`, d),
+  uploadFlashcardMedia: (formData) => http.post('/flashcards/media', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  markCard: (cardId, remembered) => http.patch(`/flashcards/cards/${cardId}/progress`, { remembered }),
+  transcript: (studentId) => http.get(`/students/${studentId}/transcript`),
+  gallery: (classId) => http.get('/gallery', { params: { classId } }),
+  uploadGallery: (classId, formData) => http.post(`/gallery/${classId}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  deleteGallery: (id) => http.delete(`/gallery/${id}`),
+  reorderGradeItems: (items) => http.patch('/grade-items/reorder', { items }),
+  reorderSessions: (items) => http.patch('/sessions/reorder', { items }),
+  sentiment: (text) => http.post('/feedback/sentiment', { text }),
+};
+
+export const opsApi = {
+  auditLogs: (params) => http.get('/audit-logs', { params }),
+  createAudit: (d) => http.post('/audit-logs', d),
+  backups: () => http.get('/backups'),
+  createBackup: () => http.post('/backups'),
+  downloadBackup: (fileName) => http.get(`/backups/${fileName}`, { responseType: 'blob' }),
+  set2fa: (enabled) => http.patch('/auth/2fa', { enabled }),
+  sendOtp: () => http.post('/auth/2fa/send'),
+  pushSubscribe: (subscription) => http.post('/push/subscribe', subscription),
+  runBirthdays: () => http.post('/birthdays/run'),
+  myReferralCode: () => http.get('/referrals/my-code'),
 };

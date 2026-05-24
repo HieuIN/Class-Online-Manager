@@ -12,6 +12,11 @@ export class AuthController {
     return this.authService.login(body.email, body.password);
   }
 
+  @Post('verify-2fa')
+  verify2fa(@Body() body: { userId: number; code: string }) {
+    return this.authService.verifyOtp(body.userId, body.code);
+  }
+
   @Post('register')
   register(@Body() body: any) {
     return this.authService.register(body);

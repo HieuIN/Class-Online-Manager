@@ -55,6 +55,7 @@ class-manager/
 - PWA dùng `vite-plugin-pwa`, manifest/icon ở `frontend/public`, layout mobile có hamburger sidebar trong `AppLayout.vue`
 - Batch UX: Calendar có timetable tuần + export `.ics`; Grades/Attendance/Assignments/Classes có search/filter cơ bản; Grades và Classes có print-friendly mode; Grades có sticker feedback nhanh.
 - Batch analytics: module `analytics` cung cấp compare classes, ranking, predict final, attendance heatmap, assignment difficulty; `reports/student-final/:studentId` sinh PDF báo cáo cuối khóa.
+- Batch extras: `learning-extras`, `finance-extras`, `ops-extras` cung cấp feedback ẩn danh, thread bài tập, flashcard, transcript, duplicate class, photo gallery, trả góp/VietQR/hoa hồng, 2FA OTP, audit log, backup placeholder, referral, birthday notifications, sentiment cơ bản.
 - Format helpers ở `src/utils/format.js`: `fmtMoney`, `fmtDate`, `fmtDateTime`, `gradeClassify`, `submissionBadge`, `attendanceBadge`, `paymentBadge`, `initials`
 - Badge classes: `.badge-green` (success), `.badge-red` (danger), `.badge-amber` (warning), `.badge-blue` (info), `.badge-gray` (neutral), `.badge-purple`
 - Primary color: `#1D9E75` (dark `#0F6E56`, light `#E1F5EE`)
@@ -122,7 +123,7 @@ psql -U postgres -d class_manager
 - [x] Forum/Bảng tin trong lớp (post + comment realtime Socket.IO)
 - [x] Quiz online tự chấm
 - [x] Certificate PDF cuối khóa
-- [ ] Học viên feedback ẩn danh
+- [x] Học viên feedback ẩn danh
 
 ### 🌟 Phase C – Nice-to-have
 - [x] Dark mode, i18n (VI/EN/ZH), Upload avatar
@@ -130,7 +131,9 @@ psql -U postgres -d class_manager
 - [x] AI gợi ý nhận xét (dùng Claude API)
 - [x] Timetable tuần + export `.ics`, search/filter/sort cơ bản, print bảng điểm/danh sách lớp, sticker feedback nhanh
 - [x] Báo cáo PDF cuối khóa, ranking, heatmap chuyên cần, phân tích bài tập khó, so sánh lớp, dự đoán điểm cuối kỳ
-- [ ] Drag & drop sắp xếp cột điểm/session
+- [x] Flashcard ôn từ vựng, transcript học viên, thread bài tập, photo gallery lớp
+- [x] Trả học phí nhiều đợt, VietQR, hoa hồng, audit log, 2FA, backup placeholder, referral, birthday wisher
+- [x] Drag & drop sắp xếp cột điểm/session (API reorder)
 
 ## ⚠️ Gotchas đã gặp
 

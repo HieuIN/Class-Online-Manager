@@ -16,9 +16,12 @@ const routes = [
       { path: 'attendance', component: () => import('@/views/teacher/Attendance.vue'), meta: { roles: ['TEACHER'] } },
       { path: 'grades', component: () => import('@/views/teacher/Grades.vue'), meta: { roles: ['TEACHER'] } },
       { path: 'assignments', component: () => import('@/views/teacher/Assignments.vue'), meta: { roles: ['TEACHER'] } },
+      { path: 'quizzes', component: () => import('@/views/teacher/Quizzes.vue'), meta: { roles: ['TEACHER'] } },
       { path: 'progress', component: () => import('@/views/teacher/Progress.vue'), meta: { roles: ['TEACHER'] } },
       { path: 'materials', component: () => import('@/views/shared/Materials.vue') },
       { path: 'forum', component: () => import('@/views/shared/Forum.vue'), meta: { roles: ['TEACHER','STUDENT'] } },
+      { path: 'flashcards', component: () => import('@/views/shared/Flashcards.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
+      { path: 'class-extras', component: () => import('@/views/shared/ClassExtras.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
       { path: 'calendar', component: () => import('@/views/shared/Calendar.vue') },
       { path: 'analytics', component: () => import('@/views/teacher/Analytics.vue'), meta: { roles: ['TEACHER','ADMIN'] } },
       { path: 'payments', component: () => import('@/views/shared/Payments.vue'), meta: { roles: ['TEACHER','ADMIN'] } },
@@ -29,6 +32,7 @@ const routes = [
       { path: 'student/dashboard', component: () => import('@/views/student/StudentDashboard.vue'), meta: { roles: ['STUDENT'] } },
       { path: 'student/grades', component: () => import('@/views/student/StudentGrades.vue'), meta: { roles: ['STUDENT'] } },
       { path: 'student/assignments', component: () => import('@/views/student/StudentAssignments.vue'), meta: { roles: ['STUDENT'] } },
+      { path: 'student/quizzes', component: () => import('@/views/student/StudentQuizzes.vue'), meta: { roles: ['STUDENT'] } },
       { path: 'student/attendance', component: () => import('@/views/student/StudentAttendance.vue'), meta: { roles: ['STUDENT'] } },
 
       // Admin
@@ -36,6 +40,7 @@ const routes = [
       { path: 'admin/users', component: () => import('@/views/admin/Users.vue'), meta: { roles: ['ADMIN'] } },
       { path: 'admin/courses', component: () => import('@/views/admin/Courses.vue'), meta: { roles: ['ADMIN'] } },
       { path: 'admin/revenue', component: () => import('@/views/admin/Revenue.vue'), meta: { roles: ['ADMIN'] } },
+      { path: 'admin/operations', component: () => import('@/views/admin/Operations.vue'), meta: { roles: ['ADMIN'] } },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

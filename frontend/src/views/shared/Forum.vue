@@ -272,7 +272,7 @@ const closeSocket = () => {
 const openSocket = () => {
   closeSocket();
   if (!selectedClassId.value || !auth.token) return;
-  socket = io('/', { transports: ['websocket'], auth: { token: auth.token } });
+  socket = io(import.meta.env.VITE_SOCKET_URL || '/', { transports: ['websocket'], auth: { token: auth.token } });
   joinedClassId = selectedClassId.value;
   socket.on('connect', () => {
     socket.emit('class-posts:join', { classId: selectedClassId.value, token: auth.token });

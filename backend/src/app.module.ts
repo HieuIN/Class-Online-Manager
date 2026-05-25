@@ -26,6 +26,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { LearningExtrasModule } from './modules/learning-extras/learning-extras.module';
 import { FinanceExtrasModule } from './modules/finance-extras/finance-extras.module';
 import { OpsExtrasModule } from './modules/ops-extras/ops-extras.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { OpsExtrasModule } from './modules/ops-extras/ops-extras.module';
       autoLoadEntities: true,
       synchronize: false,
       logging: process.env.NODE_ENV !== 'production',
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
     }),
     AuthModule,
     UsersModule,
@@ -66,5 +68,6 @@ import { OpsExtrasModule } from './modules/ops-extras/ops-extras.module';
     FinanceExtrasModule,
     OpsExtrasModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

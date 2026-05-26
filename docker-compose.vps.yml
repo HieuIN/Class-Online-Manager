@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ctalk-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-class_manager}
+      POSTGRES_USER: ${DB_USER:-ctalk}
+      POSTGRES_PASSWORD: ${DB_PASS:?Set DB_PASS in .env.production}
+    volumes:
+      - ctalk_postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/batch_3_5_extras.sql:/docker-entrypoint-initdb.d/02-batch-extras.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ctalk} -d ${DB_NAME:-class_manager}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+    container_name: ctalk-api
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_SSL: "false"
+      UPLOAD_DIR: /app/uploads
+      PORT: 3000
+    volumes:
+      - ctalk_uploads:/app/uploads
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  ctalk_postgres_data:
+  ctalk_uploads:

@@ -1,5 +1,10 @@
 # Deploy v1 - CTalk Chinese
 
+Current low-cost plan: use VPS deployment in `VPS_DEPLOYMENT.md`.
+
+Render deployment is kept only as a fallback. Do not create the Render Blueprint if
+you want to avoid the estimated monthly Render bill.
+
 Domain production: `ctalkchinese.com`
 
 Khuyến nghị v1: frontend deploy trên Cloudflare, backend và database deploy trên Render vì app có NestJS API, Socket.IO, PostgreSQL và upload file.

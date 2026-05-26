@@ -4,7 +4,7 @@
       <div class="logo-box">
         <div class="logo-icon">CM</div>
         <h1>Đặt lại mật khẩu</h1>
-        <p class="subtitle">Tạo mật khẩu mới cho tài khoản ClassManager.</p>
+        <p class="subtitle">Tạo mật khẩu mới cho tài khoản Ctalk Chinese.</p>
       </div>
 
       <el-alert

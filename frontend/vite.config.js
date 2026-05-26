@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'ClassManager',
-        short_name: 'ClassMgr',
+        name: 'Ctalk Chinese',
+        short_name: 'Ctalk',
         theme_color: '#1D9E75',
         background_color: '#F5F4F0',
         start_url: '/',

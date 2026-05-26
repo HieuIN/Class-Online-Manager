@@ -3,7 +3,7 @@
     <div v-if="mobileSidebarOpen" class="mobile-backdrop" @click="mobileSidebarOpen = false"></div>
     <el-aside width="220px" :class="['sidebar', { open: mobileSidebarOpen }]">
       <div class="logo">
-        <div class="logo-line">🎓 <span>ClassManager</span></div>
+        <div class="logo-line"><img src="/logo.svg" alt="" /> <span>Ctalk Chinese</span></div>
         <div class="role-tag">{{ roleLabel }}</div>
       </div>
       <el-menu :default-active="$route.path" router class="menu" @select="closeMobileSidebar">
@@ -155,7 +155,7 @@ const navItems = computed(() => {
 const pageTitle = computed(() => {
   if (route.path === '/profile') return 'Hồ sơ cá nhân';
   const item = navItems.value.find(n => n.path === route.path);
-  return item ? t(item.labelKey || item.label) : 'ClassManager';
+  return item ? t(item.labelKey || item.label) : 'Ctalk Chinese';
 });
 
 const changeLocale = (value) => {
@@ -233,7 +233,8 @@ onUnmounted(() => {
 .layout { height: 100vh; }
 .sidebar { background: #fff; border-right: 1px solid rgba(0,0,0,0.08); display: flex; flex-direction: column; padding: 0; }
 .logo { padding: 18px 16px 14px; border-bottom: 1px solid rgba(0,0,0,0.08); }
-.logo-line { font-size: 15px; font-weight: 600; color: #0F6E56; display:flex; align-items:center; gap:6px; }
+.logo-line { font-size: 15px; font-weight: 600; color: #0F6E56; display:flex; align-items:center; gap:8px; }
+.logo-line img { width: 24px; height: 24px; border-radius: 7px; flex: 0 0 auto; }
 .role-tag { font-size: 11px; color: #888; margin-top: 4px; }
 .menu { flex: 1; border: none !important; overflow-y: auto; }
 .menu :deep(.el-menu-item) { font-size: 13px; height: 38px; line-height: 38px; }

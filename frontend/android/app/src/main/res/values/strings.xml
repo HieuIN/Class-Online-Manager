@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">ClassManager</string>
-    <string name="title_activity_main">ClassManager</string>
+    <string name="app_name">Ctalk Chinese</string>
+    <string name="title_activity_main">Ctalk Chinese</string>
     <string name="package_name">com.ctalkchinese.classmanager</string>
     <string name="custom_url_scheme">com.ctalkchinese.classmanager</string>
 </resources>

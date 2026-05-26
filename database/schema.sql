@@ -537,14 +537,14 @@ CREATE TABLE IF NOT EXISTS referrals (
 -- =====================================================
 -- Default password for all seeded users: "password123" (bcrypt hash)
 INSERT INTO users (email, phone, password_hash, full_name, role) VALUES
-('admin@cm.com', '0900000001', '$2b$10$N9qo8uLOickgx2ZMRZoMye.IjZAgcfl7p92ldGxad68LJZdL17lhS', 'Quản trị viên', 'ADMIN'),
-('teacher@cm.com', '0900000002', '$2b$10$N9qo8uLOickgx2ZMRZoMye.IjZAgcfl7p92ldGxad68LJZdL17lhS', 'Nguyễn Lan Anh', 'TEACHER'),
-('teacher2@cm.com', '0900000003', '$2b$10$N9qo8uLOickgx2ZMRZoMye.IjZAgcfl7p92ldGxad68LJZdL17lhS', 'Trần Minh Tuấn', 'TEACHER'),
-('student1@cm.com', '0901234567', '$2b$10$N9qo8uLOickgx2ZMRZoMye.IjZAgcfl7p92ldGxad68LJZdL17lhS', 'Lê Minh Khoa', 'STUDENT'),
-('student2@cm.com', '0912345678', '$2b$10$N9qo8uLOickgx2ZMRZoMye.IjZAgcfl7p92ldGxad68LJZdL17lhS', 'Trần Hoa', 'STUDENT'),
-('student3@cm.com', '0923456789', '$2b$10$N9qo8uLOickgx2ZMRZoMye.IjZAgcfl7p92ldGxad68LJZdL17lhS', 'Nguyễn Bảo', 'STUDENT'),
-('student4@cm.com', '0934567890', '$2b$10$N9qo8uLOickgx2ZMRZoMye.IjZAgcfl7p92ldGxad68LJZdL17lhS', 'Phạm Thùy', 'STUDENT'),
-('student5@cm.com', '0945678901', '$2b$10$N9qo8uLOickgx2ZMRZoMye.IjZAgcfl7p92ldGxad68LJZdL17lhS', 'Vũ Hoàng', 'STUDENT')
+('admin@cm.com', '0900000001', '$2b$10$y1Jz61TDC4zcjwtxFOH91.hjO/pnu7wFwhiGeanubNtEOhlgKAhVW', 'Quản trị viên', 'ADMIN'),
+('teacher@cm.com', '0900000002', '$2b$10$y1Jz61TDC4zcjwtxFOH91.hjO/pnu7wFwhiGeanubNtEOhlgKAhVW', 'Nguyễn Lan Anh', 'TEACHER'),
+('teacher2@cm.com', '0900000003', '$2b$10$y1Jz61TDC4zcjwtxFOH91.hjO/pnu7wFwhiGeanubNtEOhlgKAhVW', 'Trần Minh Tuấn', 'TEACHER'),
+('student1@cm.com', '0901234567', '$2b$10$y1Jz61TDC4zcjwtxFOH91.hjO/pnu7wFwhiGeanubNtEOhlgKAhVW', 'Lê Minh Khoa', 'STUDENT'),
+('student2@cm.com', '0912345678', '$2b$10$y1Jz61TDC4zcjwtxFOH91.hjO/pnu7wFwhiGeanubNtEOhlgKAhVW', 'Trần Hoa', 'STUDENT'),
+('student3@cm.com', '0923456789', '$2b$10$y1Jz61TDC4zcjwtxFOH91.hjO/pnu7wFwhiGeanubNtEOhlgKAhVW', 'Nguyễn Bảo', 'STUDENT'),
+('student4@cm.com', '0934567890', '$2b$10$y1Jz61TDC4zcjwtxFOH91.hjO/pnu7wFwhiGeanubNtEOhlgKAhVW', 'Phạm Thùy', 'STUDENT'),
+('student5@cm.com', '0945678901', '$2b$10$y1Jz61TDC4zcjwtxFOH91.hjO/pnu7wFwhiGeanubNtEOhlgKAhVW', 'Vũ Hoàng', 'STUDENT')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO courses (name, code, description, start_date, end_date, created_by) VALUES

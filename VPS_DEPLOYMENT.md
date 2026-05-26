@@ -13,6 +13,7 @@ The frontend stays on Cloudflare.
 DNS:
 
 - `ctalkchinese.com` -> Cloudflare frontend
+- `www.ctalkchinese.com` -> Cloudflare frontend
 - `api.ctalkchinese.com` -> VPS public IP
 
 ## 1. Install server packages

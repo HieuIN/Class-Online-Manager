@@ -21,8 +21,13 @@ async function bootstrap() {
   // Serve uploaded files at /uploads/<filename>
   app.useStaticAssets(uploadDir, { prefix: '/uploads/' });
 
+  const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
   });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));

@@ -41,9 +41,9 @@ services:
       - key: UPLOAD_DIR
         value: /var/data/uploads
       - key: CORS_ORIGIN
-        value: https://ctalk.onrender.com
+        value: https://ctalkchinese.com
       - key: FRONTEND_URL
-        value: https://ctalk.onrender.com
+        value: https://ctalkchinese.com
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -71,9 +71,9 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://ctalk-api.onrender.com/api
+        value: https://api.ctalkchinese.com/api
       - key: VITE_SOCKET_URL
-        value: https://ctalk-api.onrender.com
+        value: https://api.ctalkchinese.com
     routes:
       - type: rewrite
         source: /*

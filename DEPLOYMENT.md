@@ -1,43 +1,30 @@
-# Deploy v1 - CTalk
+# Deploy v1 - CTalk Chinese
 
-Khuyến nghị v1: deploy trên Render vì app có NestJS API, Socket.IO, PostgreSQL và upload file. Frontend dùng Static Site, backend dùng Web Service, database dùng Render PostgreSQL.
+Domain production: `ctalkchinese.com`
+
+Khuyến nghị v1: frontend deploy trên Cloudflare, backend và database deploy trên Render vì app có NestJS API, Socket.IO, PostgreSQL và upload file.
 
 ## 1. Tên miền
 
-Các tên nên thử đăng ký:
+DNS cần cấu hình:
 
-- `ctalk.app`
-- `ctalk.school`
-- `ctalk.edu.vn`
-- `ctalk.vn`
-- `ctalkclass.com`
-- `ctalkcenter.com`
-- `ctalkhsk.com`
+- `ctalkchinese.com` trỏ về Cloudflare Worker/Pages frontend.
+- `www.ctalkchinese.com` redirect hoặc trỏ về frontend.
+- `api.ctalkchinese.com` trỏ về Render backend.
 
-Nếu muốn nhanh và ít cấu hình, có thể dùng tạm domain Render:
+Env production:
 
-- Frontend: `https://ctalk.onrender.com`
-- API: `https://ctalk-api.onrender.com`
+- Backend `CORS_ORIGIN=https://ctalkchinese.com`
+- Backend `FRONTEND_URL=https://ctalkchinese.com`
+- Frontend `VITE_API_URL=https://api.ctalkchinese.com/api`
+- Frontend `VITE_SOCKET_URL=https://api.ctalkchinese.com`
 
-Khi mua domain riêng, cấu hình DNS:
-
-- `ctalk.<tld>` hoặc `www.ctalk.<tld>` trỏ về frontend Render Static Site.
-- `api.ctalk.<tld>` trỏ về backend Render Web Service.
-
-Sau khi gắn domain thật, cập nhật env:
-
-- Backend `CORS_ORIGIN=https://ctalk.<tld>`
-- Backend `FRONTEND_URL=https://ctalk.<tld>`
-- Frontend `VITE_API_URL=https://api.ctalk.<tld>/api`
-- Frontend `VITE_SOCKET_URL=https://api.ctalk.<tld>`
-
-## 2. Deploy bằng Render Blueprint
+## 2. Deploy backend + database bằng Render Blueprint
 
 1. Push repo lên GitHub.
 2. Render -> New -> Blueprint -> chọn repo.
 3. Render đọc file `render.yaml` và tạo:
    - `ctalk-api`
-   - `ctalk`
    - `ctalk-db`
 4. Điền các env secret còn trống:
    - `SMTP_HOST`
@@ -46,6 +33,8 @@ Sau khi gắn domain thật, cập nhật env:
    - `SMTP_FROM`
    - `ANTHROPIC_API_KEY`
 5. Deploy.
+
+Nếu không muốn dùng frontend Render, có thể xóa/bỏ qua service `ctalk` trong Render và chỉ dùng Cloudflare cho frontend.
 
 ## 3. Seed database production
 
@@ -70,8 +59,8 @@ Các file upload sẽ sống qua deploy/restart trong disk `ctalk-uploads`.
 
 ## 5. Kiểm tra sau deploy
 
-- `https://ctalk-api.onrender.com/api/health` trả `{ ok: true }`
-- Frontend mở được dashboard.
+- `https://api.ctalkchinese.com/api/health` trả `{ ok: true }`
+- `https://ctalkchinese.com` mở được dashboard.
 - Login thử `admin@cm.com`, đổi mật khẩu ngay.
 - Upload avatar và flashcard media thử.
 - Forum realtime hoạt động.

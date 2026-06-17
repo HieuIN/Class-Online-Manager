@@ -23,12 +23,6 @@
       <div class="forgot-row">
         <router-link to="/forgot-password">Quên mật khẩu?</router-link>
       </div>
-      <div class="hint">
-        <strong>Tài khoản demo</strong> (password: <code>password123</code>):<br/>
-        <span class="row"><span>GV: teacher@cm.com</span></span>
-        <span class="row"><span>HV: student1@cm.com</span></span>
-        <span class="row"><span>Admin: admin@cm.com</span></span>
-      </div>
     </div>
   </div>
 </template>
@@ -41,7 +35,7 @@ import { ElMessage } from 'element-plus';
 
 const router = useRouter();
 const auth = useAuthStore();
-const form = reactive({ email: 'teacher@cm.com', password: 'password123', otp: '' });
+const form = reactive({ email: '', password: '', otp: '' });
 const loading = ref(false);
 const pendingOtpUserId = ref(null);
 
@@ -79,9 +73,6 @@ const onLogin = async () => {
 .brand-logo { width: 58px; height: 58px; display: block; margin: 0 auto 10px; border-radius: 14px; box-shadow: 0 10px 24px rgba(15,110,86,0.18); }
 .logo-box h1 { font-size: 24px; font-weight: 600; color: #0F6E56; margin: 8px 0 4px; }
 .subtitle { color: #888; font-size: 13px; margin: 0; }
-.hint { margin-top: 22px; padding: 14px; background: #f5f4f0; border-radius: 8px; font-size: 12px; color: #666; line-height: 1.8; }
-.hint .row { display: block; }
-.hint code { background: #fff; padding: 1px 6px; border-radius: 4px; }
 .forgot-row { text-align: right; margin-top: 12px; font-size: 13px; }
 .forgot-row a { color: #0F6E56; text-decoration: none; font-weight: 500; }
 .forgot-row a:hover { text-decoration: underline; }

@@ -11,13 +11,6 @@ npm run build    # build production -> dist/
 
 Backend phải chạy trước ở `http://localhost:3000`. Vite tự proxy `/api` và `/uploads` sang backend.
 
-## Tài khoản demo
-
-Tất cả password: `password123`
-- Giáo viên: `teacher@cm.com`
-- Học viên: `student1@cm.com` (có sẵn data)
-- Admin: `admin@cm.com`
-
 ## Cấu trúc
 
 ```

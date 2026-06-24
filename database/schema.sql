@@ -262,6 +262,42 @@ CREATE INDEX idx_certificates_enrollment ON certificates(enrollment_id);
 CREATE INDEX idx_certificates_issued_by ON certificates(issued_by);
 
 -- =====================================================
+-- PRONUNCIATION PRACTICE (Luyện phát âm)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS pronunciation_exercises (
+    id                  SERIAL PRIMARY KEY,
+    class_id            INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    title               VARCHAR(255) NOT NULL,
+    prompt_text         TEXT NOT NULL,
+    pinyin              TEXT,
+    meaning             TEXT,
+    sample_audio_url    TEXT,
+    due_date            TIMESTAMP,
+    created_by          INTEGER REFERENCES users(id),
+    created_at          TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS pronunciation_submissions (
+    id                  SERIAL PRIMARY KEY,
+    exercise_id         INTEGER NOT NULL REFERENCES pronunciation_exercises(id) ON DELETE CASCADE,
+    student_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    audio_url           TEXT NOT NULL,
+    duration_seconds    INTEGER,
+    score               NUMERIC(5,2),
+    teacher_comment     TEXT,
+    status              VARCHAR(20) DEFAULT 'SUBMITTED',
+    submitted_at        TIMESTAMP DEFAULT NOW(),
+    graded_at           TIMESTAMP,
+    graded_by           INTEGER REFERENCES users(id),
+    UNIQUE (exercise_id, student_id),
+    CONSTRAINT pronunciation_submission_status_check CHECK (status IN ('SUBMITTED','GRADED','REVISION_REQUIRED'))
+);
+
+CREATE INDEX idx_pronunciation_exercises_class ON pronunciation_exercises(class_id);
+CREATE INDEX idx_pronunciation_submissions_exercise ON pronunciation_submissions(exercise_id);
+CREATE INDEX idx_pronunciation_submissions_student ON pronunciation_submissions(student_id);
+
+-- =====================================================
 -- MATERIALS (Tài liệu)
 -- =====================================================
 CREATE TABLE IF NOT EXISTS materials (

@@ -1,13 +1,13 @@
 import { Injectable, Module, Controller, Get, Post, Patch, Body, Param, ParseIntPipe, Query, UseGuards, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { extname } from 'path';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository, DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles, RolesGuard } from '../../common/roles.guard';
 import { CurrentUser } from '../../common/current-user.decorator';
+import { ensureUploadDir } from '../../common/upload-dir.util';
 
 @Entity('submissions')
 export class Submission {
@@ -24,13 +24,6 @@ export class Submission {
   @Column({ name: 'graded_at', type: 'timestamp', nullable: true }) gradedAt: Date;
   @Column({ name: 'graded_by', nullable: true }) gradedBy: number;
 }
-
-const uploadRoot = () => process.env.UPLOAD_DIR || './uploads';
-const ensureUploadDir = (folder: string) => {
-  const dir = join(process.cwd(), uploadRoot(), folder);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  return dir;
-};
 
 @Injectable()
 export class SubmissionsService {

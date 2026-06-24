@@ -61,7 +61,13 @@ docker compose -f docker-compose.vps.yml --env-file .env.production ps
 Fresh databases are initialized automatically from:
 
 - `database/schema.sql`
-- `database/batch_3_5_extras.sql`
+
+For an existing production database, apply the pronunciation migration once:
+
+```bash
+docker compose -f docker-compose.vps.yml --env-file .env.production exec -T postgres \
+  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/pronunciation.sql
+```
 
 ## 4. Configure Nginx
 
@@ -116,5 +122,9 @@ Backups are kept for 14 days in `/opt/ctalk/backups`.
 ```bash
 cd /opt/ctalk/app
 git pull
+docker compose -f docker-compose.vps.yml --env-file .env.production exec -T postgres \
+  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/pronunciation.sql
 docker compose -f docker-compose.vps.yml --env-file .env.production up -d --build
+docker compose -f docker-compose.vps.yml --env-file .env.production ps
+curl https://api.ctalkchinese.com/api/health
 ```

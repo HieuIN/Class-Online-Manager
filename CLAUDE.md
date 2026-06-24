@@ -123,6 +123,7 @@ psql -U postgres -d class_manager
 - [x] Forum/Bảng tin trong lớp (post + comment realtime Socket.IO)
 - [x] Quiz online tự chấm
 - [x] Certificate PDF cuối khóa
+- [x] Luyện phát âm Phase 1 (GV tạo bài + audio mẫu, HV ghi âm/nộp, GV nghe/chấm)
 - [x] Học viên feedback ẩn danh
 
 ### 🌟 Phase C – Nice-to-have

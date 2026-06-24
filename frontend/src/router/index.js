@@ -20,6 +20,7 @@ const routes = [
       { path: 'progress', component: () => import('@/views/teacher/Progress.vue'), meta: { roles: ['TEACHER'] } },
       { path: 'materials', component: () => import('@/views/shared/Materials.vue') },
       { path: 'forum', component: () => import('@/views/shared/Forum.vue'), meta: { roles: ['TEACHER','STUDENT'] } },
+      { path: 'pronunciation', component: () => import('@/views/shared/Pronunciation.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
       { path: 'flashcards', component: () => import('@/views/shared/Flashcards.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
       { path: 'class-extras', component: () => import('@/views/shared/ClassExtras.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
       { path: 'calendar', component: () => import('@/views/shared/Calendar.vue') },

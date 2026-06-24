@@ -4,8 +4,7 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { extname } from 'path';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -14,6 +13,8 @@ import { Server, Socket } from 'socket.io';
 import { AuthModule } from '../auth/auth.module';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/current-user.decorator';
+import { allowedOrigins } from '../../common/cors.util';
+import { ensureUploadDir } from '../../common/upload-dir.util';
 
 @Entity('class_posts')
 export class ClassPost {
@@ -46,14 +47,7 @@ export class PostAttachment {
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
 }
 
-const uploadRoot = () => process.env.UPLOAD_DIR || './uploads';
-const ensureUploadDir = (folder: string) => {
-  const dir = join(process.cwd(), uploadRoot(), folder);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  return dir;
-};
-
-@WebSocketGateway({ cors: { origin: process.env.CORS_ORIGIN || 'http://localhost:5173', credentials: true } })
+@WebSocketGateway({ cors: { origin: allowedOrigins(), credentials: true } })
 export class ClassPostsGateway {
   @WebSocketServer() server: Server;
 

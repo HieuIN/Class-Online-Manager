@@ -1,18 +1,14 @@
 import { Body, Controller, Delete, ForbiddenException, Get, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { extname } from 'path';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles, RolesGuard } from '../../common/roles.guard';
 import { CurrentUser } from '../../common/current-user.decorator';
+import { ensureUploadDir } from '../../common/upload-dir.util';
 
-const avatarDir = () => {
-  const dir = join(process.cwd(), process.env.UPLOAD_DIR || './uploads', 'avatars');
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  return dir;
-};
+const avatarDir = () => ensureUploadDir('avatars');
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)

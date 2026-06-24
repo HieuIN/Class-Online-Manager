@@ -5,20 +5,11 @@ import { Roles, RolesGuard } from '../../common/roles.guard';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { extname } from 'path';
+import { ensureUploadDir } from '../../common/upload-dir.util';
 
-const galleryDir = () => {
-  const dir = join(process.cwd(), process.env.UPLOAD_DIR || './uploads', 'gallery');
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  return dir;
-};
-
-const flashcardDir = () => {
-  const dir = join(process.cwd(), process.env.UPLOAD_DIR || './uploads', 'flashcards');
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  return dir;
-};
+const galleryDir = () => ensureUploadDir('gallery');
+const flashcardDir = () => ensureUploadDir('flashcards');
 
 @Injectable()
 export class LearningExtrasService {

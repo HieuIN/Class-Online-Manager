@@ -79,7 +79,7 @@ import { notificationsApi } from '@/api';
 import UserAvatar from '@/components/UserAvatar.vue';
 import {
   House, School, Select, Histogram, Document, TrendCharts, Folder, Calendar,
-  PieChart, Money, Bell, SwitchButton, User, CaretTop, UserFilled, Reading, ChatDotRound, EditPen, Moon, Sunny, Menu as MenuIcon,
+  PieChart, Money, Bell, SwitchButton, User, CaretTop, UserFilled, Reading, ChatDotRound, EditPen, Moon, Sunny, Menu as MenuIcon, Microphone,
 } from '@element-plus/icons-vue';
 
 const route = useRoute();
@@ -108,6 +108,7 @@ const teacherNav = [
   { path: '/assignments', labelKey: 'menu.assignments', icon: Document },
   { path: '/quizzes', labelKey: 'menu.quiz', icon: EditPen },
   { path: '/forum', labelKey: 'menu.forum', icon: ChatDotRound },
+  { path: '/pronunciation', labelKey: 'menu.pronunciation', icon: Microphone },
   { path: '/flashcards', label: 'Flashcards', icon: Reading },
   { path: '/class-extras', label: 'Extras', icon: Folder },
   { path: '/progress', labelKey: 'menu.progress', icon: TrendCharts },
@@ -124,6 +125,7 @@ const studentNav = [
   { path: '/student/assignments', labelKey: 'menu.assignments', icon: Document },
   { path: '/student/quizzes', labelKey: 'menu.quiz', icon: EditPen },
   { path: '/forum', labelKey: 'menu.forum', icon: ChatDotRound },
+  { path: '/pronunciation', labelKey: 'menu.pronunciation', icon: Microphone },
   { path: '/flashcards', label: 'Flashcards', icon: Reading },
   { path: '/class-extras', label: 'Extras', icon: Folder },
   { path: '/student/attendance', labelKey: 'menu.attendance', icon: Select },
@@ -138,6 +140,7 @@ const adminNav = [
   { path: '/admin/courses', labelKey: 'menu.courses', icon: Reading },
   { path: '/classes', labelKey: 'menu.classes', icon: School },
   { path: '/flashcards', label: 'Flashcards', icon: Reading },
+  { path: '/pronunciation', labelKey: 'menu.pronunciation', icon: Microphone },
   { path: '/class-extras', label: 'Extras', icon: Folder },
   { path: '/payments', labelKey: 'menu.payments', icon: Money },
   { path: '/admin/revenue', labelKey: 'menu.revenue', icon: TrendCharts },

@@ -9,6 +9,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['logo.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
+      workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        navigateFallbackDenylist: [/^\/assets\//],
+      },
       manifest: {
         name: 'Ctalk Chinese',
         short_name: 'Ctalk',

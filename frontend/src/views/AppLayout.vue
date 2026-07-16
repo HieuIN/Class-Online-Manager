@@ -62,7 +62,7 @@
             <el-option label="EN" value="en" />
             <el-option label="中文" value="zh" />
           </el-select>
-          <el-button class="header-icon-button" circle text aria-label="Đổi giao diện" @click="settings.toggleMode()">
+          <el-button v-if="!isChildStudent" class="header-icon-button" circle text aria-label="Đổi giao diện" @click="settings.toggleMode()">
             <el-icon><component :is="settings.mode === 'dark' ? Sunny : Moon" /></el-icon>
           </el-button>
           <el-badge :value="unread" :hidden="!unread" class="badge-bell">
@@ -263,13 +263,49 @@ onUnmounted(() => {
 <style scoped>
 .layout { min-height: 100vh; background: var(--canvas); }
 .student-layout { --student-jade: #0f8e6d; --student-coral: #d97755; --student-gold: #d89a2a; --student-blue: #497bc4; }
-.student-kids-layout { --brand-700: #0b725a; --brand-600: #0f8e6d; --brand-500: #18a37d; --brand-100: #ddf7ec; --canvas: #f7fbf7; --surface-soft: #edf8f1; }
+.student-kids-layout {
+  --brand-700: #0d765c;
+  --brand-600: #128964;
+  --brand-500: #1aa878;
+  --brand-100: #dff5e9;
+  --canvas: #fff8e9;
+  --surface: #fffdf7;
+  --surface-soft: #fff1d6;
+  --ink-900: #19382c;
+  --ink-700: #355847;
+  --ink-500: #62776c;
+  --ink-400: #7d9186;
+  --border: #e5d8bc;
+  --border-strong: #d7c89f;
+  --shadow-soft: 0 8px 22px rgba(94, 76, 35, 0.08);
+  --shadow-float: 0 16px 38px rgba(94, 76, 35, 0.14);
+  --el-bg-color: #fffdf7;
+  --el-bg-color-page: #fff8e9;
+  --el-bg-color-overlay: #fffdf7;
+  --el-fill-color-blank: #fffdf7;
+  --el-fill-color: #fff7e8;
+  --el-fill-color-light: #fff1d6;
+  --el-fill-color-lighter: #fff8ed;
+  --el-border-color: #e5d8bc;
+  --el-border-color-light: #f0e6cf;
+  --el-text-color-primary: #19382c;
+  --el-text-color-regular: #355847;
+  --el-text-color-secondary: #62776c;
+}
 .student-layout .workspace-dot { background: var(--student-gold); }
 .student-layout .menu :deep(.el-menu-item) { border-radius: 8px; }
 .student-layout .menu :deep(.el-menu-item.is-active) { background: #def4ea; box-shadow: inset 3px 0 0 var(--student-jade); }
 .student-layout .menu :deep(.el-menu-item.is-active .el-icon) { color: var(--student-jade); }
+.student-kids-layout .sidebar { background: #fffdf7; border-right-color: #e5d8bc; }
+.student-kids-layout .brand-block { background: #fff5df; border-bottom-color: #e5d8bc; }
+.student-kids-layout .workspace-label { color: #7b6844; }
 .student-kids-layout .menu :deep(.el-menu-item) { min-height: 42px; }
-.student-kids-layout .main-content { background: #f7fbf7; }
+.student-kids-layout .menu :deep(.el-menu-item:hover) { background: #fff1d6; color: #19382c; }
+.student-kids-layout .menu :deep(.el-menu-item.is-active) { background: #ddf5e8; box-shadow: inset 3px 0 0 #e39836; color: #155f4c; }
+.student-kids-layout .menu :deep(.el-menu-item.is-active .el-icon) { color: #d27b27; }
+.student-kids-layout .main-content { background: #fff8e9; }
+.student-kids-layout .header { background: rgba(255, 253, 247, 0.94); border-bottom-color: #e5d8bc; }
+.student-kids-layout .footer { border-top-color: #e5d8bc; }
 .sidebar { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 0; }
 .brand-block { padding: 20px 16px 16px; border-bottom: 1px solid var(--border); }
 .brand-link { align-items: center; color: inherit; display: flex; gap: 10px; text-decoration: none; }

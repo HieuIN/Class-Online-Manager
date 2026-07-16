@@ -3,6 +3,7 @@
     <section :class="['student-hero', currentHeroSlide.tone]" aria-labelledby="student-welcome-title">
       <Transition name="hero-copy" mode="out-in">
         <div :key="currentHeroSlide.id" class="student-hero-copy">
+          <span v-if="childMode" class="child-mode-ribbon">Nhiệm vụ khám phá</span>
           <span class="eyebrow hero-eyebrow">{{ currentHeroSlide.kicker }}</span>
           <h1 id="student-welcome-title">{{ currentHeroSlide.title }}</h1>
           <p>{{ currentHeroSlide.description }}</p>
@@ -407,11 +408,23 @@ onUnmounted(stopHeroCarousel);
 .student-hero.hero-assignment p { color: #745c45; }
 .student-hero.hero-notification h1 { color: #45335d; }
 .student-hero.hero-notification p { color: #695778; }
-.child-dashboard .student-hero { border-color: #addfca; }
+.child-dashboard .student-hero { background: #fff0c9; border: 2px solid #e7bd61; box-shadow: 0 12px 26px rgba(163, 113, 20, 0.12); }
+.child-dashboard .student-hero.hero-session { background: #e5f3ff; border-color: #8cbfe3; }
+.child-dashboard .student-hero.hero-assignment { background: #fff0da; border-color: #edb46f; }
+.child-dashboard .student-hero.hero-notification { background: #f4eafe; border-color: #c5a4df; }
 .child-dashboard .student-hero-copy { max-width: 660px; }
 .child-dashboard .hero-actions :deep(.el-button) { min-height: 42px; }
-.child-dashboard .learning-quick-card { border-top: 3px solid var(--quick-color); }
-.child-dashboard .student-metric { border-top: 3px solid var(--metric-color); }
+.child-dashboard .student-hero-art { border-left: 3px solid rgba(194, 137, 35, 0.35); }
+.child-dashboard .learning-quick-card { border: 2px solid var(--quick-color); border-top-width: 4px; }
+.child-dashboard .learning-quick-card.pronunciation { background: #eaf8ef; }
+.child-dashboard .learning-quick-card.quiz { background: #fff2e1; }
+.child-dashboard .learning-quick-card.flashcards { background: #eaf1ff; }
+.child-dashboard .student-metric { border: 2px solid var(--metric-color); border-top-width: 4px; }
+.child-dashboard .attendance-metric { background: #eaf8ef; }
+.child-dashboard .grade-metric { background: #f2eafe; }
+.child-dashboard .assignment-metric { background: #fff3df; }
+.child-dashboard .notification-metric { background: #eaf1ff; }
+.child-mode-ribbon { align-items:center; background:#0d765c; border-radius:999px; color:#fffdf7; display:inline-flex; font-size:10px; font-weight:800; letter-spacing:0.06em; margin-bottom:11px; padding:6px 10px; text-transform:uppercase; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 22px; }
 .hero-actions :deep(.el-button) { min-height: 38px; }
 .student-hero-art { height: 100%; min-height: 270px; object-fit: cover; object-position: 70% center; width: 100%; }

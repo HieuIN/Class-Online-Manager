@@ -315,6 +315,11 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
 .review-option.correct { background: #e5f5ec; border-color: #8ed4bb; color: #17684f; font-weight: 700; }
 .review-option.wrong { background: #fcebea; border-color: #f0b8b3; color: #a33733; }
 .child-quiz .quiz-card, .child-quiz .quiz-history, .child-quiz .quiz-take-card, .child-quiz .quiz-result-card { border-width: 2px; }
+.child-quiz .quiz-card { background:#fffaf0; border-color:#efc982; }
+.child-quiz .quiz-history { background:#edf7ff; border-color:#a8cde9; }
+.child-quiz .quiz-take-card, .child-quiz .quiz-result-card { background:#fffdf7; border-color:#e5c47f; }
+.child-quiz .quiz-card-icon { background:#ffe5bd; }
+.child-quiz .history-icon { background:#dff1ff; color:#2e77ab; }
 .child-quiz .quiz-card h2, .child-quiz .question-box h2 { line-height: 1.45; }
 .child-quiz .answer-list :deep(.el-radio) { min-height: 66px; }
 .child-quiz .question-dot { height: 34px; width: 34px; }

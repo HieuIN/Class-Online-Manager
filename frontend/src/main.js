@@ -13,6 +13,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue';
 import App from './App.vue';
 import router from './router';
 import { i18n } from './i18n';
+import { registerSW } from 'virtual:pwa-register';
 import './assets/main.css';
 
 if (localStorage.getItem('themeMode') === 'dark') document.documentElement.classList.add('dark');
@@ -26,3 +27,14 @@ app.use(ElementPlus, { locale: undefined });
 for (const [k, c] of Object.entries(ElementPlusIconsVue)) app.component(k, c);
 
 app.mount('#app');
+
+// Long-lived PWA sessions should activate a fresh hashed asset bundle promptly.
+const updateServiceWorker = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    updateServiceWorker(true);
+  },
+  onRegisteredSW(_swUrl, registration) {
+    if (registration) window.setInterval(() => registration.update(), 60 * 60 * 1000);
+  },
+});

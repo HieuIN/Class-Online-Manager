@@ -25,6 +25,14 @@
     "teacher": "Teacher",
     "student": "Student"
   },
+  "nav": {
+    "overview": "Overview",
+    "classroom": "Class operations",
+    "learning": "Learning",
+    "insights": "Tracking",
+    "progress": "Learning journey",
+    "management": "Administration"
+  },
   "common": {
     "logout": "Log out",
     "profile": "Profile",

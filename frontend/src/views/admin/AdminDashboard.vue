@@ -1,53 +1,105 @@
 <template>
-  <div>
-    <el-row :gutter="14" class="mb-4">
-      <el-col :span="6"><div class="metric-card"><div class="metric-label">Tổng khóa học</div><div class="metric-value">{{ courses.length }}</div></div></el-col>
-      <el-col :span="6"><div class="metric-card"><div class="metric-label">Lớp đang chạy</div><div class="metric-value">{{ classes.length }}</div></div></el-col>
-      <el-col :span="6"><div class="metric-card"><div class="metric-label">Tổng học viên</div><div class="metric-value">{{ totalStudents }}</div></div></el-col>
-      <el-col :span="6"><div class="metric-card"><div class="metric-label">Học phí chờ thu</div><div class="metric-value" style="color:#E24B4A;font-size:18px">{{ fmtMoney(pendingAmount) }}</div></div></el-col>
-    </el-row>
+  <div class="page-shell admin-dashboard">
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow">Trung tâm</span>
+        <h1>Toàn cảnh vận hành</h1>
+        <p>Theo dõi lớp học, học viên và học phí từ một nơi.</p>
+      </div>
+      <div class="page-actions">
+        <el-button @click="$router.push('/admin/users')">Quản lý người dùng</el-button>
+        <el-button type="primary" @click="$router.push('/classes')">Tạo lớp mới</el-button>
+      </div>
+    </div>
 
-    <el-row :gutter="14" class="mb-4">
-      <el-col :span="14">
-        <el-card>
-          <template #header>
-            <div class="header-line"><span class="section-title">Danh sách lớp</span>
-              <el-button type="primary" size="small" @click="$router.push('/classes')">+ Tạo lớp</el-button>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-label">Khóa học</div>
+        <div class="metric-value">{{ courses.length }}</div>
+        <div class="metric-sub">Đang được quản lý</div>
+      </div>
+      <div class="metric-card tone-blue">
+        <div class="metric-label">Lớp đang vận hành</div>
+        <div class="metric-value">{{ classes.length }}</div>
+        <div class="metric-sub">Toàn trung tâm</div>
+      </div>
+      <div class="metric-card tone-violet">
+        <div class="metric-label">Học viên</div>
+        <div class="metric-value">{{ totalStudents }}</div>
+        <div class="metric-sub">Tài khoản học viên</div>
+      </div>
+      <div class="metric-card tone-red">
+        <div class="metric-label">Học phí cần theo dõi</div>
+        <div class="metric-value money-value">{{ fmtMoney(pendingAmount) }}</div>
+        <div class="metric-sub">Chưa thanh toán hoặc thanh toán một phần</div>
+      </div>
+    </div>
+
+    <div class="content-grid admin-main-grid">
+      <el-card>
+        <template #header>
+          <div class="panel-heading">
+            <div>
+              <div class="section-title">Lớp học đang vận hành</div>
+              <div class="section-helper">Tiến độ và giáo viên phụ trách</div>
             </div>
-          </template>
-          <el-table :data="classes" size="small">
-            <el-table-column label="Lớp" prop="name" />
-            <el-table-column label="GV" prop="teacherName" width="140" />
-            <el-table-column label="HV" width="60">
-              <template #default="{ row }">{{ row.studentCount }}</template>
-            </el-table-column>
-            <el-table-column label="Buổi" width="100">
-              <template #default="{ row }">{{ row.doneSessions }}/{{ row.total_sessions }}</template>
-            </el-table-column>
-            <el-table-column label="Trạng thái" width="100">
-              <template #default><span class="badge badge-green">Đang học</span></template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
-      <el-col :span="10">
-        <el-card>
-          <template #header><span class="section-title">Tình trạng học phí</span></template>
-          <v-chart :option="paymentChart" autoresize style="height:240px" />
-        </el-card>
-      </el-col>
-    </el-row>
+            <el-button text type="primary" @click="$router.push('/classes')">Xem tất cả</el-button>
+          </div>
+        </template>
+        <el-table :data="classes" size="small" empty-text="Chưa có lớp học">
+          <el-table-column label="Lớp" prop="name" min-width="170" />
+          <el-table-column label="Giáo viên" prop="teacherName" min-width="130" />
+          <el-table-column label="Học viên" width="90" align="center">
+            <template #default="{ row }">{{ row.studentCount }}</template>
+          </el-table-column>
+          <el-table-column label="Tiến độ" min-width="130">
+            <template #default="{ row }">
+              <div class="progress-cell">
+                <el-progress :percentage="row.total_sessions ? Math.round(row.doneSessions / row.total_sessions * 100) : 0" :show-text="false" :stroke-width="5" />
+                <span>{{ row.doneSessions }}/{{ row.total_sessions }} buổi</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Trạng thái" width="112">
+            <template #default><span class="badge badge-green">Đang học</span></template>
+          </el-table-column>
+        </el-table>
+      </el-card>
 
-    <el-card>
-      <template #header><span class="section-title">Quản lý học viên</span></template>
-      <el-table :data="students" size="small">
-        <el-table-column label="Học viên" prop="fullName" />
-        <el-table-column label="Email" prop="email" />
-        <el-table-column label="SĐT" prop="phone" width="120" />
-        <el-table-column label="Ngày tạo" width="130">
+      <el-card class="payment-panel">
+        <template #header>
+          <div>
+            <div class="section-title">Học phí</div>
+            <div class="section-helper">Tình trạng các khoản thu</div>
+          </div>
+        </template>
+        <v-chart :option="paymentChart" autoresize class="payment-chart" />
+        <div class="payment-legend">
+          <span><i class="legend-dot paid"></i>Đã thanh toán</span>
+          <span><i class="legend-dot partial"></i>Một phần</span>
+          <span><i class="legend-dot pending"></i>Chờ thu</span>
+        </div>
+      </el-card>
+    </div>
+
+    <el-card class="students-panel">
+      <template #header>
+        <div class="panel-heading">
+          <div>
+            <div class="section-title">Học viên mới</div>
+            <div class="section-helper">Danh sách tài khoản học viên trong hệ thống</div>
+          </div>
+          <el-button text type="primary" @click="$router.push('/admin/users')">Mở quản lý học viên</el-button>
+        </div>
+      </template>
+      <el-table :data="students" size="small" empty-text="Chưa có học viên">
+        <el-table-column label="Học viên" prop="fullName" min-width="160" />
+        <el-table-column label="Email" prop="email" min-width="190" />
+        <el-table-column label="Điện thoại" prop="phone" min-width="120" />
+        <el-table-column label="Ngày tạo" min-width="120">
           <template #default="{ row }">{{ fmtDate(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="Trạng thái" width="100">
+        <el-table-column label="Trạng thái" width="110">
           <template #default="{ row }">
             <span :class="['badge', row.isActive ? 'badge-green' : 'badge-gray']">
               {{ row.isActive ? 'Hoạt động' : 'Khóa' }}
@@ -101,6 +153,23 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.mb-4 { margin-bottom: 14px; }
-.header-line { display:flex; justify-content:space-between; align-items:center; }
+.page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.money-value { font-size: 21px; }
+.admin-main-grid { margin-bottom: 16px; }
+.progress-cell { align-items: center; display: flex; gap: 8px; }
+.progress-cell :deep(.el-progress) { flex: 1; min-width: 48px; }
+.progress-cell span { color: var(--ink-500); font-size: 11px; white-space: nowrap; }
+.payment-chart { height: 208px; }
+.payment-legend { display: grid; gap: 8px; margin: -2px 0 3px; }
+.payment-legend span { align-items: center; color: var(--ink-500); display: flex; font-size: 12px; gap: 7px; }
+.legend-dot { border-radius: 50%; height: 8px; width: 8px; }
+.legend-dot.paid { background: #7cc242; }
+.legend-dot.partial { background: #ef9f27; }
+.legend-dot.pending { background: #e24b4a; }
+.students-panel { margin-top: 0; }
+@media (max-width: 768px) {
+  .page-actions { width: 100%; }
+  .page-actions :deep(.el-button) { flex: 1; margin-left: 0; }
+  .money-value { font-size: 18px; }
+}
 </style>

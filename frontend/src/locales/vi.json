@@ -25,6 +25,14 @@
     "teacher": "Giáo viên",
     "student": "Học viên"
   },
+  "nav": {
+    "overview": "Tổng quan",
+    "classroom": "Vận hành lớp",
+    "learning": "Học tập",
+    "insights": "Theo dõi",
+    "progress": "Hành trình học",
+    "management": "Quản trị"
+  },
   "common": {
     "logout": "Đăng xuất",
     "profile": "Hồ sơ",

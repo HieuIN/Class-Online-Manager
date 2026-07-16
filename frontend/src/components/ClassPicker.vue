@@ -1,8 +1,8 @@
 <template>
   <div class="class-picker">
     <span class="label">Lớp:</span>
-    <el-select v-model="selectedId" @change="onChange" size="default" style="width: 280px;">
-      <el-option v-for="c in classes" :key="c.id" :label="c.name" :value="c.id" />
+    <el-select v-model="selectedId" :disabled="!classes.length" placeholder="Chưa có lớp học" @change="onChange" size="default" style="width: 280px;">
+      <el-option v-for="c in classes" :key="c.id" :label="c.name" :value="Number(c.id)" />
     </el-select>
   </div>
 </template>
@@ -16,7 +16,7 @@ const store = useClassStore();
 const classes = computed(() => store.classes);
 const selectedId = computed({
   get: () => store.selectedId,
-  set: (v) => store.select(v),
+  set: (v) => store.select(Number(v)),
 });
 
 const onChange = (v) => emit('change', v);

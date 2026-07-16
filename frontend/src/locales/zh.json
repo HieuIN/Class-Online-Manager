@@ -25,6 +25,14 @@
     "teacher": "教师",
     "student": "学生"
   },
+  "nav": {
+    "overview": "概览",
+    "classroom": "班级管理",
+    "learning": "学习",
+    "insights": "跟踪",
+    "progress": "学习进度",
+    "management": "系统管理"
+  },
   "common": {
     "logout": "退出登录",
     "profile": "个人资料",

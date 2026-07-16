@@ -1,10 +1,56 @@
 <template>
   <div class="login-wrap">
-    <div class="login-card">
-      <div class="logo-box">
+    <aside class="login-intro">
+      <Transition name="slide-fade" mode="out-in">
+        <div :key="currentSlide.id" class="login-slide-image" :style="{ backgroundImage: `url(${currentSlide.image})` }"></div>
+      </Transition>
+      <div class="intro-shade"></div>
+      <router-link to="/login" class="intro-brand">
         <img class="brand-logo" src="/logo.svg" alt="Ctalk Chinese" />
-        <h1>Ctalk Chinese</h1>
-        <p class="subtitle">Quản lý lớp học tiếng Trung online</p>
+        <BrandWordmark light subtitle="Learning workspace" />
+      </router-link>
+      <div class="intro-content">
+        <Transition name="copy-fade" mode="out-in">
+          <div :key="currentSlide.id" class="intro-copy">
+            <span class="eyebrow">{{ currentSlide.kicker }}</span>
+            <h1>{{ currentSlide.title }}</h1>
+            <p>{{ currentSlide.description }}</p>
+            <div class="hanzi-quote">
+              <span>{{ currentSlide.hanzi }}</span>
+              <small>{{ currentSlide.translation }}</small>
+            </div>
+          </div>
+        </Transition>
+      </div>
+      <div class="carousel-controls">
+        <el-button circle text aria-label="Ảnh trước" @click="previousSlide">
+          <el-icon><ArrowLeft /></el-icon>
+        </el-button>
+        <div class="carousel-dots" role="tablist" aria-label="Chọn nội dung giới thiệu">
+          <button
+            v-for="(slide, index) in slides"
+            :key="slide.id"
+            :class="{ active: activeSlide === index }"
+            type="button"
+            :aria-label="`Chuyển đến nội dung ${index + 1}`"
+            :aria-selected="activeSlide === index"
+            role="tab"
+            @click="goToSlide(index)"
+          ></button>
+        </div>
+        <el-button circle text :aria-label="isCarouselPaused ? 'Tiếp tục tự chuyển' : 'Dừng tự chuyển'" @click="toggleCarousel">
+          <el-icon><component :is="isCarouselPaused ? VideoPlay : VideoPause" /></el-icon>
+        </el-button>
+        <el-button circle text aria-label="Ảnh tiếp theo" @click="nextSlide">
+          <el-icon><ArrowRight /></el-icon>
+        </el-button>
+      </div>
+    </aside>
+    <main class="login-card">
+      <div class="form-heading">
+        <span class="eyebrow">Đăng nhập</span>
+        <h2>{{ pendingOtpUserId ? 'Xác minh tài khoản' : 'Trở lại hành trình của bạn' }}</h2>
+        <p>{{ pendingOtpUserId ? 'Nhập mã OTP đã được gửi để tiếp tục.' : 'Tiếp tục bài học đang dở, kiểm tra lịch học và cập nhật kết quả mới nhất.' }}</p>
       </div>
       <el-form @submit.prevent="onLogin" label-position="top">
         <el-form-item label="Email">
@@ -20,24 +66,88 @@
           {{ pendingOtpUserId ? 'Xác minh OTP' : 'Đăng nhập' }}
         </el-button>
       </el-form>
-      <div class="forgot-row">
+      <div v-if="!pendingOtpUserId" class="forgot-row">
         <router-link to="/forgot-password">Quên mật khẩu?</router-link>
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { ElMessage } from 'element-plus';
+import { ArrowLeft, ArrowRight, VideoPause, VideoPlay } from '@element-plus/icons-vue';
+import BrandWordmark from '@/components/BrandWordmark.vue';
+import studyDeskImage from '@/assets/login/study-desk.jpg';
+import onlineLessonImage from '@/assets/login/online-lesson.jpg';
+import calligraphyDeskImage from '@/assets/login/calligraphy-desk.jpg';
 
 const router = useRouter();
 const auth = useAuthStore();
 const form = reactive({ email: '', password: '', otp: '' });
 const loading = ref(false);
 const pendingOtpUserId = ref(null);
+const activeSlide = ref(0);
+const isCarouselPaused = ref(false);
+let carouselTimer = null;
+
+const slides = [
+  {
+    id: 'practice',
+    image: studyDeskImage,
+    kicker: 'Nền tảng học tiếng Trung',
+    title: 'Mỗi buổi học, một bước gần hơn với tiếng Trung.',
+    description: 'Theo sát lộ trình của bạn từ lịch học, bài tập và luyện phát âm đến điểm số và phản hồi từ giáo viên.',
+    hanzi: '学而时习之',
+    translation: 'Học rồi thường xuyên ôn tập.',
+  },
+  {
+    id: 'consistency',
+    image: onlineLessonImage,
+    kicker: 'Học đều từng ngày',
+    title: 'Một nhịp học vững vàng tạo nên tiến bộ dài lâu.',
+    description: 'Chủ động xem lịch, hoàn thành bài tập và nhận hỗ trợ từ giáo viên khi bạn cần.',
+    hanzi: '不积跬步，无以至千里',
+    translation: 'Không tích từng bước nhỏ, không thể đi nghìn dặm.',
+  },
+  {
+    id: 'mastery',
+    image: calligraphyDeskImage,
+    kicker: 'Học sâu, nhớ lâu',
+    title: 'Ôn điều đã học để tự tin dùng điều mới.',
+    description: 'Mỗi bài học là một mảnh ghép giúp bạn hiểu, nói và sử dụng tiếng Trung tự nhiên hơn.',
+    hanzi: '温故而知新',
+    translation: 'Ôn điều cũ để hiểu thêm điều mới.',
+  },
+];
+
+const currentSlide = computed(() => slides[activeSlide.value]);
+
+const stopCarousel = () => {
+  if (carouselTimer) clearInterval(carouselTimer);
+  carouselTimer = null;
+};
+
+const startCarousel = () => {
+  stopCarousel();
+  if (!isCarouselPaused.value) carouselTimer = setInterval(() => {
+    activeSlide.value = (activeSlide.value + 1) % slides.length;
+  }, 9000);
+};
+
+const goToSlide = (index) => {
+  activeSlide.value = index;
+  startCarousel();
+};
+
+const previousSlide = () => goToSlide((activeSlide.value - 1 + slides.length) % slides.length);
+const nextSlide = () => goToSlide((activeSlide.value + 1) % slides.length);
+const toggleCarousel = () => {
+  isCarouselPaused.value = !isCarouselPaused.value;
+  startCarousel();
+};
 
 const redirectAfterLogin = () => {
   if (auth.isStudent) router.push('/student/dashboard');
@@ -60,20 +170,56 @@ const onLogin = async () => {
       return;
     }
     redirectAfterLogin();
+  } catch {
+    // The shared HTTP interceptor already presents the API error to the user.
   } finally {
     loading.value = false;
   }
 };
+
+onMounted(startCarousel);
+onUnmounted(stopCarousel);
 </script>
 
 <style scoped>
-.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #E1F5EE, #F5F4F0); padding: 20px; }
-.login-card { background: #fff; padding: 40px 36px; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
-.logo-box { text-align: center; margin-bottom: 28px; }
-.brand-logo { width: 58px; height: 58px; display: block; margin: 0 auto 10px; border-radius: 14px; box-shadow: 0 10px 24px rgba(15,110,86,0.18); }
-.logo-box h1 { font-size: 24px; font-weight: 600; color: #0F6E56; margin: 8px 0 4px; }
-.subtitle { color: #888; font-size: 13px; margin: 0; }
+.login-wrap { align-items: stretch; background: var(--canvas); display: grid; grid-template-columns: minmax(0, 1fr) minmax(410px, 0.82fr); min-height: 100vh; }
+.login-intro { background: #123f35; color: #f5fbf8; display: flex; flex-direction: column; isolation: isolate; justify-content: center; overflow: hidden; padding: 56px clamp(42px, 8vw, 140px); position: relative; }
+.login-slide-image { background-position: center; background-size: cover; inset: 0; position: absolute; z-index: 0; }
+.intro-shade { background: rgba(8, 32, 24, 0.72); inset: 0; position: absolute; z-index: 1; }
+.intro-brand { align-items: center; display: flex; gap: 10px; left: clamp(42px, 8vw, 140px); position: absolute; text-decoration: none; top: 30px; z-index: 2; }
+.brand-logo { display: block; height: 36px; width: 36px; }
+.intro-content { position: relative; z-index: 2; }
+.intro-copy { max-width: 520px; }
+.intro-copy .eyebrow { color: #a8e1ce; }
+.intro-copy h1 { font-size: clamp(31px, 3.6vw, 48px); font-weight: 800; letter-spacing: 0; line-height: 1.12; margin: 12px 0 14px; }
+.intro-copy p { color: #c1d7ce; font-size: 15px; line-height: 1.7; margin: 0; max-width: 460px; }
+.hanzi-quote { border-left: 2px solid #e4a23a; display: grid; gap: 5px; margin-top: 30px; padding-left: 15px; }
+.hanzi-quote span { color: #fff; font-family: "Noto Serif CJK SC", "Songti SC", serif; font-size: 27px; letter-spacing: 0.08em; line-height: 1.25; }
+.hanzi-quote small { color: #d4e4dd; font-size: 12px; line-height: 1.5; }
+.carousel-controls { align-items: center; bottom: 32px; display: flex; gap: 7px; left: clamp(42px, 8vw, 140px); position: absolute; z-index: 2; }
+.carousel-controls :deep(.el-button) { color: #fff; }
+.carousel-controls :deep(.el-button:hover) { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.45); }
+.carousel-dots { display: flex; gap: 7px; margin: 0 4px; }
+.carousel-dots button { background: rgba(255, 255, 255, 0.45); border: 0; border-radius: 999px; cursor: pointer; height: 6px; padding: 0; transition: background 180ms ease, width 180ms ease; width: 6px; }
+.carousel-dots button.active { background: #e4a23a; width: 18px; }
+.slide-fade-enter-active, .slide-fade-leave-active { transition: opacity 550ms ease; }
+.slide-fade-enter-from, .slide-fade-leave-to { opacity: 0; }
+.copy-fade-enter-active, .copy-fade-leave-active { transition: opacity 250ms ease, transform 250ms ease; }
+.copy-fade-enter-from, .copy-fade-leave-to { opacity: 0; transform: translateY(8px); }
+.login-card { align-self: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-float); justify-self: center; max-width: 430px; padding: 36px; width: calc(100% - 44px); }
+.form-heading { margin-bottom: 26px; }
+.form-heading h2 { color: var(--ink-900); font-size: 25px; font-weight: 800; letter-spacing: 0; margin: 7px 0 7px; }
+.form-heading p { color: var(--ink-500); font-size: 13px; line-height: 1.55; margin: 0; }
 .forgot-row { text-align: right; margin-top: 12px; font-size: 13px; }
-.forgot-row a { color: #0F6E56; text-decoration: none; font-weight: 500; }
+.forgot-row a { color: var(--brand-700); text-decoration: none; font-weight: 700; }
 .forgot-row a:hover { text-decoration: underline; }
+@media (max-width: 860px) {
+  .login-wrap { display: flex; padding: 20px; }
+  .login-intro { display: none; }
+  .login-card { margin: auto; width: min(430px, 100%); }
+}
+@media (max-width: 480px) {
+  .login-wrap { padding: 14px; }
+  .login-card { padding: 26px 20px; }
+}
 </style>

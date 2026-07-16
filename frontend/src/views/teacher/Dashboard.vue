@@ -1,41 +1,89 @@
 <template>
-  <div>
-    <el-row :gutter="14" class="mb-4">
-      <el-col :span="6"><div class="metric-card"><div class="metric-label">Số lớp đang dạy</div><div class="metric-value">{{ classes.length }}</div><div class="metric-sub">{{ totalCourses }} khóa học</div></div></el-col>
-      <el-col :span="6"><div class="metric-card"><div class="metric-label">Tổng học viên</div><div class="metric-value">{{ totalStudents }}</div><div class="metric-sub">Đang học</div></div></el-col>
-      <el-col :span="6"><div class="metric-card"><div class="metric-label">Buổi đã dạy</div><div class="metric-value">{{ totalDone }}</div><div class="metric-sub">/ {{ totalPlanned }} buổi</div></div></el-col>
-      <el-col :span="6"><div class="metric-card"><div class="metric-label">Cảnh báo mới</div><div class="metric-value" style="color:#E24B4A">{{ unreadCount }}</div><div class="metric-sub">Cần xử lý</div></div></el-col>
-    </el-row>
+  <div class="page-shell teacher-dashboard">
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow">Không gian giảng dạy</span>
+        <h1>Công việc hôm nay</h1>
+        <p>Giữ nhịp lớp học, theo dõi tiến độ và xử lý các việc cần chú ý.</p>
+      </div>
+      <div class="page-actions">
+        <el-button @click="$router.push('/calendar')">Xem lịch học</el-button>
+        <el-button type="primary" @click="$router.push('/classes')">Mở quản lý lớp</el-button>
+      </div>
+    </div>
 
-    <el-row :gutter="14">
-      <el-col :span="12">
-        <el-card>
-          <template #header><span class="section-title">Lớp học của tôi</span></template>
-          <div v-for="c in classes" :key="c.id" class="class-row" @click="$router.push('/classes')">
-            <div class="cr-top">
-              <span class="cr-name">{{ c.name }}</span>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-label">Lớp đang dạy</div>
+        <div class="metric-value">{{ classes.length }}</div>
+        <div class="metric-sub">{{ totalCourses }} khóa học</div>
+      </div>
+      <div class="metric-card tone-blue">
+        <div class="metric-label">Học viên đang theo học</div>
+        <div class="metric-value">{{ totalStudents }}</div>
+        <div class="metric-sub">Trong các lớp phụ trách</div>
+      </div>
+      <div class="metric-card tone-gold">
+        <div class="metric-label">Tiến độ buổi học</div>
+        <div class="metric-value">{{ totalDone }}</div>
+        <div class="metric-sub">Đã dạy trên {{ totalPlanned }} buổi</div>
+      </div>
+      <div class="metric-card tone-red">
+        <div class="metric-label">Cần xử lý</div>
+        <div class="metric-value">{{ unreadCount }}</div>
+        <div class="metric-sub">Thông báo chưa đọc</div>
+      </div>
+    </div>
+
+    <div class="content-grid">
+      <el-card>
+        <template #header>
+          <div class="panel-heading">
+            <div>
+              <div class="section-title">Lớp học của tôi</div>
+              <div class="section-helper">Chọn lớp để tiếp tục công việc</div>
+            </div>
+            <el-button text type="primary" @click="$router.push('/classes')">Quản lý lớp</el-button>
+          </div>
+        </template>
+        <div v-if="classes.length === 0" class="empty-state">Bạn chưa được phân công lớp học nào.</div>
+        <button v-for="c in classes" :key="c.id" class="class-row" type="button" @click="$router.push('/classes')">
+          <span class="class-index">{{ String(c.id).padStart(2, '0') }}</span>
+          <span class="class-row-content">
+            <span class="cr-top">
+              <strong class="cr-name">{{ c.name }}</strong>
               <span class="badge badge-green">Đang học</span>
+            </span>
+            <span class="cr-meta">{{ c.studentCount }} học viên · {{ c.doneSessions }}/{{ c.total_sessions }} buổi</span>
+            <span class="class-progress-line">
+              <el-progress :percentage="c.total_sessions ? Math.round(c.doneSessions / c.total_sessions * 100) : 0" :show-text="false" :stroke-width="5" />
+              <small>{{ c.total_sessions ? Math.round(c.doneSessions / c.total_sessions * 100) : 0 }}%</small>
+            </span>
+          </span>
+        </button>
+      </el-card>
+
+      <el-card>
+        <template #header>
+          <div class="panel-heading">
+            <div>
+              <div class="section-title">Thông báo và cảnh báo</div>
+              <div class="section-helper">Các việc mới nhất cần kiểm tra</div>
             </div>
-            <div class="cr-meta">{{ c.studentCount }} học viên • {{ c.doneSessions }}/{{ c.total_sessions }} buổi</div>
-            <el-progress :percentage="c.total_sessions ? Math.round(c.doneSessions/c.total_sessions*100) : 0" :show-text="false" :stroke-width="6" color="#1D9E75" />
+            <el-button text type="primary" @click="$router.push('/notifications')">Tất cả</el-button>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card>
-          <template #header><span class="section-title">Thông báo & Cảnh báo</span></template>
-          <div v-if="notifications.length === 0" class="empty">Không có thông báo mới</div>
-          <div v-for="n in notifications.slice(0,5)" :key="n.id" class="notif-row">
-            <span class="notif-dot" :style="{ background: dotColor(n.notifType) }"></span>
-            <div class="notif-body">
-              <div class="notif-title">{{ n.title }} <span v-if="!n.isRead" class="badge badge-red">Mới</span></div>
-              <div class="notif-content">{{ n.content }}</div>
-              <div class="notif-time">{{ formatTime(n.createdAt) }}</div>
-            </div>
+        </template>
+        <div v-if="notifications.length === 0" class="empty-state">Không có thông báo mới.</div>
+        <div v-for="n in notifications.slice(0, 5)" :key="n.id" class="notif-row">
+          <span class="notif-dot" :style="{ background: dotColor(n.notifType) }"></span>
+          <div class="notif-body">
+            <div class="notif-title">{{ n.title }} <span v-if="!n.isRead" class="badge badge-red">Mới</span></div>
+            <div class="notif-content">{{ n.content }}</div>
+            <div class="notif-time">{{ formatTime(n.createdAt) }}</div>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </div>
+      </el-card>
+    </div>
   </div>
 </template>
 
@@ -64,18 +112,28 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.mb-4 { margin-bottom: 14px; }
-.class-row { padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.05); cursor: pointer; }
-.class-row:last-child { border-bottom: none; }
-.class-row:hover { background: #f9f9f7; }
-.cr-top { display:flex; justify-content:space-between; margin-bottom: 6px; }
-.cr-name { font-weight: 500; font-size: 13px; }
-.cr-meta { font-size: 12px; color: #888; margin-bottom: 8px; }
-.notif-row { display:flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
-.notif-row:last-child { border-bottom: none; }
-.notif-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
-.notif-title { font-size: 13px; font-weight: 500; }
-.notif-content { font-size: 12px; color: #666; }
-.notif-time { font-size: 11px; color: #aaa; margin-top: 2px; }
-.empty { color: #aaa; padding: 20px; text-align: center; font-size: 13px; }
+.page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.class-row { background: transparent; border: 0; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; gap: 12px; padding: 14px 0; text-align: left; width: 100%; }
+.class-row:first-of-type { padding-top: 2px; }
+.class-row:last-child { border-bottom: 0; padding-bottom: 2px; }
+.class-row:hover .cr-name { color: var(--brand-700); }
+.class-index { align-items: center; background: var(--surface-soft); border-radius: 7px; color: var(--brand-700); display: inline-flex; font-size: 11px; font-weight: 800; height: 30px; justify-content: center; margin-top: 1px; width: 30px; }
+.class-row-content { min-width: 0; flex: 1; }
+.cr-top { align-items: center; display: flex; gap: 10px; justify-content: space-between; margin-bottom: 4px; }
+.cr-name { color: var(--ink-900); font-size: 14px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-meta { color: var(--ink-500); display: block; font-size: 12px; margin-bottom: 9px; }
+.class-progress-line { align-items: center; display: flex; gap: 8px; }
+.class-progress-line :deep(.el-progress) { flex: 1; }
+.class-progress-line small { color: var(--ink-500); font-size: 11px; font-weight: 700; width: 30px; }
+.notif-row { border-bottom: 1px solid var(--border); display: flex; gap: 11px; padding: 13px 0; }
+.notif-row:last-child { border-bottom: 0; padding-bottom: 1px; }
+.notif-dot { border-radius: 50%; flex: 0 0 auto; height: 8px; margin-top: 6px; width: 8px; }
+.notif-body { min-width: 0; }
+.notif-title { align-items: center; color: var(--ink-900); display: flex; flex-wrap: wrap; font-size: 13px; font-weight: 800; gap: 6px; }
+.notif-content { color: var(--ink-500); font-size: 12px; line-height: 1.45; margin-top: 3px; }
+.notif-time { color: var(--ink-400); font-size: 11px; margin-top: 5px; }
+@media (max-width: 768px) {
+  .page-actions { width: 100%; }
+  .page-actions :deep(.el-button) { flex: 1; margin-left: 0; }
+}
 </style>

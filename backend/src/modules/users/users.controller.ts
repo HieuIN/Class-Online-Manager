@@ -29,7 +29,9 @@ export class UsersController {
   @Patch(':id')
   update(@Param('id', ParseIntPipe) id: number, @Body() body: any, @CurrentUser() user: any) {
     if (user.role !== 'ADMIN' && +user.id !== +id) throw new ForbiddenException('No permission');
-    const allowed = user.role === 'ADMIN' ? body : { fullName: body.fullName, phone: body.phone };
+    const allowed = user.role === 'ADMIN'
+      ? body
+      : { fullName: body.fullName, phone: body.phone, birthDate: body.birthDate };
     return this.service.update(id, allowed);
   }
 

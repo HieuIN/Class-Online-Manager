@@ -4,23 +4,34 @@ import { classesApi } from '@/api';
 export const useClassStore = defineStore('class', {
   state: () => ({
     classes: [],
-    selectedId: parseInt(localStorage.getItem('selectedClassId') || '0') || null,
+    selectedId: null,
     loading: false,
   }),
   getters: {
-    selected: (s) => s.classes.find(c => c.id === s.selectedId) || s.classes[0],
+    selected: (s) => s.classes.find(c => Number(c.id) === Number(s.selectedId)) || null,
   },
   actions: {
     async fetchClasses() {
       this.loading = true;
       try {
         this.classes = await classesApi.list();
-        if (!this.selectedId && this.classes.length) this.select(this.classes[0].id);
+        const savedId = Number(localStorage.getItem('selectedClassId')) || null;
+        const requestedId = this.selectedId || savedId;
+        const validClass = this.classes.find(c => Number(c.id) === Number(requestedId));
+
+        if (validClass) this.select(validClass.id);
+        else if (this.classes.length) this.select(this.classes[0].id);
+        else {
+          this.selectedId = null;
+          localStorage.removeItem('selectedClassId');
+        }
       } finally { this.loading = false; }
     },
     select(id) {
-      this.selectedId = id;
-      localStorage.setItem('selectedClassId', String(id));
+      const normalizedId = Number(id) || null;
+      this.selectedId = normalizedId;
+      if (normalizedId) localStorage.setItem('selectedClassId', String(normalizedId));
+      else localStorage.removeItem('selectedClassId');
     },
   },
 });

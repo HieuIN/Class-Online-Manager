@@ -31,6 +31,9 @@
         </el-table-column>
         <el-table-column label="Email" prop="email" />
         <el-table-column label="SĐT" prop="phone" width="120" />
+        <el-table-column label="Ngày sinh" width="120">
+          <template #default="{ row }">{{ row.birthDate ? fmtDate(row.birthDate) : '—' }}</template>
+        </el-table-column>
         <el-table-column label="Vai trò" width="110">
           <template #default="{ row }">
             <el-tag :type="row.role === 'ADMIN' ? 'danger' : row.role === 'TEACHER' ? 'primary' : 'success'" size="small">
@@ -70,6 +73,10 @@
             <el-option label="Quản trị" value="ADMIN" />
           </el-select>
         </el-form-item>
+        <el-form-item v-if="form.role === 'STUDENT'" label="Ngày sinh">
+          <el-date-picker v-model="form.birthDate" type="date" value-format="YYYY-MM-DD" style="width:100%" />
+          <div class="birthdate-help">Học viên dưới 13 tuổi sẽ tự dùng giao diện thiếu nhi.</div>
+        </el-form-item>
         <el-form-item v-if="!editMode" label="Mật khẩu">
           <el-input v-model="form.password" type="password" show-password />
         </el-form-item>
@@ -97,7 +104,7 @@ const search = ref('');
 const showDialog = ref(false);
 const editMode = ref(false);
 const editId = ref(null);
-const form = reactive({ fullName: '', email: '', phone: '', role: 'STUDENT', password: 'password123', isActive: true });
+const form = reactive({ fullName: '', email: '', phone: '', birthDate: '', role: 'STUDENT', password: 'password123', isActive: true });
 
 const roleLabel = (r) => ({ ADMIN: 'Admin', TEACHER: 'Giáo viên', STUDENT: 'Học viên' }[r] || r);
 
@@ -113,7 +120,7 @@ const load = async () => { users.value = await usersApi.list(); };
 
 const openCreate = () => {
   editMode.value = false;
-  Object.assign(form, { fullName: '', email: '', phone: '', role: 'STUDENT', password: 'password123', isActive: true });
+  Object.assign(form, { fullName: '', email: '', phone: '', birthDate: '', role: 'STUDENT', password: 'password123', isActive: true });
   showDialog.value = true;
 };
 
@@ -127,7 +134,13 @@ const save = async () => {
   if (!form.fullName || !form.email) { ElMessage.warning('Nhập đủ họ tên + email'); return; }
   try {
     if (editMode.value) {
-      const data = { fullName: form.fullName, phone: form.phone, role: form.role, isActive: form.isActive };
+      const data = {
+        fullName: form.fullName,
+        phone: form.phone,
+        birthDate: form.role === 'STUDENT' ? form.birthDate || null : null,
+        role: form.role,
+        isActive: form.isActive,
+      };
       await usersApi.update(editId.value, data);
       ElMessage.success('Đã cập nhật');
     } else {
@@ -155,4 +168,5 @@ onMounted(load);
 .header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
 .filter-row { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
 .row-cell { display:flex; align-items:center; gap: 8px; }
+.birthdate-help { color:var(--ink-500); font-size:11px; line-height:1.45; margin-top:6px; }
 </style>

@@ -25,7 +25,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: any) {
-    return user;
+    return this.authService.getSessionUser(user.id);
   }
 
   @Post('change-password')

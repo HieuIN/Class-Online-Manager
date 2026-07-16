@@ -17,6 +17,10 @@
             <el-form-item label="Họ và tên"><el-input v-model="form.fullName" /></el-form-item>
             <el-form-item label="Email"><el-input v-model="form.email" disabled /></el-form-item>
             <el-form-item label="Số điện thoại"><el-input v-model="form.phone" /></el-form-item>
+            <el-form-item v-if="auth.isStudent" label="Ngày sinh">
+              <el-date-picker v-model="form.birthDate" type="date" value-format="YYYY-MM-DD" style="width:100%" />
+              <div class="birthdate-help">Dùng để chọn giao diện học phù hợp với độ tuổi của bạn.</div>
+            </el-form-item>
             <el-form-item label="Vai trò">
               <el-tag :type="auth.role === 'ADMIN' ? 'danger' : auth.role === 'TEACHER' ? 'primary' : 'success'">
                 {{ roleLabel }}
@@ -112,7 +116,7 @@ import { initials } from '@/utils/format';
 const auth = useAuthStore();
 const settings = useSettingsStore();
 const { locale } = useI18n();
-const form = reactive({ fullName: '', email: '', phone: '', avatarUrl: '' });
+const form = reactive({ fullName: '', email: '', phone: '', birthDate: '', avatarUrl: '' });
 const pwd = reactive({ old: '', new: '', confirm: '' });
 const saving = ref(false);
 const changingPwd = ref(false);
@@ -128,6 +132,7 @@ const load = async () => {
   form.fullName = u.fullName;
   form.email = u.email;
   form.phone = u.phone || '';
+  form.birthDate = u.birthDate || '';
   form.avatarUrl = u.avatarUrl || '';
   twoFactorEnabled.value = !!u.twoFactorEnabled;
   if (auth.isStudent) transcript.value = await learningExtrasApi.transcript(auth.user.id);
@@ -137,8 +142,13 @@ const saveProfile = async () => {
   if (!form.fullName) { ElMessage.warning('Họ tên không được trống'); return; }
   saving.value = true;
   try {
-    await usersApi.update(auth.user.id, { fullName: form.fullName, phone: form.phone });
+    await usersApi.update(auth.user.id, {
+      fullName: form.fullName,
+      phone: form.phone,
+      birthDate: auth.isStudent ? form.birthDate || null : undefined,
+    });
     auth.user.fullName = form.fullName;
+    if (auth.isStudent) auth.user.birthDate = form.birthDate || null;
     localStorage.setItem('user', JSON.stringify(auth.user));
     ElMessage.success('Đã cập nhật');
   } finally { saving.value = false; }
@@ -190,6 +200,7 @@ onMounted(load);
 .avatar-section { display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom: 20px; }
 .profile-avatar { background:#E1F5EE; color:#0F6E56; font-size:28px; font-weight:600; }
 .hint { font-size: 11px; color:#888; }
+.birthdate-help { color:var(--ink-500); font-size:11px; line-height:1.45; margin-top:6px; }
 .settings-card { margin-top: 14px; }
 .security-row { display:flex; justify-content:space-between; gap:12px; align-items:center; }
 .security-row p { margin:4px 0 0; color:#888; font-size:12px; }

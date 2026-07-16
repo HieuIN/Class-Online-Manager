@@ -1,34 +1,42 @@
 <template>
-  <div>
-    <div class="header-bar">
-      <span class="section-title" style="margin:0">Danh sách lớp học</span>
-      <el-button type="primary" @click="showCreate = true">+ Tạo lớp mới</el-button>
+  <div class="page-shell classes-page">
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow">Vận hành lớp</span>
+        <h1>Danh sách lớp học</h1>
+        <p>Chọn một lớp để quản lý học viên, lịch học và kết quả.</p>
+      </div>
+      <el-button type="primary" @click="showCreate = true">Tạo lớp mới</el-button>
     </div>
 
     <div class="filter-bar">
-      <el-input v-model="classSearch" placeholder="Tìm lớp..." clearable class="filter-input" />
-      <el-select v-model="teacherFilter" placeholder="Lọc giáo viên" clearable style="width:190px">
+      <el-input v-model="classSearch" placeholder="Tìm theo tên lớp hoặc giáo viên" clearable class="filter-input" />
+      <el-select v-model="teacherFilter" placeholder="Tất cả giáo viên" clearable class="filter-select">
         <el-option v-for="t in teachers" :key="t.id" :label="t.fullName" :value="t.id" />
       </el-select>
-      <el-select v-model="classStatusFilter" placeholder="Trạng thái" style="width:140px">
+      <el-select v-model="classStatusFilter" class="status-select">
         <el-option label="Tất cả" value="ALL" />
         <el-option label="Đang học" value="ACTIVE" />
         <el-option label="Đã kết thúc" value="FINISHED" />
       </el-select>
+      <span class="class-count">{{ displayedClasses.length }} lớp</span>
     </div>
 
-    <el-row :gutter="14" class="mb-4">
-      <el-col :span="12" v-for="c in displayedClasses" :key="c.id">
-        <el-card :class="['class-card', classStore.selectedId === c.id ? 'selected' : '']" @click="classStore.select(c.id)" shadow="hover">
+    <el-row :gutter="14" class="class-grid">
+      <el-col :xs="24" :sm="12" v-for="c in displayedClasses" :key="c.id">
+        <el-card :class="['class-card', classStore.selectedId === c.id ? 'selected' : '']" @click="classStore.select(c.id)">
           <div class="cc-top">
-            <div>
-              <div class="cc-name">{{ c.name }}</div>
-              <div class="cc-teacher">GV: {{ c.teacherName || 'Chưa phân công' }}</div>
+            <div class="class-identity">
+              <span class="class-code">L{{ String(c.id).padStart(2, '0') }}</span>
+              <div>
+                <div class="cc-name">{{ c.name }}</div>
+                <div class="cc-teacher">{{ c.teacherName || 'Chưa phân công giáo viên' }}</div>
+              </div>
             </div>
             <div>
               <span class="badge badge-green">Đang học</span>
-              <el-dropdown trigger="click" @command="(cmd) => onCardCmd(cmd, c)">
-                <el-button text size="small" style="margin-left:6px">⋮</el-button>
+              <el-dropdown trigger="click" @command="(cmd) => onCardCmd(cmd, c)" @click.stop>
+                <el-button text size="small" class="class-more" @click.stop>···</el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="edit">Sửa</el-dropdown-item>
@@ -39,14 +47,14 @@
               </el-dropdown>
             </div>
           </div>
-          <div class="cc-meta">{{ c.studentCount }} học viên • {{ c.doneSessions }}/{{ c.total_sessions }} buổi</div>
+          <div class="cc-meta">{{ c.studentCount }} học viên <span>·</span> {{ c.doneSessions }}/{{ c.total_sessions }} buổi</div>
           <el-progress :percentage="c.total_sessions ? Math.round(c.doneSessions / c.total_sessions * 100) : 0" :show-text="false" :stroke-width="6" color="#1D9E75" />
-          <div class="cc-pct">{{ c.total_sessions ? Math.round(c.doneSessions / c.total_sessions * 100) : 0 }}% hoàn thành</div>
+          <div class="cc-pct"><span>Tiến độ khóa học</span>{{ c.total_sessions ? Math.round(c.doneSessions / c.total_sessions * 100) : 0 }}%</div>
         </el-card>
       </el-col>
     </el-row>
 
-    <el-card v-if="selected">
+    <el-card v-if="selected" class="students-card">
       <template #header>
         <div class="header-line">
           <span class="section-title">Học viên – {{ selected.name }}</span>
@@ -180,6 +188,10 @@
         <el-form-item label="Họ tên"><el-input v-model="newStudent.fullName" /></el-form-item>
         <el-form-item label="Email"><el-input v-model="newStudent.email" type="email" /></el-form-item>
         <el-form-item label="Điện thoại"><el-input v-model="newStudent.phone" /></el-form-item>
+        <el-form-item label="Ngày sinh">
+          <el-date-picker v-model="newStudent.birthDate" type="date" value-format="YYYY-MM-DD" style="width:100%" />
+          <div class="birthdate-help">Dùng để tự chọn giao diện học phù hợp với độ tuổi.</div>
+        </el-form-item>
         <el-form-item label="Mật khẩu">
           <el-input v-model="newStudent.password" type="password" show-password />
         </el-form-item>
@@ -238,7 +250,7 @@ const duplicateForm = reactive({ name: '', scheduleNote: '', copySessions: true 
 
 const newCls = reactive({ courseId: null, teacherId: null, name: '', totalSessions: 20, tuitionFee: 3000000, scheduleNote: '' });
 const schedule = reactive({ autoGenerate: false, startDate: dayjs().format('YYYY-MM-DD'), weekdays: [1, 3, 5], startTime: '19:00', endTime: '21:00' });
-const newStudent = reactive({ fullName: '', email: '', phone: '', password: 'password123', enrollNow: true });
+const newStudent = reactive({ fullName: '', email: '', phone: '', birthDate: '', password: 'password123', enrollNow: true });
 
 const displayedClasses = computed(() => {
   const q = classSearch.value.toLowerCase().trim();
@@ -377,14 +389,19 @@ const createStudent = async () => {
   creating.value = true;
   try {
     const created = await usersApi.create({
-      ...newStudent, role: 'STUDENT',
+      fullName: newStudent.fullName,
+      email: newStudent.email,
+      phone: newStudent.phone,
+      birthDate: newStudent.birthDate || null,
+      password: newStudent.password,
+      role: 'STUDENT',
     });
     if (newStudent.enrollNow && created?.id) {
       await enrollmentsApi.enroll(selected.value.id, created.id);
     }
     ElMessage.success('Đã tạo học viên mới');
     showNewStudent.value = false;
-    Object.assign(newStudent, { fullName: '', email: '', phone: '', password: 'password123', enrollNow: true });
+    Object.assign(newStudent, { fullName: '', email: '', phone: '', birthDate: '', password: 'password123', enrollNow: true });
     await loadAllStudents();
     await loadStudents();
     await classStore.fetchClasses();
@@ -436,30 +453,44 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
-.filter-bar { display:flex; gap: 8px; flex-wrap:wrap; margin-bottom: 14px; }
-.filter-input { width: 240px; }
+.filter-bar { align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-soft); display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 16px; padding: 10px; }
+.filter-input { width: min(320px, 100%); }
+.filter-select { width: 190px; }
+.status-select { width: 142px; }
+.class-count { color: var(--ink-500); font-size: 12px; font-weight: 700; margin-left: auto; padding: 0 4px; }
+.class-grid { margin-bottom: 16px; }
+.class-grid :deep(.el-col) { margin-bottom: 14px; }
 .print-title { display:none; }
 .header-line { display:flex; justify-content:space-between; align-items:center; }
-.mb-4 { margin-bottom: 14px; }
-.class-card { cursor:pointer; transition: all 0.15s; }
-.class-card.selected { border-color: #1D9E75; border-width: 1.5px; }
-.cc-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 8px; }
-.cc-name { font-weight: 600; font-size: 14px; }
-.cc-teacher { font-size: 12px; color: #888; margin-top: 2px; }
-.cc-meta { font-size: 12px; color: #666; margin-bottom: 6px; }
-.cc-pct { font-size: 11px; color: #999; margin-top: 4px; }
+.class-card { border-top: 3px solid transparent; cursor: pointer; transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+.class-card:hover { border-top-color: #9ed1bf; box-shadow: var(--shadow-float); transform: translateY(-1px); }
+.class-card.selected { border-color: var(--brand-500); border-top-color: var(--brand-500); }
+.cc-top { align-items:flex-start; display:flex; justify-content:space-between; margin-bottom: 15px; }
+.class-identity { align-items: center; display: flex; gap: 10px; min-width: 0; }
+.class-code { align-items: center; background: var(--surface-soft); border-radius: 7px; color: var(--brand-700); display: flex; flex: 0 0 auto; font-size: 11px; font-weight: 800; height: 34px; justify-content: center; width: 34px; }
+.cc-name { color: var(--ink-900); font-size: 14px; font-weight: 800; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-teacher { color: var(--ink-500); font-size: 12px; margin-top: 3px; }
+.class-more { color: var(--ink-500); font-weight: 800; letter-spacing: 0.1em; margin-left: 4px; min-width: 28px; }
+.cc-meta { color: var(--ink-500); display: flex; font-size: 12px; gap: 6px; margin-bottom: 8px; }
+.cc-meta span { color: var(--ink-400); }
+.cc-pct { align-items: center; color: var(--brand-700); display: flex; font-size: 11px; font-weight: 800; justify-content: space-between; margin-top: 7px; }
+.cc-pct span { color: var(--ink-400); font-weight: 650; }
+.students-card { margin-top: 2px; }
 .row-cell { display:flex; align-items:center; gap: 8px; }
-.empty { padding: 30px; text-align: center; color: #aaa; }
-.enroll-row { padding: 8px 6px; border-bottom: 1px solid #f0f0ee; }
+.empty { padding: 30px; text-align: center; color: var(--ink-400); }
+.enroll-row { padding: 8px 6px; border-bottom: 1px solid var(--border); }
 .enroll-row:last-child { border-bottom: none; }
 .enroll-info { display:inline-block; vertical-align:middle; }
-.text-xs { font-size: 11px; color: #888; }
+.text-xs { font-size: 11px; color: var(--ink-500); }
 .weekday-group { display:flex; flex-wrap:wrap; gap: 4px 12px; }
 .time-row { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
 .cert-actions { display:flex; align-items:center; gap: 8px; }
+.birthdate-help { color:var(--ink-500); font-size:11px; line-height:1.45; margin-top:6px; }
 @media (max-width: 768px) {
-  .filter-input { width: 100%; }
+  .filter-input, .filter-select, .status-select { width: 100%; }
+  .class-count { margin-left: 0; width: 100%; }
+  .header-line { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .header-line > div { display: flex; flex-wrap: wrap; gap: 6px; }
 }
 @media print {
   :global(.sidebar), :global(.header), .header-bar, .filter-bar, :global(.el-card__header), :global(.no-print) { display:none !important; }

@@ -32,7 +32,7 @@ export class AuthService {
   }
 
   private signUser(user: User) {
-    const payload = { sub: user.id, email: user.email, role: user.role, fullName: user.fullName };
+    const payload = { sub: user.id, email: user.email, role: user.role, fullName: user.fullName, birthDate: user.birthDate };
     return {
       accessToken: this.jwtService.sign(payload),
       user: {
@@ -41,7 +41,21 @@ export class AuthService {
         fullName: user.fullName,
         role: user.role,
         avatarUrl: user.avatarUrl,
+        birthDate: user.birthDate,
       },
+    };
+  }
+
+  async getSessionUser(userId: number) {
+    const user = await this.userRepo.findOne({ where: { id: userId, isActive: true } });
+    if (!user) throw new UnauthorizedException();
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      birthDate: user.birthDate,
     };
   }
 
@@ -59,7 +73,7 @@ export class AuthService {
     return this.signUser(user);
   }
 
-  async register(data: { email: string; password: string; fullName: string; phone?: string; role?: string }) {
+  async register(data: { email: string; password: string; fullName: string; phone?: string; role?: string; birthDate?: string }) {
     const exists = await this.userRepo.findOne({ where: { email: data.email } });
     if (exists) throw new ConflictException('Email đã tồn tại');
 
@@ -70,6 +84,7 @@ export class AuthService {
       fullName: data.fullName,
       phone: data.phone,
       role: data.role || 'STUDENT',
+      birthDate: data.birthDate,
     });
     await this.userRepo.save(user);
     return this.login(data.email, data.password);

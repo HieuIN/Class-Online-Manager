@@ -13,6 +13,7 @@ App quản lý lớp học online cho giáo viên dạy theo nhóm nhỏ (vợ t
 ```
 class-manager/
 ├── database/schema.sql      ← PostgreSQL schema + seed data
+├── database/migrations/     ← Migration SQL an toàn cho DB đang vận hành
 ├── backend/                  ← NestJS API ở http://localhost:3000/api
 │   ├── uploads/              ← Folder file user upload (served tại /uploads/)
 │   └── src/
@@ -57,13 +58,15 @@ class-manager/
 - Batch analytics: module `analytics` cung cấp compare classes, ranking, predict final, attendance heatmap, assignment difficulty; `reports/student-final/:studentId` sinh PDF báo cáo cuối khóa.
 - Batch extras: `learning-extras`, `finance-extras`, `ops-extras` cung cấp feedback ẩn danh, thread bài tập, flashcard, transcript, duplicate class, photo gallery, trả góp/VietQR/hoa hồng, 2FA OTP, audit log, backup placeholder, referral, birthday notifications, sentiment cơ bản.
 - Format helpers ở `src/utils/format.js`: `fmtMoney`, `fmtDate`, `fmtDateTime`, `gradeClassify`, `submissionBadge`, `attendanceBadge`, `paymentBadge`, `initials`
+- Học viên lưu `birthDate` (ngày sinh), không lưu tuổi cố định. `src/utils/learner.js` tự tính tuổi; học viên từ 0-12 tuổi dùng biến thể giao diện thiếu nhi, từ 13 tuổi dùng giao diện học viên tiêu chuẩn.
 - Badge classes: `.badge-green` (success), `.badge-red` (danger), `.badge-amber` (warning), `.badge-blue` (info), `.badge-gray` (neutral), `.badge-purple`
 - Primary color: `#1D9E75` (dark `#0F6E56`, light `#E1F5EE`)
 - Theme background: `#F5F4F0` cho main content, `#fff` cho cards
 
 ## 🗄️ Database
 
-- 16 bảng. Foreign keys + cascade đầy đủ
+- 16+ bảng. Foreign keys + cascade đầy đủ
+- `users.birth_date` là field nullable. Với database cũ, chạy `database/migrations/2026-07-15_add_user_birth_date.sql` trước khi deploy backend mới.
 - **Field naming**: snake_case trong DB, camelCase trong TypeScript (TypeORM `@Column({ name: 'snake_name' })`)
 - Raw SQL query trong service dùng `dataSource.query(sql, params)` với `$1, $2...` placeholders
 - Seed data: 8 users, 2 courses, 2 classes, 10 sessions, 4 grade items, 3 assignments, 5 payments
@@ -101,7 +104,7 @@ psql -U postgres -d class_manager
 ### ✅ Đã làm xong (Phase 1 MVP + Patch v2)
 - Auth JWT + 3 roles + đổi password + profile cá nhân
 - Quản lý lớp, khóa học (CRUD đầy đủ)
-- Quản lý người dùng (admin)
+- Quản lý người dùng (admin), có ngày sinh học viên để tự chọn trải nghiệm theo độ tuổi
 - Thêm/xóa học viên vào lớp (bulk + tạo HV mới + auto enroll)
 - Tự động tạo payment khi enroll
 - Điểm danh: tạo/sửa/xóa session, bulk mark, "all present/absent", lý do vắng

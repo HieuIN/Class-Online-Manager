@@ -1,9 +1,22 @@
 <template>
-  <div class="pronunciation-page">
+  <div :class="['pronunciation-page', { 'child-pronunciation': childMode }]">
     <div class="topbar">
       <ClassPicker @change="reload" />
       <el-button v-if="canManage" type="primary" @click="openCreate">+ Tạo bài phát âm</el-button>
     </div>
+
+    <section v-if="!canManage" class="pronunciation-journey" aria-labelledby="pronunciation-journey-title">
+      <div>
+        <span class="eyebrow">Luyện từng thanh điệu</span>
+        <h1 id="pronunciation-journey-title">Nghe kỹ, đọc chậm, tự tin hơn mỗi ngày.</h1>
+        <p>Chọn một bài, nghe audio mẫu, ghi lại giọng đọc của bạn rồi gửi cho giáo viên nhận xét.</p>
+      </div>
+      <ol class="journey-steps">
+        <li><span><el-icon><Headset /></el-icon></span><div><b>1. Nghe mẫu</b><small>Bắt nhịp câu đọc</small></div></li>
+        <li><span><el-icon><Microphone /></el-icon></span><div><b>2. Ghi âm</b><small>Đọc rõ từng âm</small></div></li>
+        <li><span><el-icon><CircleCheck /></el-icon></span><div><b>3. Nhận xét</b><small>Cải thiện ở lần sau</small></div></li>
+      </ol>
+    </section>
 
     <el-row :gutter="14">
       <el-col :span="8">
@@ -165,12 +178,13 @@
 <script setup>
 import { computed, reactive, ref, watch, onUnmounted, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Microphone } from '@element-plus/icons-vue';
+import { CircleCheck, Headset, Microphone } from '@element-plus/icons-vue';
 import ClassPicker from '@/components/ClassPicker.vue';
 import { pronunciationApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import { useClassStore } from '@/stores/class';
 import { fmtDateTime } from '@/utils/format';
+import { isChildLearner } from '@/utils/learner';
 
 const auth = useAuthStore();
 const classStore = useClassStore();
@@ -195,6 +209,7 @@ let timer = null;
 let chunks = [];
 
 const canManage = computed(() => auth.isTeacher || auth.isAdmin);
+const childMode = computed(() => isChildLearner(auth.user));
 const recorderStatus = computed(() => {
   if (isRecording.value) return 'Đang ghi âm, đọc rõ từng âm và thanh điệu.';
   if (recordedBlob.value) return 'Bạn có thể nghe lại trước khi nộp.';
@@ -365,31 +380,46 @@ onUnmounted(() => {
 
 <style scoped>
 .topbar { display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; margin-bottom: 12px; }
+.pronunciation-journey { align-items: center; background: #e2f4ec; border: 1px solid #cde6db; border-radius: 8px; display: grid; gap: 22px; grid-template-columns: minmax(0, 1fr) minmax(400px, 0.92fr); margin-bottom: 16px; padding: 25px 28px; }
+.pronunciation-journey h1 { color: #173d31; font-size: clamp(23px, 2.4vw, 31px); font-weight: 800; letter-spacing: 0; line-height: 1.2; margin: 8px 0; }
+.pronunciation-journey p { color: #477265; font-size: 13px; line-height: 1.6; margin: 0; max-width: 610px; }
+.journey-steps { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.journey-steps li { align-items: center; background: rgba(255, 255, 255, 0.68); border: 1px solid rgba(205, 230, 219, 0.9); border-radius: 8px; display: flex; gap: 9px; min-height: 72px; padding: 10px; }
+.journey-steps li > span { align-items: center; background: #fff0dc; border-radius: 8px; color: #bf702d; display: inline-flex; flex: 0 0 auto; font-size: 17px; height: 33px; justify-content: center; width: 33px; }
+.journey-steps b { color: var(--ink-900); display: block; font-size: 11px; line-height: 1.35; }
+.journey-steps small { color: var(--ink-500); display: block; font-size: 10px; line-height: 1.35; margin-top: 2px; }
 .side-panel, .main-panel { min-height: 520px; }
 .panel-head { display:flex; align-items:center; justify-content:space-between; gap: 12px; }
 .head-actions { display:flex; gap: 8px; }
-.exercise-row { padding: 12px; border:1px solid #e6e2da; border-radius: 8px; margin-bottom: 10px; cursor:pointer; background:#fff; transition: all .15s; }
-.exercise-row.active { border-color:#1D9E75; background:#F0FBF6; }
-.exercise-title, .detail-title { font-weight:700; color:#1f2937; }
-.exercise-meta { color:#777; font-size:12px; margin-top:4px; }
-.prompt-card { background:#fff9ef; border:1px solid #f1dfbd; border-radius:10px; padding:18px; }
-.prompt-label, .audio-label { font-size:12px; color:#777; margin-bottom: 8px; }
-.prompt-text { font-size:26px; font-weight:700; color:#111; line-height:1.5; }
-.pinyin { color:#0F6E56; font-size:18px; margin-top:8px; }
-.meaning { color:#555; margin-top:5px; }
+.exercise-row { background: var(--surface); border:1px solid var(--border); border-radius: 8px; cursor:pointer; margin-bottom: 10px; padding: 13px; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.exercise-row:hover { border-color: #8fcdb7; box-shadow: var(--shadow-soft); transform: translateY(-1px); }
+.exercise-row.active { background:#e8f7f0; border-color:#0f8e6d; box-shadow: inset 3px 0 0 #0f8e6d; }
+.exercise-title, .detail-title { color:var(--ink-900); font-weight:800; }
+.exercise-meta { color:var(--ink-500); font-size:12px; margin-top:4px; }
+.prompt-card { background:#fff7ea; border:1px solid #f3ddbd; border-radius:8px; padding:20px; }
+.prompt-label, .audio-label { color:var(--ink-500); font-size:12px; margin-bottom: 8px; }
+.prompt-text { color:var(--ink-900); font-size:clamp(24px, 3vw, 31px); font-weight:800; line-height:1.5; }
+.pinyin { color:#0f6e56; font-size:18px; margin-top:8px; }
+.meaning { color:var(--ink-700); margin-top:5px; }
 .audio-block { margin-top: 14px; display:flex; align-items:center; gap: 12px; flex-wrap:wrap; }
 .audio-block audio, .preview-audio, .sample-preview { width: 100%; max-width: 520px; }
 .submissions-head { margin-bottom: 10px; }
 .table-audio { width: 190px; height: 32px; }
 .muted { color:#aaa; }
 .recorder { display:flex; flex-direction:column; gap:14px; }
-.recorder-status { display:flex; justify-content:space-between; align-items:center; background:#f7f7f4; border-radius:10px; padding:14px; }
-.recorder-title { font-weight:700; }
-.timer { font-size:24px; font-weight:800; color:#0F6E56; }
+.recorder-status { align-items:center; background:#e8f7f0; border:1px solid #cde6db; border-radius:8px; display:flex; justify-content:space-between; padding:14px; }
+.recorder-title { color:var(--ink-900); font-weight:800; }
+.timer { color:#0f6e56; font-size:24px; font-weight:800; }
 .record-actions { display:flex; gap:10px; flex-wrap:wrap; }
 .empty { padding: 36px; text-align:center; color:#999; }
+.child-pronunciation .pronunciation-journey { border-width: 2px; }
+.child-pronunciation .exercise-row { border-left: 3px solid #0f8e6d; }
+.child-pronunciation .prompt-card { border-width: 2px; }
+.child-pronunciation .record-actions :deep(.el-button) { min-height: 40px; }
 @media (max-width: 768px) {
   .topbar { display:block; }
+  .pronunciation-journey { align-items: stretch; grid-template-columns: 1fr; padding: 20px; }
+  .journey-steps { grid-template-columns: 1fr; }
   :deep(.el-col) { max-width:100%; flex:0 0 100%; margin-bottom:12px; }
   .prompt-text { font-size:22px; }
 }

@@ -87,13 +87,13 @@ export class PronunciationService {
               pe.created_by as "createdBy", pe.created_at as "createdAt",
               u.full_name as "createdByName",
               COUNT(ps.id)::int as "submissionCount"
-              ${user.role === 'STUDENT' ? ', own.id as "mySubmissionId", own.status as "myStatus", own.score as "myScore", own.teacher_comment as "myTeacherComment"' : ''}
+              ${user.role === 'STUDENT' ? ', own.id as "mySubmissionId", own.status as "myStatus", own.score as "myScore", own.teacher_comment as "myTeacherComment", own.audio_url as "myAudioUrl", own.duration_seconds as "myDurationSeconds", own.submitted_at as "mySubmittedAt"' : ''}
        FROM pronunciation_exercises pe
        LEFT JOIN users u ON u.id = pe.created_by
        LEFT JOIN pronunciation_submissions ps ON ps.exercise_id = pe.id
        ${studentSubmitJoin}
        WHERE pe.class_id = $1
-       GROUP BY pe.id, u.full_name ${user.role === 'STUDENT' ? ', own.id, own.status, own.score, own.teacher_comment' : ''}
+       GROUP BY pe.id, u.full_name ${user.role === 'STUDENT' ? ', own.id, own.status, own.score, own.teacher_comment, own.audio_url, own.duration_seconds, own.submitted_at' : ''}
        ORDER BY pe.created_at DESC`,
       params,
     );

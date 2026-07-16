@@ -133,13 +133,32 @@
                 <el-button type="primary" :disabled="!recordedBlob" :loading="submitting" @click="submitRecording">Nộp bài</el-button>
               </div>
               <audio v-if="recordedUrl" :src="recordedUrl" controls class="preview-audio" />
-              <el-alert
-                v-if="activeExercise.myTeacherComment"
-                type="success"
-                :closable="false"
-                show-icon
-                :title="`Nhận xét giáo viên: ${activeExercise.myTeacherComment}`"
-              />
+              <section v-if="activeExercise.mySubmissionId" class="submission-review">
+                <div class="review-head">
+                  <div>
+                    <div class="review-title">Bản đã nộp</div>
+                    <div class="exercise-meta">
+                      {{ activeExercise.mySubmittedAt ? `Nộp lúc ${fmtDateTime(activeExercise.mySubmittedAt)}` : 'Đã gửi cho giáo viên' }}
+                    </div>
+                  </div>
+                  <span :class="['badge', activeExercise.myStatus === 'GRADED' ? 'badge-green' : 'badge-blue']">
+                    {{ activeExercise.myStatus === 'GRADED' ? 'Đã chấm' : 'Chờ chấm' }}
+                  </span>
+                </div>
+                <audio v-if="activeExercise.myAudioUrl" :src="mediaUrl(activeExercise.myAudioUrl)" controls class="preview-audio" />
+                <div v-if="activeExercise.myStatus === 'GRADED'" class="review-score">
+                  <span>Điểm phát âm</span>
+                  <strong>{{ hasScore ? activeExercise.myScore : 'Chưa có điểm' }}</strong>
+                </div>
+                <el-alert
+                  v-if="activeExercise.myTeacherComment"
+                  type="success"
+                  :closable="false"
+                  show-icon
+                  :title="`Nhận xét giáo viên: ${activeExercise.myTeacherComment}`"
+                />
+                <p class="review-note">Nộp lại sẽ thay thế bản ghi này và chuyển về trạng thái chờ chấm.</p>
+              </section>
             </div>
           </template>
         </el-card>
@@ -211,6 +230,7 @@ let chunks = [];
 
 const canManage = computed(() => auth.isTeacher || auth.isAdmin);
 const childMode = computed(() => isChildLearner(auth.user));
+const hasScore = computed(() => activeExercise.value?.myScore !== null && activeExercise.value?.myScore !== undefined);
 const recorderStatus = computed(() => {
   if (isRecording.value) return 'Đang ghi âm, đọc rõ từng âm và thanh điệu.';
   if (recordedBlob.value) return 'Bạn có thể nghe lại trước khi nộp.';
@@ -425,6 +445,13 @@ onUnmounted(() => {
 .recorder-title { color:var(--ink-900); font-weight:800; }
 .timer { color:#0f6e56; font-size:24px; font-weight:800; }
 .record-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.submission-review { background:#f7fbf8; border:1px solid #cde6db; border-radius:8px; display:flex; flex-direction:column; gap:12px; padding:14px; }
+.review-head { align-items:flex-start; display:flex; gap:12px; justify-content:space-between; }
+.review-title { color:var(--ink-900); font-weight:800; }
+.review-score { align-items:baseline; background:#fff; border:1px solid #dcebe4; border-radius:7px; display:flex; justify-content:space-between; padding:10px 12px; }
+.review-score span { color:var(--ink-500); font-size:12px; }
+.review-score strong { color:#0f6e56; font-size:20px; }
+.review-note { color:var(--ink-500); font-size:11px; line-height:1.5; margin:0; }
 .empty { padding: 36px; text-align:center; color:#999; }
 .child-pronunciation .pronunciation-journey { border-width: 2px; }
 .child-pronunciation .exercise-row { border-left: 3px solid #0f8e6d; }

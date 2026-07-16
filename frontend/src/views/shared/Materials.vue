@@ -60,6 +60,7 @@
     <el-dialog v-model="showPreview" :title="previewItem?.title || 'Xem tài liệu'" width="82vw" class="preview-dialog">
       <div v-if="previewItem" class="preview-body">
         <iframe v-if="previewKind === 'iframe'" :src="previewUrl" class="preview-frame" />
+        <iframe v-else-if="previewKind === 'office'" :src="officePreviewUrl" class="preview-frame" allowfullscreen />
         <video v-else-if="previewKind === 'video'" :src="previewUrl" class="preview-media" controls playsinline />
         <audio v-else-if="previewKind === 'audio'" :src="previewUrl" class="preview-audio" controls />
         <img v-else-if="previewKind === 'image'" :src="previewUrl" class="preview-image" />
@@ -125,11 +126,13 @@ const previewKindFor = (m) => {
   if (type === 'VIDEO' || ['mp4', 'webm', 'mov'].includes(ext)) return 'video';
   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
   if (type === 'PDF' || ext === 'pdf' || type === 'LINK') return 'iframe';
+  if (['ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx'].includes(ext)) return 'office';
   return 'fallback';
 };
 
 const previewUrl = computed(() => previewItem.value ? materialUrl(previewItem.value) : '');
 const previewKind = computed(() => previewItem.value ? previewKindFor(previewItem.value) : 'fallback');
+const officePreviewUrl = computed(() => `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl.value)}`);
 
 const reload = async () => {
   const cls = classStore.selected;

@@ -19,9 +19,11 @@ http.interceptors.response.use(
       localStorage.removeItem('token');
       if (location.pathname !== '/login') location.href = '/login';
     }
-    const msg = err.response?.data?.message || err.message;
-    if (Array.isArray(msg)) ElMessage.error(msg[0]);
-    else ElMessage.error(msg || 'Lỗi không xác định');
+    if (!err.config?.suppressErrorMessage) {
+      const msg = err.response?.data?.message || err.message;
+      if (Array.isArray(msg)) ElMessage.error(msg[0]);
+      else ElMessage.error(msg || 'Lỗi không xác định');
+    }
     return Promise.reject(err);
   },
 );

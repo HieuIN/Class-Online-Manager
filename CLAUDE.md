@@ -79,6 +79,7 @@ class-manager/
 - Token expire 7 ngày, route guard tự redirect về `/login` khi 401
 - 3 roles: `ADMIN`, `TEACHER`, `STUDENT`
 - Endpoint `/auth/change-password` đổi password
+- Tài khoản do quản trị viên/giáo viên tạo hoặc reset mật khẩu phải đổi mật khẩu tạm thời ngay ở lần đăng nhập tiếp theo; trong thời gian đó API chỉ cho phép `/auth/me` và `/auth/change-password`
 - API tự filter theo role (vd classes: TEACHER thấy lớp mình dạy, STUDENT thấy lớp mình học)
 
 ## 🚀 Run

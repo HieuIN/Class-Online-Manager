@@ -26,7 +26,7 @@ export class UsersService {
 
   findAll(role?: string) {
     const where = role ? { role } : {};
-    return this.repo.find({ where, select: ['id','email','phone','fullName','role','avatarUrl','school','birthDate','isActive','createdAt'] });
+    return this.repo.find({ where, select: ['id','email','phone','fullName','role','avatarUrl','school','birthDate','isActive','mustChangePassword','createdAt'] });
   }
 
   async findOne(id: number) {
@@ -41,6 +41,7 @@ export class UsersService {
     if (birthDate !== undefined) data.birthDate = birthDate;
     if (data.password) {
       data.passwordHash = await bcrypt.hash(data.password, 10);
+      data.mustChangePassword = data.mustChangePassword !== false;
       delete data.password;
     }
     const user = this.repo.create(data);
@@ -52,6 +53,7 @@ export class UsersService {
     if (birthDate !== undefined) data.birthDate = birthDate;
     if (data.password) {
       data.passwordHash = await bcrypt.hash(data.password, 10);
+      data.mustChangePassword = data.mustChangePassword !== false;
       delete data.password;
     }
     await this.repo.update(id, data);

@@ -43,9 +43,12 @@
         </el-table-column>
         <el-table-column label="Trạng thái" width="100">
           <template #default="{ row }">
-            <span :class="['badge', row.isActive ? 'badge-green' : 'badge-gray']">
-              {{ row.isActive ? 'Hoạt động' : 'Khóa' }}
-            </span>
+            <div class="status-badges">
+              <span :class="['badge', row.isActive ? 'badge-green' : 'badge-gray']">
+                {{ row.isActive ? 'Hoạt động' : 'Khóa' }}
+              </span>
+              <span v-if="row.mustChangePassword" class="badge badge-amber">Đổi mật khẩu</span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="Ngày tạo" width="120">
@@ -79,6 +82,7 @@
         </el-form-item>
         <el-form-item v-if="!editMode" label="Mật khẩu">
           <el-input v-model="form.password" type="password" show-password />
+          <div class="birthdate-help">Người dùng sẽ được yêu cầu đổi mật khẩu này ngay sau lần đăng nhập đầu tiên.</div>
         </el-form-item>
         <el-form-item v-if="editMode">
           <el-checkbox v-model="form.isActive">Tài khoản đang hoạt động</el-checkbox>
@@ -155,9 +159,10 @@ const save = async () => {
 
 const resetPwd = async (u) => {
   try {
-    await ElMessageBox.confirm(`Reset mật khẩu của "${u.fullName}" về "password123"?`, 'Xác nhận', { type: 'warning' });
+    await ElMessageBox.confirm(`Reset mật khẩu của "${u.fullName}" về "password123"? Người dùng sẽ phải đổi mật khẩu khi đăng nhập lại.`, 'Xác nhận', { type: 'warning' });
     await usersApi.update(u.id, { password: 'password123' });
-    ElMessage.success('Đã reset về "password123"');
+    ElMessage.success('Đã reset mật khẩu và bật yêu cầu đổi mật khẩu');
+    await load();
   } catch {}
 };
 
@@ -168,5 +173,6 @@ onMounted(load);
 .header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
 .filter-row { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
 .row-cell { display:flex; align-items:center; gap: 8px; }
+.status-badges { display:flex; flex-wrap:wrap; gap:4px; }
 .birthdate-help { color:var(--ink-500); font-size:11px; line-height:1.45; margin-top:6px; }
 </style>

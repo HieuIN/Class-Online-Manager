@@ -194,6 +194,7 @@
         </el-form-item>
         <el-form-item label="Mật khẩu">
           <el-input v-model="newStudent.password" type="password" show-password />
+          <div class="birthdate-help">Học viên sẽ được yêu cầu đổi mật khẩu này ở lần đăng nhập đầu tiên.</div>
         </el-form-item>
         <el-checkbox v-model="newStudent.enrollNow">Đăng ký vào lớp này luôn</el-checkbox>
       </el-form>

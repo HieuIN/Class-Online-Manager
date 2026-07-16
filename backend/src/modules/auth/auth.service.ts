@@ -42,6 +42,7 @@ export class AuthService {
         role: user.role,
         avatarUrl: user.avatarUrl,
         birthDate: user.birthDate,
+        mustChangePassword: user.mustChangePassword,
       },
     };
   }
@@ -56,6 +57,7 @@ export class AuthService {
       role: user.role,
       avatarUrl: user.avatarUrl,
       birthDate: user.birthDate,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 
@@ -100,6 +102,7 @@ export class AuthService {
       throw new BadRequestException('Mật khẩu mới tối thiểu 6 ký tự');
     }
     user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.mustChangePassword = false;
     await this.userRepo.save(user);
     return { success: true };
   }
@@ -159,7 +162,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await this.dataSource.query(
-      `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+      `UPDATE users SET password_hash = $1, must_change_password = FALSE, updated_at = NOW() WHERE id = $2`,
       [passwordHash, reset.user_id],
     );
     await this.dataSource.query(

@@ -209,12 +209,12 @@ export const opsApi = {
 };
 
 export const pronunciationApi = {
-  list: (classId) => http.get('/pronunciation-exercises', { params: { classId } }),
+  list: (classId) => http.get('/pronunciation-exercises', { params: { classId }, suppressErrorMessage: true }),
   create: (formData) => http.post('/pronunciation-exercises', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   update: (id, formData) => http.patch(`/pronunciation-exercises/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => http.delete(`/pronunciation-exercises/${id}`),
   submissions: (exerciseId) => http.get(`/pronunciation-exercises/${exerciseId}/submissions`),
-  submit: (exerciseId, formData) => http.post(`/pronunciation-exercises/${exerciseId}/submit`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  submit: (exerciseId, formData) => http.post(`/pronunciation-exercises/${exerciseId}/submit`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, suppressErrorMessage: true }),
   mySubmissions: (classId) => http.get('/pronunciation-submissions', { params: { classId } }),
   grade: (id, data) => http.patch(`/pronunciation-submissions/${id}/grade`, data),
 };

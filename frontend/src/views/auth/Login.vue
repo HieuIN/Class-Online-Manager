@@ -160,6 +160,10 @@ const toggleCarousel = () => {
 };
 
 const redirectAfterLogin = () => {
+  if (auth.user?.mustChangePassword) {
+    router.replace('/force-change-password');
+    return;
+  }
   if (auth.isStudent) router.push('/student/dashboard');
   else if (auth.isAdmin) router.push('/admin/dashboard');
   else router.push('/dashboard');

@@ -5,6 +5,7 @@ const routes = [
   { path: '/login', component: () => import('@/views/auth/Login.vue'), meta: { public: true } },
   { path: '/forgot-password', component: () => import('@/views/auth/ForgotPassword.vue'), meta: { public: true } },
   { path: '/reset-password', component: () => import('@/views/auth/ResetPassword.vue'), meta: { public: true } },
+  { path: '/force-change-password', component: () => import('@/views/auth/ForceChangePassword.vue'), meta: { forcePasswordChange: true } },
   {
     path: '/',
     component: () => import('@/views/AppLayout.vue'),
@@ -51,8 +52,10 @@ const router = createRouter({ history: createWebHistory(), routes });
 
 router.beforeEach((to, from, next) => {
   const auth = useAuthStore();
-  if (to.meta.public) return next();
-  if (!auth.isAuthenticated) return next('/login');
+  if (!auth.isAuthenticated) return to.meta.public ? next() : next('/login');
+  if (auth.user?.mustChangePassword && !to.meta.forcePasswordChange) return next('/force-change-password');
+  if (to.meta.forcePasswordChange && !auth.user?.mustChangePassword) return next('/');
+  if (to.meta.public) return next('/');
   if (to.meta.roles && !to.meta.roles.includes(auth.role)) {
     if (auth.isStudent) return next('/student/dashboard');
     if (auth.isAdmin) return next('/admin/dashboard');

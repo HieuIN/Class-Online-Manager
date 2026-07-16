@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
     parent_name     VARCHAR(255),
     parent_phone    VARCHAR(20),
     is_active       BOOLEAN DEFAULT TRUE,
+    must_change_password BOOLEAN DEFAULT FALSE,
     created_at      TIMESTAMP DEFAULT NOW(),
     updated_at      TIMESTAMP DEFAULT NOW(),
     CONSTRAINT users_role_check CHECK (role IN ('ADMIN', 'TEACHER', 'STUDENT'))

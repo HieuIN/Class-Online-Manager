@@ -70,7 +70,7 @@
 
           <div v-if="activeExercise.sampleAudioUrl" class="audio-block">
             <div class="audio-label">Audio mẫu</div>
-            <audio :src="activeExercise.sampleAudioUrl" controls />
+            <audio :src="mediaUrl(activeExercise.sampleAudioUrl)" controls />
           </div>
 
           <template v-if="canManage">
@@ -90,7 +90,7 @@
               </el-table-column>
               <el-table-column label="Audio" min-width="210">
                 <template #default="{ row }">
-                  <audio v-if="row.audioUrl" :src="row.audioUrl" controls class="table-audio" />
+                  <audio v-if="row.audioUrl" :src="mediaUrl(row.audioUrl)" controls class="table-audio" />
                   <span v-else class="muted">—</span>
                 </template>
               </el-table-column>
@@ -164,7 +164,7 @@
           <el-upload :auto-upload="false" :limit="1" :on-change="onSampleAudio" :file-list="sampleFileList" accept="audio/*">
             <el-button>Chọn audio mẫu</el-button>
           </el-upload>
-          <audio v-if="form.sampleAudioUrl && !sampleFile" :src="form.sampleAudioUrl" controls class="sample-preview" />
+          <audio v-if="form.sampleAudioUrl && !sampleFile" :src="mediaUrl(form.sampleAudioUrl)" controls class="sample-preview" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -185,6 +185,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useClassStore } from '@/stores/class';
 import { fmtDateTime } from '@/utils/format';
 import { isChildLearner } from '@/utils/learner';
+import { mediaUrl } from '@/utils/media';
 
 const auth = useAuthStore();
 const classStore = useClassStore();
@@ -225,7 +226,16 @@ const resetForm = () => {
 const reload = async () => {
   if (!classStore.classes.length) await classStore.fetchClasses();
   if (!classStore.selectedId) return;
-  exercises.value = await pronunciationApi.list(classStore.selectedId);
+  try {
+    exercises.value = await pronunciationApi.list(classStore.selectedId);
+  } catch (error) {
+    exercises.value = [];
+    activeExercise.value = null;
+    if (error.response?.status === 403) {
+      ElMessage.error('Bạn chưa được ghi danh vào lớp này. Hãy chọn lớp đang theo học hoặc liên hệ giáo viên.');
+    }
+    return;
+  }
   const current = activeExercise.value ? exercises.value.find(e => e.id === activeExercise.value.id) : null;
   if (current) await selectExercise(current);
   else if (exercises.value.length) await selectExercise(exercises.value[0]);
@@ -358,6 +368,10 @@ const submitRecording = async () => {
     await pronunciationApi.submit(activeExercise.value.id, fd);
     ElMessage.success('Đã nộp bài phát âm');
     await reload();
+  } catch (error) {
+    if (error.response?.status === 403) {
+      ElMessage.error('Bạn chưa được ghi danh vào lớp của bài phát âm này.');
+    }
   } finally {
     submitting.value = false;
   }

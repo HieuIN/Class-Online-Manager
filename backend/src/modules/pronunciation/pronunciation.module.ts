@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Delete, ForbiddenException, Get, Injectable, Module, Param, ParseIntPipe,
+  BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Injectable, Module, Param, ParseIntPipe,
   Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -194,7 +194,7 @@ export class PronunciationService {
 
   async submit(exerciseId: number, body: any, file: any, user: any) {
     if (user.role !== 'STUDENT') throw new ForbiddenException('Student only');
-    if (!file) throw new ForbiddenException('Audio file is required');
+    if (!file) throw new BadRequestException('Vui lòng chọn hoặc ghi một file audio hợp lệ');
     const ex = await this.exercise(exerciseId);
     await this.ensureClassAccess(user, +ex.class_id);
     return this.dataSource.query(

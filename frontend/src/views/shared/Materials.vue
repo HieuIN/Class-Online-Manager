@@ -83,6 +83,7 @@ import { useAuthStore } from '@/stores/auth';
 import { ElMessage } from 'element-plus';
 import ClassPicker from '@/components/ClassPicker.vue';
 import { materialsApi } from '@/api';
+import { mediaUrl } from '@/utils/media';
 
 const classStore = useClassStore();
 const auth = useAuthStore();
@@ -106,7 +107,7 @@ const grouped = computed(() => {
 });
 
 const typeIcon = (t) => ({ PDF: '📄', PPT: '📊', AUDIO: '🎵', VIDEO: '🎬', DOC: '📝', LINK: '🔗' }[t] || '📁');
-const materialUrl = (m) => m.link_url || m.linkUrl || m.file_url || m.fileUrl || '';
+const materialUrl = (m) => mediaUrl(m.link_url || m.linkUrl || m.file_url || m.fileUrl || '');
 const fileExt = (m) => materialUrl(m).split('?')[0].split('.').pop()?.toLowerCase() || '';
 const materialType = (m) => (m.material_type || m.materialType || '').toUpperCase();
 
@@ -173,7 +174,7 @@ const preview = (m) => {
 
 const download = (m) => {
   const url = materialUrl(m);
-  if (url) window.open(url, '_blank');
+  if (url) window.open(url, '_blank', 'noopener');
 };
 
 watch(() => classStore.selectedId, reload);

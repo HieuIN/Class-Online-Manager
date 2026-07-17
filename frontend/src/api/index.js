@@ -83,10 +83,11 @@ export const aiSuggestionsApi = {
 
 export const assignmentsApi = {
   list: (classId) => http.get('/assignments', { params: { classId } }),
-  create: (d) => http.post('/assignments', d),
-  update: (id, d) => http.patch(`/assignments/${id}`, d),
+  create: (formData) => http.post('/assignments', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  update: (id, formData) => http.patch(`/assignments/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   comments: (id) => http.get(`/assignments/${id}/comments`),
   addComment: (id, content) => http.post(`/assignments/${id}/comments`, { content }),
+  deleteAttachment: (assignmentId, attachmentId) => http.delete(`/assignments/${assignmentId}/attachments/${attachmentId}`),
   delete: (id) => http.delete(`/assignments/${id}`),
 };
 
@@ -94,6 +95,7 @@ export const submissionsApi = {
   matrix: (assignmentId) => http.get(`/submissions/matrix/${assignmentId}`),
   byStudent: (studentId, classId) => http.get('/submissions', { params: { studentId, classId } }),
   upload: (formData) => http.post('/submissions/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  submit: (formData) => http.post('/submissions/submit', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   grade: (id, d) => http.patch(`/submissions/${id}/grade`, d),
 };
 

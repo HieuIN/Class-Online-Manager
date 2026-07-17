@@ -174,11 +174,27 @@ CREATE TABLE IF NOT EXISTS assignments (
     attachment_url  TEXT,
     max_score       NUMERIC(5,2) DEFAULT 10,
     is_required     BOOLEAN DEFAULT TRUE,
+    submission_type VARCHAR(10) NOT NULL DEFAULT 'BOTH', -- FILE / TEXT / BOTH
+    allow_late_submission BOOLEAN NOT NULL DEFAULT TRUE,
+    estimated_minutes INTEGER,
     created_by      INTEGER REFERENCES users(id),
-    created_at      TIMESTAMP DEFAULT NOW()
+    created_at      TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT assignments_submission_type_check CHECK (submission_type IN ('FILE','TEXT','BOTH'))
 );
 
 CREATE INDEX idx_assignments_class ON assignments(class_id);
+
+CREATE TABLE IF NOT EXISTS assignment_attachments (
+    id              SERIAL PRIMARY KEY,
+    assignment_id   INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+    file_url        TEXT NOT NULL,
+    file_name       VARCHAR(255) NOT NULL,
+    mime_type       VARCHAR(150),
+    file_size       INTEGER,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_assignment_attachments_assignment ON assignment_attachments(assignment_id);
 
 -- =====================================================
 -- SUBMISSIONS (Bài nộp)
@@ -202,6 +218,18 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 CREATE INDEX idx_submissions_assignment ON submissions(assignment_id);
 CREATE INDEX idx_submissions_student ON submissions(student_id);
+
+CREATE TABLE IF NOT EXISTS submission_attachments (
+    id              SERIAL PRIMARY KEY,
+    submission_id   INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    file_url        TEXT NOT NULL,
+    file_name       VARCHAR(255) NOT NULL,
+    mime_type       VARCHAR(150),
+    file_size       INTEGER,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_submission_attachments_submission ON submission_attachments(submission_id);
 
 -- =====================================================
 -- QUIZZES (Trắc nghiệm tự chấm)

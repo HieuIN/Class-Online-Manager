@@ -11,7 +11,9 @@ export const authApi = {
 };
 
 export const usersApi = {
-  list: (role) => http.get('/users', { params: { role } }),
+  list: (role, includeInactive = false) => http.get('/users', {
+    params: { ...(role ? { role } : {}), ...(includeInactive ? { includeInactive: 'true' } : {}) },
+  }),
   get: (id) => http.get(`/users/${id}`),
   create: (data) => http.post('/users', data),
   update: (id, data) => http.patch(`/users/${id}`, data),

@@ -16,6 +16,7 @@
         <el-input v-model="search" placeholder="Tìm theo tên/email..." clearable style="width:280px">
           <template #prefix><el-icon><Search /></el-icon></template>
         </el-input>
+        <el-checkbox v-model="showInactive" @change="load">Hiển thị tài khoản đã xóa/khóa</el-checkbox>
       </div>
 
       <div class="list-summary">Hiển thị {{ filteredUsers.length }} / {{ users.length }} người dùng</div>
@@ -55,10 +56,12 @@
         <el-table-column label="Ngày tạo" width="120">
           <template #default="{ row }">{{ fmtDate(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="Hành động" width="170">
+        <el-table-column label="Hành động" width="240">
           <template #default="{ row }">
             <el-button size="small" @click="openEdit(row)">Sửa</el-button>
-            <el-button size="small" type="warning" plain @click="resetPwd(row)">Reset PW</el-button>
+            <el-button v-if="row.isActive" size="small" type="warning" plain @click="resetPwd(row)">Reset PW</el-button>
+            <el-button v-if="row.isActive" size="small" type="danger" plain @click="removeUser(row)">Xóa</el-button>
+            <el-button v-else size="small" type="success" plain @click="restoreUser(row)">Khôi phục</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -68,7 +71,10 @@
     <el-dialog v-model="showDialog" :title="editMode ? 'Sửa người dùng' : 'Tạo người dùng mới'" width="460px">
       <el-form label-position="top">
         <el-form-item label="Họ tên"><el-input v-model="form.fullName" /></el-form-item>
-        <el-form-item label="Email"><el-input v-model="form.email" :disabled="editMode" /></el-form-item>
+        <el-form-item label="Email đăng nhập">
+          <el-input v-model="form.email" />
+          <div v-if="editMode" class="birthdate-help">Email là tên đăng nhập. Đổi email sẽ áp dụng từ lần đăng nhập tiếp theo.</div>
+        </el-form-item>
         <el-form-item label="Điện thoại"><el-input v-model="form.phone" /></el-form-item>
         <el-form-item label="Vai trò">
           <el-select v-model="form.role">
@@ -106,6 +112,7 @@ import { initials, fmtDate } from '@/utils/format';
 const users = ref([]);
 const roleFilter = ref('');
 const search = ref('');
+const showInactive = ref(false);
 const loading = ref(false);
 const saving = ref(false);
 const showDialog = ref(false);
@@ -126,7 +133,7 @@ const filteredUsers = computed(() => {
 const load = async () => {
   loading.value = true;
   try {
-    const data = await usersApi.list();
+    const data = await usersApi.list(undefined, showInactive.value);
     users.value = Array.isArray(data) ? data : [];
   } catch (error) {
     ElMessage.error(error?.response?.data?.message || 'Could not load users');
@@ -154,6 +161,7 @@ const save = async () => {
     if (editMode.value) {
       const data = {
         fullName: form.fullName,
+        email: form.email,
         phone: form.phone,
         birthDate: form.role === 'STUDENT' ? form.birthDate || null : null,
         role: form.role,
@@ -182,6 +190,33 @@ const resetPwd = async (u) => {
     ElMessage.success('Đã reset mật khẩu và bật yêu cầu đổi mật khẩu');
     await load();
   } catch {}
+};
+
+const removeUser = async (u) => {
+  try {
+    await ElMessageBox.confirm(
+      `Xóa tài khoản "${u.fullName}" khỏi danh sách hoạt động? Dữ liệu học tập và lịch sử liên quan sẽ được giữ lại.`,
+      'Xác nhận xóa tài khoản',
+      { type: 'warning', confirmButtonText: 'Xóa tài khoản', cancelButtonText: 'Hủy' },
+    );
+    await usersApi.delete(u.id);
+    ElMessage.success('Đã xóa tài khoản khỏi danh sách hoạt động');
+    await load();
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error?.response?.data?.message || 'Không thể xóa tài khoản');
+    }
+  }
+};
+
+const restoreUser = async (u) => {
+  try {
+    await usersApi.update(u.id, { isActive: true });
+    ElMessage.success('Đã khôi phục tài khoản');
+    await load();
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.message || 'Không thể khôi phục tài khoản');
+  }
 };
 
 onMounted(load);

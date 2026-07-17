@@ -17,7 +17,9 @@ export class UsersController {
 
   @Get()
   @Roles('ADMIN', 'TEACHER')
-  findAll(@Query('role') role?: string) { return this.service.findAll(role); }
+  findAll(@Query('role') role: string | undefined, @Query('includeInactive') includeInactive: string | undefined, @CurrentUser() user: any) {
+    return this.service.findAll(role, includeInactive === 'true' && user.role === 'ADMIN');
+  }
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) { return this.service.findOne(id); }
@@ -52,5 +54,7 @@ export class UsersController {
 
   @Delete(':id')
   @Roles('ADMIN')
-  remove(@Param('id', ParseIntPipe) id: number) { return this.service.remove(id); }
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.service.remove(id, +user.id);
+  }
 }

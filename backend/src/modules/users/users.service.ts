@@ -24,8 +24,11 @@ export class UsersService {
     return birthDate;
   }
 
-  findAll(role?: string) {
-    const where = role ? { role } : {};
+  findAll(role?: string, includeInactive = false) {
+    const where: any = {
+      ...(role ? { role } : {}),
+      ...(includeInactive ? {} : { isActive: true }),
+    };
     return this.repo.find({
       where,
       select: ['id', 'email', 'phone', 'fullName', 'role', 'avatarUrl', 'school', 'birthDate', 'isActive', 'mustChangePassword', 'createdAt'],
@@ -71,18 +74,63 @@ export class UsersService {
   }
 
   async update(id: number, data: any) {
-    const birthDate = this.normalizeBirthDate(data.birthDate);
-    if (birthDate !== undefined) data.birthDate = birthDate;
-    if (data.password) {
-      data.passwordHash = await bcrypt.hash(data.password, 10);
-      data.mustChangePassword = data.mustChangePassword !== false;
-      delete data.password;
+    const existing = await this.repo.findOne({ where: { id } });
+    if (!existing) throw new NotFoundException('Không tìm thấy người dùng');
+
+    const updateData = { ...data };
+    const birthDate = this.normalizeBirthDate(updateData.birthDate);
+    if (birthDate !== undefined) updateData.birthDate = birthDate;
+
+    if (updateData.email !== undefined) {
+      const email = String(updateData.email || '').trim().toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(email)) throw new BadRequestException('Email không hợp lệ');
+      if (email !== existing.email && await this.repo.exist({ where: { email } })) {
+        throw new ConflictException('Email này đã tồn tại. Hãy dùng email khác.');
+      }
+      updateData.email = email;
     }
-    await this.repo.update(id, data);
+
+    if (updateData.fullName !== undefined) {
+      const fullName = String(updateData.fullName || '').trim();
+      if (!fullName) throw new BadRequestException('Nhập họ tên người dùng');
+      updateData.fullName = fullName;
+    }
+
+    if (updateData.role !== undefined) {
+      updateData.role = String(updateData.role || '').toUpperCase();
+      if (!['ADMIN', 'TEACHER', 'STUDENT'].includes(updateData.role)) {
+        throw new BadRequestException('Vai trò không hợp lệ');
+      }
+    }
+
+    if (updateData.password) {
+      if (String(updateData.password).length < 6) {
+        throw new BadRequestException('Mật khẩu phải có ít nhất 6 ký tự');
+      }
+      updateData.passwordHash = await bcrypt.hash(updateData.password, 10);
+      updateData.mustChangePassword = updateData.mustChangePassword !== false;
+      delete updateData.password;
+    }
+    await this.repo.update(id, updateData);
     return this.findOne(id);
   }
 
-  remove(id: number) {
-    return this.repo.update(id, { isActive: false });
+  async remove(id: number, actorId: number) {
+    const target = await this.repo.findOne({ where: { id } });
+    if (!target) throw new NotFoundException('Không tìm thấy người dùng');
+    if (id === actorId) throw new BadRequestException('Không thể tự xóa tài khoản đang đăng nhập');
+
+    if (target.role === 'ADMIN' && target.isActive) {
+      const activeAdminCount = await this.repo.count({ where: { role: 'ADMIN', isActive: true } });
+      if (activeAdminCount <= 1) {
+        throw new BadRequestException('Cần giữ lại ít nhất một tài khoản quản trị đang hoạt động');
+      }
+    }
+
+    await this.repo.update(id, { isActive: false });
+    return {
+      archived: true,
+      message: 'Đã xóa tài khoản khỏi danh sách hoạt động và giữ lại dữ liệu liên quan.',
+    };
   }
 }

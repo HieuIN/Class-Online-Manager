@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -26,7 +26,11 @@ export class UsersService {
 
   findAll(role?: string) {
     const where = role ? { role } : {};
-    return this.repo.find({ where, select: ['id','email','phone','fullName','role','avatarUrl','school','birthDate','isActive','mustChangePassword','createdAt'] });
+    return this.repo.find({
+      where,
+      select: ['id', 'email', 'phone', 'fullName', 'role', 'avatarUrl', 'school', 'birthDate', 'isActive', 'mustChangePassword', 'createdAt'],
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
   }
 
   async findOne(id: number) {
@@ -37,15 +41,33 @@ export class UsersService {
   }
 
   async create(data: any) {
+    const fullName = String(data.fullName || '').trim();
+    const email = String(data.email || '').trim().toLowerCase();
+    const password = String(data.password || '');
+    const role = String(data.role || 'STUDENT').toUpperCase();
+
+    if (!fullName) throw new BadRequestException('Nhập họ tên người dùng');
+    if (!/^\S+@\S+\.\S+$/.test(email)) throw new BadRequestException('Email không hợp lệ');
+    if (password.length < 6) throw new BadRequestException('Mật khẩu phải có ít nhất 6 ký tự');
+    if (!['ADMIN', 'TEACHER', 'STUDENT'].includes(role)) throw new BadRequestException('Vai trò không hợp lệ');
+    if (await this.repo.exist({ where: { email } })) throw new ConflictException('Email này đã tồn tại. Hãy dùng email khác.');
+
     const birthDate = this.normalizeBirthDate(data.birthDate);
-    if (birthDate !== undefined) data.birthDate = birthDate;
-    if (data.password) {
-      data.passwordHash = await bcrypt.hash(data.password, 10);
-      data.mustChangePassword = data.mustChangePassword !== false;
-      delete data.password;
-    }
-    const user = this.repo.create(data);
-    return this.repo.save(user);
+    const user = this.repo.create({
+      fullName,
+      email,
+      phone: String(data.phone || '').trim() || null,
+      role,
+      school: String(data.school || '').trim() || null,
+      parentName: String(data.parentName || '').trim() || null,
+      parentPhone: String(data.parentPhone || '').trim() || null,
+      birthDate: birthDate === undefined ? null : birthDate,
+      isActive: data.isActive !== false,
+      passwordHash: await bcrypt.hash(password, 10),
+      mustChangePassword: data.mustChangePassword !== false,
+    });
+    const saved = await this.repo.save(user);
+    return this.findOne(saved.id);
   }
 
   async update(id: number, data: any) {

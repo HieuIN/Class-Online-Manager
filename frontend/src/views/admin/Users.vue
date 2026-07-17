@@ -18,7 +18,8 @@
         </el-input>
       </div>
 
-      <el-table :data="filteredUsers" size="small">
+      <div class="list-summary">Hiển thị {{ filteredUsers.length }} / {{ users.length }} người dùng</div>
+      <el-table v-loading="loading" :data="filteredUsers" size="small" empty-text="Chưa có người dùng">
         <el-table-column label="Họ tên" min-width="180">
           <template #default="{ row }">
             <div class="row-cell">
@@ -90,7 +91,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">Hủy</el-button>
-        <el-button type="primary" @click="save">{{ editMode ? 'Lưu' : 'Tạo' }}</el-button>
+        <el-button type="primary" :loading="saving" @click="save">{{ editMode ? 'Lưu' : 'Tạo' }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -105,6 +106,8 @@ import { initials, fmtDate } from '@/utils/format';
 const users = ref([]);
 const roleFilter = ref('');
 const search = ref('');
+const loading = ref(false);
+const saving = ref(false);
 const showDialog = ref(false);
 const editMode = ref(false);
 const editId = ref(null);
@@ -116,14 +119,24 @@ const filteredUsers = computed(() => {
   let list = users.value;
   if (roleFilter.value) list = list.filter(u => u.role === roleFilter.value);
   const q = search.value.toLowerCase().trim();
-  if (q) list = list.filter(u => u.fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  if (q) list = list.filter(u => String(u.fullName || '').toLowerCase().includes(q) || String(u.email || '').toLowerCase().includes(q));
   return list;
 });
 
-const load = async () => { users.value = await usersApi.list(); };
+const load = async () => {
+  loading.value = true;
+  try {
+    const data = await usersApi.list();
+    users.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.message || 'Could not load users');
+  } finally {
+    loading.value = false;
+  }
+};
 
 const openCreate = () => {
-  editMode.value = false;
+  editMode.value = false; editId.value = null;
   Object.assign(form, { fullName: '', email: '', phone: '', birthDate: '', role: 'STUDENT', password: 'password123', isActive: true });
   showDialog.value = true;
 };
@@ -136,6 +149,7 @@ const openEdit = (u) => {
 
 const save = async () => {
   if (!form.fullName || !form.email) { ElMessage.warning('Nhập đủ họ tên + email'); return; }
+  saving.value = true;
   try {
     if (editMode.value) {
       const data = {
@@ -149,12 +163,16 @@ const save = async () => {
       ElMessage.success('Đã cập nhật');
     } else {
       if (!form.password) { ElMessage.warning('Nhập mật khẩu'); return; }
-      await usersApi.create(form);
+      await usersApi.create({ ...form });
       ElMessage.success('Đã tạo người dùng');
     }
     showDialog.value = false;
-    load();
-  } catch {}
+    await load();
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.message || 'Could not save user');
+  } finally {
+    saving.value = false;
+  }
 };
 
 const resetPwd = async (u) => {
@@ -174,5 +192,6 @@ onMounted(load);
 .filter-row { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
 .row-cell { display:flex; align-items:center; gap: 8px; }
 .status-badges { display:flex; flex-wrap:wrap; gap:4px; }
+.list-summary { color:var(--ink-500); font-size:12px; margin:0 0 10px; }
 .birthdate-help { color:var(--ink-500); font-size:11px; line-height:1.45; margin-top:6px; }
 </style>

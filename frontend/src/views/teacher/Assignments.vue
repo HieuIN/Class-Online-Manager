@@ -294,7 +294,13 @@ function viewSubmission(row) { viewRow.value = row; showView.value = true; }
 function openGrade(row) { gradeRow.value = row; gradeForm.score = Number(row.score ?? 0); gradeForm.teacherComment = row.teacherComment || ''; gradeForm.status = row.status === 'REVISION_REQUIRED' ? 'REVISION_REQUIRED' : 'GRADED'; showGrade.value = true; }
 function gradeFromView() { showView.value = false; if (viewRow.value) openGrade(viewRow.value); }
 async function saveGrade() { grading.value = true; try { await submissionsApi.grade(gradeRow.value.submissionId, { ...gradeForm }); ElMessage.success('Đã lưu đánh giá'); showGrade.value = false; await loadMatrix(); } finally { grading.value = false; } }
-function openFile(url) { window.open(mediaUrl(url), '_blank', 'noopener'); }
+function openFile(url) {
+  const source = mediaUrl(url);
+  const preview = /\.(doc|docx|xls|xlsx|ppt|pptx)(?:$|\?)/i.test(source) && /^https?:\/\//i.test(source)
+    ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(source)}`
+    : source;
+  window.open(preview, '_blank', 'noopener');
+}
 function downloadFile(url, name) { const link = document.createElement('a'); link.href = mediaUrl(url); link.download = name || String(url).split('/').pop(); link.click(); }
 
 watch(() => classStore.selectedId, reload);

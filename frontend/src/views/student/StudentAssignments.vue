@@ -141,7 +141,13 @@ async function doSubmit() {
     ElMessage.success('Đã nộp bài thành công'); showSubmit.value = false; await reload();
   } finally { submitting.value = false; }
 }
-function openFile(url) { window.open(mediaUrl(url), '_blank', 'noopener'); }
+function openFile(url) {
+  const source = mediaUrl(url);
+  const preview = /\.(doc|docx|xls|xlsx|ppt|pptx)(?:$|\?)/i.test(source) && /^https?:\/\//i.test(source)
+    ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(source)}`
+    : source;
+  window.open(preview, '_blank', 'noopener');
+}
 function downloadFile(url, name) { const link = document.createElement('a'); link.href = mediaUrl(url); link.download = name || String(url).split('/').pop(); link.click(); }
 
 watch(() => classStore.selectedId, reload);

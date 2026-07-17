@@ -79,6 +79,7 @@ export const gradesApi = {
 
 export const aiSuggestionsApi = {
   suggestFeedback: (studentId, classId) => http.post('/ai/suggest-feedback', { studentId, classId }),
+  assignmentReview: (submissionId) => http.post('/ai/assignment-review', { submissionId }),
 };
 
 export const assignmentsApi = {
@@ -88,7 +89,17 @@ export const assignmentsApi = {
   comments: (id) => http.get(`/assignments/${id}/comments`),
   addComment: (id, content) => http.post(`/assignments/${id}/comments`, { content }),
   deleteAttachment: (assignmentId, attachmentId) => http.delete(`/assignments/${assignmentId}/attachments/${attachmentId}`),
+  publish: (id) => http.post(`/assignments/${id}/publish`),
+  groups: (id) => http.get(`/assignments/${id}/groups`),
+  saveGroups: (id, groups) => http.post(`/assignments/${id}/groups`, { groups }),
   delete: (id) => http.delete(`/assignments/${id}`),
+};
+
+export const assignmentTemplatesApi = {
+  list: () => http.get('/assignment-templates'),
+  save: (name, payload) => http.post('/assignment-templates', { name, payload }),
+  create: (id, data) => http.post(`/assignment-templates/${id}/create`, data),
+  delete: (id) => http.delete(`/assignment-templates/${id}`),
 };
 
 export const submissionsApi = {
@@ -97,6 +108,10 @@ export const submissionsApi = {
   upload: (formData) => http.post('/submissions/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   submit: (formData) => http.post('/submissions/submit', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   grade: (id, d) => http.patch(`/submissions/${id}/grade`, d),
+  versions: (id) => http.get(`/submissions/${id}/versions`),
+  annotations: (id, attachmentId) => http.get(`/submissions/${id}/annotations`, { params: attachmentId ? { attachmentId } : undefined }),
+  addAnnotation: (id, data) => http.post(`/submissions/${id}/annotations`, data),
+  similarity: (assignmentId) => http.get(`/submissions/similarity/${assignmentId}`),
 };
 
 export const materialsApi = {

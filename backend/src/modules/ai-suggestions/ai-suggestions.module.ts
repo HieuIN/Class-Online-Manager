@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles, RolesGuard } from '../../common/roles.guard';
+import { CurrentUser } from '../../common/current-user.decorator';
 
 @Injectable()
 export class AiSuggestionsService {
@@ -93,6 +94,58 @@ Hãy viết 2-3 câu nhận xét bằng tiếng Việt, mang tính xây dựng, 
 
     return { suggestion };
   }
+
+  private async ensureManager(user: any, classId: number) {
+    if (user.role === 'ADMIN') return;
+    const rows = await this.dataSource.query(
+      `SELECT 1 FROM classes WHERE id = $1 AND teacher_id = $2 AND is_active = true`,
+      [classId, user.id],
+    );
+    if (!rows[0]) throw new BadRequestException('Bạn không có quyền chấm bài của lớp này');
+  }
+
+  async suggestAssignmentReview(submissionId: number, user: any) {
+    const apiKey = this.config.get<string>('ANTHROPIC_API_KEY');
+    if (!apiKey) throw new ServiceUnavailableException('ANTHROPIC_API_KEY is not configured');
+    const [submission] = await this.dataSource.query(
+      `SELECT s.id, s.content_text as "contentText", s.file_name as "fileName", u.full_name as "studentName",
+              a.title as "assignmentTitle", a.description as "assignmentDescription", a.class_id as "classId", a.max_score as "maxScore"
+       FROM submissions s JOIN assignments a ON a.id = s.assignment_id JOIN users u ON u.id = s.student_id
+       WHERE s.id = $1`,
+      [submissionId],
+    );
+    if (!submission) throw new BadRequestException('Không tìm thấy bài nộp');
+    await this.ensureManager(user, submission.classId);
+    const rubrics = await this.dataSource.query(
+      `SELECT criterion, description, max_points as "maxPoints" FROM assignment_rubrics
+       WHERE assignment_id = (SELECT assignment_id FROM submissions WHERE id = $1) ORDER BY display_order, id`,
+      [submissionId],
+    );
+    const rubricText = rubrics.length
+      ? rubrics.map((rubric: any) => `- ${rubric.criterion} (${rubric.maxPoints} điểm): ${rubric.description || 'Không có mô tả'}`).join('\n')
+      : 'Không có rubric.';
+    const submissionText = String(submission.contentText || '').trim() || `(Học viên nộp tệp: ${submission.fileName || 'không có nội dung văn bản'})`;
+    const prompt = `Bạn là trợ lý chấm bài cho giáo viên. Hãy hỗ trợ nhận xét bằng tiếng Việt, không tự khẳng định học viên vi phạm.
+Bài tập: ${submission.assignmentTitle}
+Yêu cầu: ${submission.assignmentDescription || 'Không có mô tả'}
+Thang điểm tối đa: ${submission.maxScore}
+Rubric:
+${rubricText}
+Học viên: ${submission.studentName}
+Nội dung bài làm:
+${submissionText}
+
+Trả lời gồm đúng 2 phần ngắn:
+1. "Nhận xét gợi ý": 2-4 câu, tích cực và cụ thể.
+2. "Cần kiểm tra thêm": các yêu cầu có thể còn thiếu hoặc chưa đủ thông tin để đánh giá. Nếu không có, ghi "Không thấy rõ".
+Không tự cho điểm, không nói đây là kết luận cuối cùng.`;
+    const anthropic = new Anthropic({ apiKey });
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5', max_tokens: 420, messages: [{ role: 'user', content: prompt }],
+    });
+    const suggestion = response.content.filter((block: any) => block.type === 'text').map((block: any) => block.text).join('\n').trim();
+    return { suggestion, analyzedText: !!submission.contentText, rubricCount: rubrics.length };
+  }
 }
 
 @Controller('ai')
@@ -104,6 +157,12 @@ export class AiSuggestionsController {
   @Roles('ADMIN', 'TEACHER')
   suggestFeedback(@Body() body: { studentId: number; classId: number }) {
     return this.service.suggestFeedback(+body.studentId, +body.classId);
+  }
+
+  @Post('assignment-review')
+  @Roles('ADMIN', 'TEACHER')
+  suggestAssignmentReview(@Body() body: { submissionId: number }, @CurrentUser() user: any) {
+    return this.service.suggestAssignmentReview(+body.submissionId, user);
   }
 }
 

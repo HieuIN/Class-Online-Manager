@@ -177,9 +177,14 @@ CREATE TABLE IF NOT EXISTS assignments (
     submission_type VARCHAR(10) NOT NULL DEFAULT 'BOTH', -- FILE / TEXT / BOTH
     allow_late_submission BOOLEAN NOT NULL DEFAULT TRUE,
     estimated_minutes INTEGER,
+    status          VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED', -- DRAFT / PUBLISHED
+    publish_at      TIMESTAMP,
+    is_group_assignment BOOLEAN NOT NULL DEFAULT FALSE,
+    group_max_members SMALLINT,
     created_by      INTEGER REFERENCES users(id),
     created_at      TIMESTAMP DEFAULT NOW(),
-    CONSTRAINT assignments_submission_type_check CHECK (submission_type IN ('FILE','TEXT','BOTH'))
+    CONSTRAINT assignments_submission_type_check CHECK (submission_type IN ('FILE','TEXT','BOTH')),
+    CONSTRAINT assignments_status_check CHECK (status IN ('DRAFT','PUBLISHED'))
 );
 
 CREATE INDEX idx_assignments_class ON assignments(class_id);
@@ -195,6 +200,41 @@ CREATE TABLE IF NOT EXISTS assignment_attachments (
 );
 
 CREATE INDEX idx_assignment_attachments_assignment ON assignment_attachments(assignment_id);
+
+CREATE TABLE IF NOT EXISTS assignment_rubrics (
+    id              SERIAL PRIMARY KEY,
+    assignment_id   INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+    criterion       VARCHAR(255) NOT NULL,
+    description     TEXT,
+    max_points      NUMERIC(5,2) NOT NULL CHECK (max_points > 0),
+    display_order   INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_assignment_rubrics_assignment ON assignment_rubrics(assignment_id, display_order);
+
+CREATE TABLE IF NOT EXISTS assignment_templates (
+    id              SERIAL PRIMARY KEY,
+    created_by      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name            VARCHAR(255) NOT NULL,
+    payload         JSONB NOT NULL,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    updated_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS assignment_groups (
+    id              SERIAL PRIMARY KEY,
+    assignment_id   INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+    name            VARCHAR(255) NOT NULL,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    UNIQUE (assignment_id, name)
+);
+CREATE TABLE IF NOT EXISTS assignment_group_members (
+    id              SERIAL PRIMARY KEY,
+    group_id        INTEGER NOT NULL REFERENCES assignment_groups(id) ON DELETE CASCADE,
+    student_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    UNIQUE (group_id, student_id)
+);
 
 -- =====================================================
 -- SUBMISSIONS (Bài nộp)
@@ -212,6 +252,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     status          VARCHAR(20) DEFAULT 'SUBMITTED',  -- SUBMITTED / GRADED / REVISION_REQUIRED / NOT_SUBMITTED
     graded_at       TIMESTAMP,
     graded_by       INTEGER REFERENCES users(id),
+    group_id        INTEGER REFERENCES assignment_groups(id) ON DELETE SET NULL,
     UNIQUE (assignment_id, student_id),
     CONSTRAINT subm_status_check CHECK (status IN ('SUBMITTED','GRADED','REVISION_REQUIRED','NOT_SUBMITTED'))
 );
@@ -230,6 +271,43 @@ CREATE TABLE IF NOT EXISTS submission_attachments (
 );
 
 CREATE INDEX idx_submission_attachments_submission ON submission_attachments(submission_id);
+
+CREATE TABLE IF NOT EXISTS submission_versions (
+    id              SERIAL PRIMARY KEY,
+    submission_id   INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    version_no      INTEGER NOT NULL,
+    submitted_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    group_id        INTEGER REFERENCES assignment_groups(id) ON DELETE SET NULL,
+    content_text    TEXT,
+    attachments     JSONB NOT NULL DEFAULT '[]'::jsonb,
+    score           NUMERIC(5,2),
+    teacher_comment TEXT,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    UNIQUE (submission_id, version_no)
+);
+
+CREATE TABLE IF NOT EXISTS submission_rubric_scores (
+    id              SERIAL PRIMARY KEY,
+    submission_id   INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    rubric_id       INTEGER NOT NULL REFERENCES assignment_rubrics(id) ON DELETE CASCADE,
+    score           NUMERIC(5,2) NOT NULL,
+    feedback        TEXT,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    updated_at      TIMESTAMP DEFAULT NOW(),
+    UNIQUE (submission_id, rubric_id)
+);
+
+CREATE TABLE IF NOT EXISTS submission_annotations (
+    id              SERIAL PRIMARY KEY,
+    submission_id   INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    attachment_id   INTEGER REFERENCES submission_attachments(id) ON DELETE CASCADE,
+    author_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    page_no         INTEGER,
+    position_x      NUMERIC(7,4),
+    position_y      NUMERIC(7,4),
+    content         TEXT NOT NULL,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
 
 -- =====================================================
 -- QUIZZES (Trắc nghiệm tự chấm)

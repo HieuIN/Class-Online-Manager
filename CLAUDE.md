@@ -158,6 +158,14 @@ Khi thêm tính năng mới, thường cần edit nhiều file:
 
 Test API: PowerShell `Invoke-RestMethod` (xem `backend/README.md`)
 
+## Advanced assignments (2026-07-17)
+
+- Assignment workflow supports `DRAFT` / `PUBLISHED`, scheduled publishing, reusable teacher templates, and 24-hour / 1-hour deadline notifications.
+- Teachers can configure scoring rubrics, create groups, assess criteria individually, add PDF/image annotations, review submission versions, and run text-similarity indicators.
+- Students see their group, rubric, teacher feedback, file annotations, and prior submission versions. A group has one shared submission.
+- Assignment AI review is opt-in through `POST /api/ai/assignment-review`, requires `ANTHROPIC_API_KEY`, and returns suggested feedback plus missing requirements. Similarity results are review signals only, not an automatic plagiarism verdict.
+- Apply `database/migrations/2026-07-17_advanced_assignments.sql` before deploying the backend that uses these tables and columns.
+
 Commit Git mỗi feature riêng để dễ rollback: `git commit -m "feat: thêm Zoom link cho sessions"`
 
 Sau khi xong feature lớn, prompt Claude Code: "update CLAUDE.md, tick item đã làm trong Roadmap"

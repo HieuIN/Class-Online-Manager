@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from '../../common/current-user.decorator';
+import { Roles, RolesGuard } from '../../common/roles.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -18,6 +19,8 @@ export class AuthController {
   }
 
   @Post('register')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   register(@Body() body: any) {
     return this.authService.register(body);
   }

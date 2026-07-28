@@ -40,18 +40,21 @@
 
 <script setup>
 import { reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { authApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import BrandWordmark from '@/components/BrandWordmark.vue';
 
 const router = useRouter();
+const route = useRoute();
 const auth = useAuthStore();
 const loading = ref(false);
 const form = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' });
 
 const destination = () => {
+  const requestedPath = typeof route.query.redirect === 'string' ? route.query.redirect : '';
+  if (requestedPath.startsWith('/') && !requestedPath.startsWith('//')) return requestedPath;
   if (auth.isStudent) return '/student/dashboard';
   if (auth.isAdmin) return '/admin/dashboard';
   return '/dashboard';

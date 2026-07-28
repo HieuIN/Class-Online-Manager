@@ -5,6 +5,7 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: JSON.parse(localStorage.getItem('user') || 'null'),
     token: localStorage.getItem('token') || '',
+    sessionChecked: false,
   }),
   getters: {
     isAuthenticated: (s) => !!s.token,
@@ -28,6 +29,7 @@ export const useAuthStore = defineStore('auth', {
     setSession(res) {
       this.user = res.user;
       this.token = res.accessToken;
+      this.sessionChecked = true;
       localStorage.setItem('token', res.accessToken);
       localStorage.setItem('user', JSON.stringify(res.user));
       return res;
@@ -36,12 +38,26 @@ export const useAuthStore = defineStore('auth', {
       try {
         const me = await authApi.me();
         this.user = me;
+        this.sessionChecked = true;
         localStorage.setItem('user', JSON.stringify(me));
-      } catch (e) { this.logout(); }
+        return true;
+      } catch (e) {
+        this.logout();
+        return false;
+      }
+    },
+    async ensureSession() {
+      if (!this.token) {
+        this.sessionChecked = true;
+        return false;
+      }
+      if (this.sessionChecked) return Boolean(this.user);
+      return this.fetchMe();
     },
     logout() {
       this.user = null;
       this.token = '';
+      this.sessionChecked = true;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     },

@@ -85,7 +85,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft, ArrowRight, VideoPause, VideoPlay } from '@element-plus/icons-vue';
@@ -95,6 +95,7 @@ import onlineLessonImage from '@/assets/login/online-lesson.jpg';
 import calligraphyDeskImage from '@/assets/login/calligraphy-desk.jpg';
 
 const router = useRouter();
+const route = useRoute();
 const auth = useAuthStore();
 const form = reactive({ email: '', password: '', otp: '' });
 const loading = ref(false);
@@ -160,13 +161,23 @@ const toggleCarousel = () => {
 };
 
 const redirectAfterLogin = () => {
+  const requestedPath = typeof route.query.redirect === 'string' ? route.query.redirect : '';
+  const safeRequestedPath = requestedPath.startsWith('/') && !requestedPath.startsWith('//')
+    ? requestedPath
+    : '';
+
   if (auth.user?.mustChangePassword) {
-    router.replace('/force-change-password');
+    router.replace({
+      path: '/force-change-password',
+      query: safeRequestedPath ? { redirect: safeRequestedPath } : {},
+    });
     return;
   }
-  if (auth.isStudent) router.push('/student/dashboard');
-  else if (auth.isAdmin) router.push('/admin/dashboard');
-  else router.push('/dashboard');
+  if (safeRequestedPath) {
+    router.replace(safeRequestedPath);
+  } else if (auth.isStudent) router.replace('/student/dashboard');
+  else if (auth.isAdmin) router.replace('/admin/dashboard');
+  else router.replace('/dashboard');
 };
 
 const onLogin = async () => {

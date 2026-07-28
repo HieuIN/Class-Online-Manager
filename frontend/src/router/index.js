@@ -50,18 +50,39 @@ const routes = [
 
 const router = createRouter({ history: createWebHistory(), routes });
 
-router.beforeEach((to, from, next) => {
+const loginRedirect = (to) => ({
+  path: '/login',
+  query: to.fullPath && to.fullPath !== '/' ? { redirect: to.fullPath } : {},
+  replace: true,
+});
+
+const homeFor = (auth) => {
+  if (auth.isStudent) return '/student/dashboard';
+  if (auth.isAdmin) return '/admin/dashboard';
+  return '/dashboard';
+};
+
+router.beforeEach(async (to) => {
   const auth = useAuthStore();
-  if (!auth.isAuthenticated) return to.meta.public ? next() : next('/login');
-  if (auth.user?.mustChangePassword && !to.meta.forcePasswordChange) return next('/force-change-password');
-  if (to.meta.forcePasswordChange && !auth.user?.mustChangePassword) return next('/');
-  if (to.meta.public) return next('/');
-  if (to.meta.roles && !to.meta.roles.includes(auth.role)) {
-    if (auth.isStudent) return next('/student/dashboard');
-    if (auth.isAdmin) return next('/admin/dashboard');
-    return next('/dashboard');
+
+  if (!auth.token) return to.meta.public ? true : loginRedirect(to);
+
+  const validSession = await auth.ensureSession();
+  if (!validSession) return to.meta.public ? true : loginRedirect(to);
+
+  if (auth.user?.mustChangePassword && !to.meta.forcePasswordChange) {
+    return {
+      path: '/force-change-password',
+      query: to.fullPath && to.fullPath !== '/' ? { redirect: to.fullPath } : {},
+      replace: true,
+    };
   }
-  next();
+  if (to.meta.forcePasswordChange && !auth.user?.mustChangePassword) return homeFor(auth);
+  if (to.meta.public) return homeFor(auth);
+  if (to.meta.roles && !to.meta.roles.includes(auth.role)) {
+    return homeFor(auth);
+  }
+  return true;
 });
 
 export default router;

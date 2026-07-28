@@ -17,7 +17,11 @@ http.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem('token');
-      if (location.pathname !== '/login') location.href = '/login';
+      localStorage.removeItem('user');
+      if (location.pathname !== '/login') {
+        const currentPath = `${location.pathname}${location.search}${location.hash}`;
+        location.replace(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      }
     }
     if (!err.config?.suppressErrorMessage) {
       const msg = err.response?.data?.message || err.message;

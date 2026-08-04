@@ -72,7 +72,7 @@ export class NotificationsService {
   @Cron('0 */5 * * * *')
   async runClassReminders() {
     const sessions = await this.dataSource.query(
-      `SELECT s.id, s.class_id, s.session_no, s.start_time, s.meeting_url, c.name as class_name, c.teacher_id
+      `SELECT s.id, s.class_id, s.session_no, s.planned_date, s.start_time, s.end_time, s.meeting_url, c.name as class_name, c.teacher_id
        FROM sessions s
        JOIN classes c ON c.id = s.class_id
        WHERE s.status = 'PLANNED'
@@ -90,7 +90,9 @@ export class NotificationsService {
         [s.class_id, s.teacher_id],
       );
       const time = String(s.start_time).slice(0, 5);
-      const content = `session_id=${s.id}; Lớp ${s.class_name} sẽ bắt đầu lúc ${time}. ${s.meeting_url ? 'Có link Zoom/Meet.' : 'Chưa có link Zoom/Meet.'}`;
+      const date = String(s.planned_date).slice(0, 10);
+      const endTime = s.end_time ? String(s.end_time).slice(0, 5) : '';
+      const content = `session_id=${s.id};start_at=${date}T${time};end_at=${endTime ? `${date}T${endTime}` : ''}; Lớp ${s.class_name} sẽ bắt đầu lúc ${time}. ${s.meeting_url ? 'Đã có đường dẫn phòng học.' : 'Giáo viên chưa cập nhật đường dẫn phòng học.'}`;
       for (const u of users) {
         const wasCreated = await this.createOnce(u.user_id, 'REMINDER', `session_id=${s.id};`, {
           title: 'Buổi học sắp bắt đầu',

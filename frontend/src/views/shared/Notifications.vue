@@ -16,6 +16,7 @@
             <span v-if="!n.isRead" class="badge badge-red">Mới</span>
           </div>
           <div class="notif-content">{{ notificationContent(n.content) }}</div>
+          <div v-if="notificationSchedule(n)" class="notif-schedule">{{ notificationSchedule(n) }}</div>
           <div class="notif-time">{{ notificationTime(n.createdAt) }}</div>
         </div>
         <el-button size="small" type="primary" plain @click.stop="openNotification(n)">Xem</el-button>
@@ -50,7 +51,7 @@ import { useClassStore } from '@/stores/class';
 import { ElMessage } from 'element-plus';
 import { notificationsApi } from '@/api';
 import { useRouter } from 'vue-router';
-import { notificationContent, notificationTarget, notificationTime } from '@/utils/notification';
+import { notificationContent, notificationSchedule, notificationTarget, notificationTime } from '@/utils/notification';
 
 const auth = useAuthStore();
 const classStore = useClassStore();
@@ -103,6 +104,7 @@ onMounted(load);
 </script>
 
 <style scoped>
+.notif-schedule { color: var(--brand-700); font-size: 12px; font-weight: 700; margin-top: 5px; }
 .header-bar { display:flex; justify-content:space-between; margin-bottom: 14px; }
 .mb-4 { margin-bottom: 14px; }
 .notif-row { display:flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f0ee; cursor: pointer; }

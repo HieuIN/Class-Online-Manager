@@ -79,6 +79,7 @@
           <div class="notif-body">
             <div class="notif-title">{{ n.title }} <span v-if="!n.isRead" class="badge badge-red">Mới</span></div>
             <div class="notif-content">{{ notificationContent(n.content) }}</div>
+            <div v-if="notificationSchedule(n)" class="notif-schedule">{{ notificationSchedule(n) }}</div>
             <div class="notif-time">{{ notificationTime(n.createdAt) }}</div>
           </div>
           <span class="notif-arrow">›</span>
@@ -93,7 +94,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useClassStore } from '@/stores/class';
 import { notificationsApi } from '@/api';
-import { notificationContent, notificationTarget, notificationTime } from '@/utils/notification';
+import { notificationContent, notificationSchedule, notificationTarget, notificationTime } from '@/utils/notification';
 
 const classStore = useClassStore();
 const router = useRouter();
@@ -123,6 +124,7 @@ onMounted(async () => {
 
 <style scoped>
 .page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.notif-schedule { color: var(--brand-700); font-size: 12px; font-weight: 700; margin-top: 5px; }
 .class-row { background: transparent; border: 0; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; gap: 12px; padding: 14px 0; text-align: left; width: 100%; }
 .class-row:first-of-type { padding-top: 2px; }
 .class-row:last-child { border-bottom: 0; padding-bottom: 2px; }

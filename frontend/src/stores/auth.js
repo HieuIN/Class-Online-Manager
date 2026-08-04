@@ -3,8 +3,8 @@ import { authApi } from '@/api';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    user: JSON.parse(localStorage.getItem('user') || 'null'),
-    token: localStorage.getItem('token') || '',
+    user: JSON.parse(sessionStorage.getItem('user') || 'null'),
+    token: sessionStorage.getItem('token') || '',
     sessionChecked: false,
   }),
   getters: {
@@ -30,8 +30,10 @@ export const useAuthStore = defineStore('auth', {
       this.user = res.user;
       this.token = res.accessToken;
       this.sessionChecked = true;
-      localStorage.setItem('token', res.accessToken);
-      localStorage.setItem('user', JSON.stringify(res.user));
+      sessionStorage.setItem('token', res.accessToken);
+      sessionStorage.setItem('user', JSON.stringify(res.user));
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       return res;
     },
     async fetchMe() {
@@ -39,7 +41,7 @@ export const useAuthStore = defineStore('auth', {
         const me = await authApi.me();
         this.user = me;
         this.sessionChecked = true;
-        localStorage.setItem('user', JSON.stringify(me));
+        sessionStorage.setItem('user', JSON.stringify(me));
         return true;
       } catch (e) {
         this.logout();
@@ -58,6 +60,8 @@ export const useAuthStore = defineStore('auth', {
       this.user = null;
       this.token = '';
       this.sessionChecked = true;
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     },

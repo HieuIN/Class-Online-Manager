@@ -149,7 +149,7 @@ const saveProfile = async () => {
     });
     auth.user.fullName = form.fullName;
     if (auth.isStudent) auth.user.birthDate = form.birthDate || null;
-    localStorage.setItem('user', JSON.stringify(auth.user));
+    sessionStorage.setItem('user', JSON.stringify(auth.user));
     ElMessage.success('Đã cập nhật');
   } finally { saving.value = false; }
 };
@@ -162,7 +162,7 @@ const uploadAvatar = async (file) => {
   const updated = await usersApi.uploadAvatar(auth.user.id, fd);
   form.avatarUrl = updated.avatarUrl;
   auth.user.avatarUrl = updated.avatarUrl;
-  localStorage.setItem('user', JSON.stringify(auth.user));
+  sessionStorage.setItem('user', JSON.stringify(auth.user));
   ElMessage.success('Đã cập nhật avatar');
 };
 

@@ -85,11 +85,12 @@
         </div>
       </div>
       <template #footer>
+        <el-button v-if="canManage && selectedEvent?.eventType === 'SESSION'" type="primary" plain @click="openEditSession(selectedEvent)">Sửa lịch học</el-button>
         <el-button @click="showEvent = false">Đóng</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showCreate" title="Tạo lịch học" width="500px">
+    <el-dialog v-model="showCreate" :title="editingSessionId ? 'Sửa lịch học' : 'Tạo lịch học'" width="500px">
       <el-form label-position="top">
         <el-form-item label="Lớp"><el-input :model-value="classStore.selected?.name" disabled /></el-form-item>
         <el-form-item label="Chủ đề buổi học"><el-input v-model="sessionForm.topic" placeholder="VD: Ngữ pháp Bài 3" /></el-form-item>
@@ -117,7 +118,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showCreate = false">Hủy</el-button>
-        <el-button type="primary" :loading="saving" @click="createSession">Tạo lịch học</el-button>
+        <el-button type="primary" :loading="saving" @click="saveSession">{{ editingSessionId ? 'Lưu thay đổi' : 'Tạo lịch học' }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -137,6 +138,7 @@ const events = ref([]);
 const showEvent = ref(false);
 const selectedEvent = ref(null);
 const showCreate = ref(false);
+const editingSessionId = ref(null);
 const saving = ref(false);
 const viewMode = ref('week');
 const classStore = useClassStore();
@@ -250,7 +252,27 @@ const meetingPlaceholder = computed(() => ({
 }[sessionForm.platform]));
 const openMeetingCreator = () => window.open(meetingCreators[sessionForm.platform], '_blank', 'noopener');
 const openCreateSession = () => {
+  editingSessionId.value = null;
   Object.assign(sessionForm, { topic: '', plannedDate: dayjs().format('YYYY-MM-DD'), startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', note: '' });
+  showCreate.value = true;
+};
+const platformFromUrl = (url) => {
+  const value = String(url || '').toLowerCase();
+  if (value.includes('teams.microsoft.com')) return 'TEAMS';
+  if (value.includes('zoom.us')) return 'ZOOM';
+  return 'GOOGLE_MEET';
+};
+const openEditSession = (e) => {
+  editingSessionId.value = e.id;
+  const start = eventDateTime(e);
+  const end = eventDateTime(e, 'endTime');
+  const meetingUrl = eventMeetingUrl(e);
+  Object.assign(sessionForm, {
+    topic: e.title || '', plannedDate: start.format('YYYY-MM-DD'), startTime: start.format('HH:mm'),
+    endTime: end?.format('HH:mm') || start.add(2, 'hour').format('HH:mm'),
+    platform: platformFromUrl(meetingUrl), meetingUrl, note: '',
+  });
+  showEvent.value = false;
   showCreate.value = true;
 };
 const validMeetingUrl = () => {
@@ -260,16 +282,22 @@ const validMeetingUrl = () => {
     return ({ GOOGLE_MEET: ['meet.google.com'], TEAMS: ['teams.microsoft.com'], ZOOM: ['zoom.us'] }[sessionForm.platform] || []).some(domain => host === domain || host.endsWith(`.${domain}`));
   } catch { return false; }
 };
-const createSession = async () => {
+const saveSession = async () => {
   if (!sessionForm.topic.trim() || !sessionForm.plannedDate || !sessionForm.startTime || !sessionForm.endTime) { ElMessage.warning('Nhập đầy đủ chủ đề, ngày và giờ học'); return; }
   if (sessionForm.endTime <= sessionForm.startTime) { ElMessage.warning('Giờ kết thúc phải sau giờ bắt đầu'); return; }
   if (!validMeetingUrl()) { ElMessage.warning('Đường dẫn không đúng với nền tảng đã chọn'); return; }
   saving.value = true;
   try {
-    const existing = await sessionsApi.list(classStore.selectedId);
-    const nextNo = Math.max(0, ...existing.map(s => Number(s.session_no || s.sessionNo || 0))) + 1;
-    await sessionsApi.create({ classId: classStore.selectedId, sessionNo: nextNo, plannedDate: sessionForm.plannedDate, startTime: sessionForm.startTime, endTime: sessionForm.endTime, topic: sessionForm.topic.trim(), status: 'PLANNED', note: sessionForm.note.trim() || null, meetingUrl: sessionForm.meetingUrl.trim() || null });
-    ElMessage.success('Đã tạo lịch học và lên lịch nhắc lớp');
+    const data = { plannedDate: sessionForm.plannedDate, startTime: sessionForm.startTime, endTime: sessionForm.endTime, topic: sessionForm.topic.trim(), meetingUrl: sessionForm.meetingUrl.trim() || null };
+    if (editingSessionId.value) {
+      await sessionsApi.update(editingSessionId.value, data);
+      ElMessage.success('Đã cập nhật lịch học và đường dẫn phòng');
+    } else {
+      const existing = await sessionsApi.list(classStore.selectedId);
+      const nextNo = Math.max(0, ...existing.map(s => Number(s.session_no || s.sessionNo || 0))) + 1;
+      await sessionsApi.create({ classId: classStore.selectedId, sessionNo: nextNo, ...data, status: 'PLANNED', note: sessionForm.note.trim() || null });
+      ElMessage.success('Đã tạo lịch học và lên lịch nhắc lớp');
+    }
     showCreate.value = false;
     await load();
   } finally { saving.value = false; }

@@ -68,6 +68,9 @@ export class SessionsService {
     return { created: saved.length, sessions: saved };
   }
   async update(id: number, data: Partial<ClassSession>) {
+    if (data.plannedDate !== undefined || data.startTime !== undefined || data.meetingUrl !== undefined) {
+      await this.notificationsService.clearSessionReminder(id);
+    }
     await this.repo.update(id, data);
     await this.notificationsService.runClassReminders();
     return this.findOne(id);

@@ -50,6 +50,14 @@ export class NotificationsService {
 
   create(d: Partial<Notification>) { return this.notifRepo.save(this.notifRepo.create(d)); }
 
+  clearSessionReminder(sessionId: number) {
+    return this.notifRepo.createQueryBuilder()
+      .delete()
+      .where('notif_type = :type', { type: 'REMINDER' })
+      .andWhere('content LIKE :marker', { marker: `%session_id=${sessionId};%` })
+      .execute();
+  }
+
   private async createOnce(userId: number, notifType: string, marker: string, data: Partial<Notification>) {
     const exists = await this.notifRepo.createQueryBuilder('notification')
       .where('notification.userId = :userId', { userId })
@@ -61,7 +69,7 @@ export class NotificationsService {
     return true;
   }
 
-  @Cron('0 */15 * * * *')
+  @Cron('0 */5 * * * *')
   async runClassReminders() {
     const sessions = await this.dataSource.query(
       `SELECT s.id, s.class_id, s.session_no, s.start_time, s.meeting_url, c.name as class_name, c.teacher_id
@@ -70,7 +78,7 @@ export class NotificationsService {
        WHERE s.status = 'PLANNED'
          AND s.start_time IS NOT NULL
          AND s.planned_date = CURRENT_DATE
-         AND (s.planned_date + s.start_time) BETWEEN NOW() AND NOW() + INTERVAL '75 minutes'`,
+         AND (s.planned_date + s.start_time) BETWEEN NOW() AND NOW() + INTERVAL '15 minutes'`,
     );
 
     let created = 0;

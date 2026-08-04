@@ -24,9 +24,13 @@
             </div>
           </template>
           <div v-if="activeCard" class="study-card" @click="flipped = !flipped">
-            <div class="side">{{ flipped ? activeCard.back : activeCard.front }}</div>
-            <div v-if="flipped && activeCard.example" class="example">{{ activeCard.example }}</div>
-            <FlashcardMedia v-if="activeCard.media_url || activeCard.mediaUrl" :card="activeCard" />
+            <Transition name="flash-content" mode="out-in">
+              <div :key="`${activeCard.id}-${flipped ? 'back' : 'front'}`" class="card-content">
+                <div class="side">{{ flipped ? activeCard.back : activeCard.front }}</div>
+                <div v-if="flipped && activeCard.example" class="example">{{ activeCard.example }}</div>
+                <FlashcardMedia v-if="activeCard.media_url || activeCard.mediaUrl" :card="activeCard" />
+              </div>
+            </Transition>
           </div>
           <div v-else class="empty">Chọn bộ flashcard để học</div>
           <div v-if="activeCard" class="study-actions">
@@ -182,6 +186,10 @@ onMounted(reload);
 .deck-row { padding: 10px; border-bottom: 1px solid #eee; cursor:pointer; display:flex; justify-content:space-between; }
 .deck-row.active { background:#E1F5EE; color:#0F6E56; }
 .study-card { min-height: 240px; border:1px solid #e5e1d8; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; cursor:pointer; background:#fff; }
+.card-content { width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; will-change:transform,opacity; }
+.flash-content-enter-active, .flash-content-leave-active { transition: opacity .22s ease, transform .22s cubic-bezier(.22,.61,.36,1); }
+.flash-content-enter-from { opacity:0; transform:translateX(18px) scale(.985); }
+.flash-content-leave-to { opacity:0; transform:translateX(-12px) scale(.985); }
 .side { font-size:28px; font-weight:600; }
 .example { margin-top:12px; color:#666; }
 .flash-media { margin-top: 14px; max-width: 100%; }

@@ -76,6 +76,7 @@
                 <el-table-column label="Nộp lúc" width="140">
                   <template #default="{ row }">{{ fmtDateTime(row.submitted_at) }}</template>
                 </el-table-column>
+                <el-table-column label="Chi tiết" width="110"><template #default="{row}"><el-button size="small" @click="openAttempt(row)">{{ row.needs_manual_grading ? 'Chấm bài' : 'Xem' }}</el-button></template></el-table-column>
               </el-table>
             </el-tab-pane>
           </el-tabs>
@@ -189,6 +190,10 @@
         <el-button type="primary" @click="saveQuiz">Lưu quiz</el-button>
       </template>
     </el-dialog>
+    <el-dialog v-model="showAttempt" title="Chi tiết lượt làm" width="min(720px,95vw)">
+      <div v-if="attemptDetail"><div v-for="(q,i) in attemptDetail.questions" :key="q.id" class="attempt-answer"><b>Câu {{ i+1 }}. {{ q.question }}</b><audio v-if="q.questionType==='RECORDING'&&attemptDetail.answers?.[q.id]" :src="mediaUrl(attemptDetail.answers[q.id])" controls/><p v-else>Trả lời: {{ JSON.stringify(attemptDetail.answers?.[q.id] ?? '—') }}</p></div><el-form-item label="Điểm tổng"><el-input-number v-model="manualScore" :min="0" :max="totalPoints" /></el-form-item></div>
+      <template #footer><el-button @click="showAttempt=false">Đóng</el-button><el-button type="primary" @click="saveManualGrade">Lưu điểm</el-button></template>
+    </el-dialog>
   </div>
 </template>
 
@@ -211,6 +216,7 @@ const showEditor = ref(false);
 const editingId = ref(null);
 const letters = ['A', 'B', 'C', 'D'];
 const uploadingMedia = ref(false);
+const showAttempt=ref(false),attemptDetail=ref(null),manualScore=ref(0);
 const newQuestionType = ref('SINGLE_CHOICE');
 const questionTypes = [
   ['SINGLE_CHOICE','Chọn một đáp án'],['MULTIPLE_CHOICE','Chọn nhiều đáp án'],['TRUE_FALSE','Đúng / Sai'],
@@ -318,6 +324,8 @@ const saveQuiz = async () => {
 };
 
 const uploadMedia = async (file, question) => { if(!file.raw)return;uploadingMedia.value=true;try{const fd=new FormData();fd.append('file',file.raw);const result=await quizzesApi.uploadMedia(fd);question.mediaUrl=result.mediaUrl;question.mediaType=result.mediaType;}finally{uploadingMedia.value=false;} };
+const openAttempt=async row=>{attemptDetail.value=await quizzesApi.attempt(row.id);manualScore.value=Number(attemptDetail.value.score||0);showAttempt.value=true;};
+const saveManualGrade=async()=>{await quizzesApi.gradeAttempt(attemptDetail.value.id,manualScore.value);showAttempt.value=false;await selectQuiz(activeQuiz.value);ElMessage.success('Đã lưu điểm');};
 
 const removeQuiz = async (quiz) => {
   try {
@@ -357,4 +365,5 @@ onMounted(reload);
 .mt { margin-top:10px; row-gap:10px; }
 .add-question { width:100%; margin-top:12px; border-style:dashed; }
 .question-type-select{margin:0 0 10px}.media-editor,.add-question-row,.config-row{display:flex;gap:8px;margin-top:10px}.media-editor .el-input,.add-question-row .el-select{flex:1}.media-preview,.preview-question-media{display:block;max-height:220px;max-width:100%;object-fit:contain;margin:10px 0;border-radius:8px}.option-editor{display:grid;gap:5px}.config-row .el-input{flex:1}.hotspot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.recording-note,.form-tip{background:#fff7e8;color:#996515;padding:10px;border-radius:7px;font-size:12px}.add-question-row{margin-top:14px}@media(max-width:700px){.config-row,.media-editor,.add-question-row{flex-direction:column}.hotspot-grid{grid-template-columns:repeat(2,1fr)}.question-footer{align-items:flex-start;flex-wrap:wrap}}
+.attempt-answer{border-bottom:1px solid #eee;padding:12px 0}.attempt-answer audio{display:block;margin-top:10px;width:100%}
 </style>

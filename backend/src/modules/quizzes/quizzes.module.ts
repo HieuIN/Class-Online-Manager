@@ -248,7 +248,7 @@ export class QuizzesService {
       const quiz = await this.quizWithClass(+query.quizId);
       await this.requireTeacher(user, quiz.classId);
       return this.dataSource.query(
-        `SELECT qa.id, qa.quiz_id, qa.student_id, qa.answers, qa.score, qa.started_at, qa.submitted_at,
+        `SELECT qa.id, qa.quiz_id, qa.student_id, qa.answers, qa.score, qa.started_at, qa.submitted_at, qa.needs_manual_grading,
                 u.full_name as "studentName", u.email as "studentEmail"
          FROM quiz_attempts qa
          JOIN users u ON u.id = qa.student_id
@@ -260,7 +260,7 @@ export class QuizzesService {
     const studentId = query.studentId ? +query.studentId : user.id;
     if (user.role === 'STUDENT' && +user.id !== studentId) throw new ForbiddenException('No permission');
     return this.dataSource.query(
-      `SELECT qa.id, qa.quiz_id, qa.student_id, qa.answers, qa.score, qa.started_at, qa.submitted_at,
+      `SELECT qa.id, qa.quiz_id, qa.student_id, qa.answers, qa.score, qa.started_at, qa.submitted_at, qa.needs_manual_grading,
               q.title as "quizTitle", q.class_id as "classId", c.name as "className"
        FROM quiz_attempts qa
        JOIN quizzes q ON q.id = qa.quiz_id
@@ -273,7 +273,7 @@ export class QuizzesService {
 
   async attemptResult(id: number, user: any) {
     const rows = await this.dataSource.query(
-      `SELECT qa.id, qa.quiz_id, qa.student_id, qa.answers, qa.score, qa.started_at, qa.submitted_at,
+      `SELECT qa.id, qa.quiz_id, qa.student_id, qa.answers, qa.score, qa.started_at, qa.submitted_at, qa.needs_manual_grading,
               q.title as "quizTitle", q.class_id as "classId"
        FROM quiz_attempts qa
        JOIN quizzes q ON q.id = qa.quiz_id
@@ -286,6 +286,15 @@ export class QuizzesService {
     await this.requireClassAccess(user, +attempt.classId);
     const questions = await this.questionRepo.find({ where: { quizId: +attempt.quiz_id }, order: { displayOrder: 'ASC', id: 'ASC' } });
     return { ...attempt, questions };
+  }
+
+  async gradeAttempt(id: number, score: number, user: any) {
+    const attempt = await this.attemptRepo.findOne({ where: { id } });
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    const quiz = await this.quizWithClass(attempt.quizId);
+    await this.requireTeacher(user, quiz.classId);
+    await this.attemptRepo.update(id, { score: Math.max(0, Number(score || 0)), needsManualGrading: false });
+    return this.attemptResult(id, user);
   }
 }
 
@@ -332,6 +341,9 @@ export class QuizzesController {
 
   @Get('quiz-attempts/:id') result(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
     return this.service.attemptResult(id, user);
+  }
+  @Patch('quiz-attempts/:id/grade') @Roles('ADMIN','TEACHER') grade(@Param('id', ParseIntPipe) id: number, @Body() body: any, @CurrentUser() user: any) {
+    return this.service.gradeAttempt(id, body.score, user);
   }
 
   @Post('quiz-media')

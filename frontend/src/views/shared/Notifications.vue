@@ -6,8 +6,8 @@
     </div>
 
     <el-card class="mb-4">
-      <div v-if="notifications.length === 0" class="empty">Không có thông báo</div>
-      <div v-for="n in notifications" :key="n.id" :class="['notif-row', { unread: !n.isRead }]" @click="openNotification(n)">
+      <div v-if="visibleNotifications.length === 0" class="empty">Không có thông báo cần xử lý</div>
+      <div v-for="n in visibleNotifications" :key="n.id" :class="['notif-row', { unread: !n.isRead }]" @click="openNotification(n)">
         <span class="notif-dot" :style="{ background: dotColor(n.notifType) }">{{ notifIcon(n.notifType) }}</span>
         <div class="notif-body">
           <div class="notif-title">
@@ -51,13 +51,14 @@ import { useClassStore } from '@/stores/class';
 import { ElMessage } from 'element-plus';
 import { notificationsApi } from '@/api';
 import { useRouter } from 'vue-router';
-import { notificationContent, notificationSchedule, notificationTarget, notificationTime } from '@/utils/notification';
+import { notificationContent, notificationIsVisible, notificationSchedule, notificationTarget, notificationTime } from '@/utils/notification';
 
 const auth = useAuthStore();
 const classStore = useClassStore();
 const router = useRouter();
 const canEdit = computed(() => auth.isTeacher || auth.isAdmin);
 const notifications = ref([]);
+const visibleNotifications = computed(() => notifications.value.filter(notificationIsVisible));
 const rule = reactive({ maxTotalAbsences: 3, maxConsecutiveAbsences: 2, maxMissingAssignments: 2 });
 
 const dotColor = (t) => ({ ALERT_ABSENCE: '#E24B4A', ALERT_HOMEWORK: '#EF9F27', ASSIGNMENT_DUE: '#EF9F27', ASSIGNMENT_PUBLISHED: '#1D9E75', REMINDER: '#378ADD' }[t] || '#73808c');

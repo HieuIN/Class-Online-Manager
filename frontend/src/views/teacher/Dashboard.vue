@@ -73,8 +73,8 @@
             <el-button text type="primary" @click="$router.push('/notifications')">Tất cả</el-button>
           </div>
         </template>
-        <div v-if="notifications.length === 0" class="empty-state">Không có thông báo mới.</div>
-        <button v-for="n in notifications.slice(0, 5)" :key="n.id" type="button" :class="['notif-row', { unread: !n.isRead }]" @click="openNotification(n)">
+        <div v-if="visibleNotifications.length === 0" class="empty-state">Không có thông báo cần xử lý.</div>
+        <button v-for="n in visibleNotifications.slice(0, 5)" :key="n.id" type="button" :class="['notif-row', { unread: !n.isRead }]" @click="openNotification(n)">
           <span class="notif-dot" :style="{ background: dotColor(n.notifType) }"></span>
           <div class="notif-body">
             <div class="notif-title">{{ n.title }} <span v-if="!n.isRead" class="badge badge-red">Mới</span></div>
@@ -94,12 +94,13 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useClassStore } from '@/stores/class';
 import { notificationsApi } from '@/api';
-import { notificationContent, notificationSchedule, notificationTarget, notificationTime } from '@/utils/notification';
+import { notificationContent, notificationIsVisible, notificationSchedule, notificationTarget, notificationTime } from '@/utils/notification';
 
 const classStore = useClassStore();
 const router = useRouter();
 const notifications = ref([]);
-const unreadCount = computed(() => notifications.value.filter(n => !n.isRead).length);
+const visibleNotifications = computed(() => notifications.value.filter(notificationIsVisible));
+const unreadCount = computed(() => visibleNotifications.value.filter(n => !n.isRead).length);
 const classes = computed(() => classStore.classes);
 const totalCourses = computed(() => new Set(classes.value.map(c => c.course_id)).size);
 const totalStudents = computed(() => classes.value.reduce((s, c) => s + (+c.studentCount || 0), 0));

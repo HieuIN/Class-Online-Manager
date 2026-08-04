@@ -11,19 +11,33 @@ function contentValue(content, key) {
   return String(content || '').match(new RegExp(`(?:^|;)${key}=([^;]*)`))?.[1] || '';
 }
 
-export function notificationSchedule(notification) {
-  if ((notification?.notifType || notification?.notif_type) !== 'REMINDER') return '';
+function reminderTiming(notification) {
   const content = notification?.content || '';
   const explicitStart = contentValue(content, 'start_at');
-  const timeMatch = content.match(/bắt đầu lúc\s+(\d{1,2}:\d{2})/i);
+  const timeMatch = content.match(/(\d{1,2}:\d{2})/);
   const fallbackDate = notification?.createdAt || notification?.created_at;
   const start = explicitStart
     ? dayjs(explicitStart)
     : (fallbackDate && timeMatch ? dayjs(`${dayjs(String(fallbackDate).replace(/Z$/, '')).format('YYYY-MM-DD')}T${timeMatch[1]}`) : null);
-  if (!start?.isValid()) return '';
-
   const explicitEnd = contentValue(content, 'end_at');
   const end = explicitEnd ? dayjs(explicitEnd) : null;
+  return { start, end };
+}
+
+export function notificationIsVisible(notification) {
+  const type = notification?.notifType || notification?.notif_type || '';
+  if (type !== 'REMINDER') return true;
+  const { start, end } = reminderTiming(notification);
+  if (!start?.isValid()) return true;
+  // Keep an ongoing class visible when its end time is known. Legacy reminders
+  // only have a start time, so they disappear as soon as that time has passed.
+  return dayjs().isBefore(end?.isValid() ? end : start);
+}
+
+export function notificationSchedule(notification) {
+  if ((notification?.notifType || notification?.notif_type) !== 'REMINDER') return '';
+  const { start, end } = reminderTiming(notification);
+  if (!start?.isValid()) return '';
   const now = dayjs();
   const minutes = Math.ceil(start.diff(now) / 60000);
   let countdown = '';

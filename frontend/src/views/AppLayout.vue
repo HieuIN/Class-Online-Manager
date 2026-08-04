@@ -91,7 +91,7 @@ import { notificationsApi } from '@/api';
 import UserAvatar from '@/components/UserAvatar.vue';
 import BrandWordmark from '@/components/BrandWordmark.vue';
 import { isChildLearner } from '@/utils/learner';
-import { notificationContent, notificationTarget } from '@/utils/notification';
+import { notificationContent, notificationIsVisible, notificationTarget } from '@/utils/notification';
 import {
   House, School, Select, Histogram, Document, TrendCharts, Folder, Calendar,
   PieChart, Money, Bell, SwitchButton, User, CaretTop, UserFilled, Reading, ChatDotRound, EditPen, Moon, Sunny, Menu as MenuIcon, Microphone,
@@ -226,7 +226,7 @@ const showNotificationPopup = (n) => {
 const loadUnread = async () => {
   try {
     const list = await notificationsApi.list();
-    const unreadList = list.filter(n => !n.isRead);
+    const unreadList = list.filter(n => !n.isRead && notificationIsVisible(n));
     unread.value = unreadList.length;
 
     const seen = getSeenPopupIds();

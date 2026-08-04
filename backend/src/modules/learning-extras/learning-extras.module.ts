@@ -93,6 +93,18 @@ export class LearningExtrasService {
     ).then(r => r[0]);
   }
 
+  updateCard(cardId: number, body: any) {
+    return this.dataSource.query(
+      `UPDATE flashcards SET front = $1, back = $2, example = $3, media_url = $4, media_type = $5
+       WHERE id = $6 RETURNING *`,
+      [body.front, body.back, body.example || null, body.mediaUrl || null, body.mediaType || null, cardId],
+    ).then(r => r[0] || null);
+  }
+
+  deleteCard(cardId: number) {
+    return this.dataSource.query(`DELETE FROM flashcards WHERE id = $1 RETURNING id`, [cardId]).then(r => r[0] || null);
+  }
+
   flashcardMedia(file: any) {
     const mediaType = file.mimetype.startsWith('image/')
       ? 'IMAGE'
@@ -216,6 +228,8 @@ export class LearningExtrasController {
   @Post('flashcards/decks') @Roles('ADMIN','TEACHER') createDeck(@Body() body: any, @CurrentUser() user: any) { return this.service.createDeck(body, user.id); }
   @Get('flashcards/decks/:id/cards') cards(@Param('id', ParseIntPipe) id: number) { return this.service.cards(id); }
   @Post('flashcards/decks/:id/cards') @Roles('ADMIN','TEACHER') createCard(@Param('id', ParseIntPipe) id: number, @Body() body: any) { return this.service.createCard(id, body); }
+  @Patch('flashcards/cards/:id') @Roles('ADMIN','TEACHER') updateCard(@Param('id', ParseIntPipe) id: number, @Body() body: any) { return this.service.updateCard(id, body); }
+  @Delete('flashcards/cards/:id') @Roles('ADMIN','TEACHER') deleteCard(@Param('id', ParseIntPipe) id: number) { return this.service.deleteCard(id); }
   @Post('flashcards/media')
   @Roles('ADMIN','TEACHER')
   @UseInterceptors(FileInterceptor('file', {

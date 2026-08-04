@@ -20,7 +20,7 @@
           <template #header>
             <div class="header-line">
               <span class="section-title">{{ activeDeck?.title || 'Flashcards' }}</span>
-              <el-button v-if="activeDeck && canManage" size="small" @click="showCard = true">+ Thêm thẻ</el-button>
+              <el-button v-if="activeDeck && canManage" size="small" @click="openCreateCard">+ Thêm thẻ</el-button>
             </div>
           </template>
           <div v-if="activeCard" class="study-card" @click="flipped = !flipped">
@@ -38,6 +38,8 @@
             <el-button @click="nextCard">Tiếp</el-button>
             <el-button type="success" @click="mark(true)">Đã nhớ</el-button>
             <el-button type="warning" @click="mark(false)">Cần ôn</el-button>
+            <el-button v-if="canManage" type="primary" plain @click="openEditCard">Sửa thẻ</el-button>
+            <el-button v-if="canManage" type="danger" plain @click="deleteCard">Xóa thẻ</el-button>
           </div>
         </el-card>
       </el-col>
@@ -54,7 +56,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showCard" title="Thêm thẻ" width="420px">
+    <el-dialog v-model="showCard" :title="editingCardId ? 'Sửa thẻ' : 'Thêm thẻ'" width="420px">
       <div class="card-editor" @paste="pasteMedia">
       <el-form label-position="top">
         <el-form-item label="Mặt trước"><el-input v-model="cardForm.front" /></el-form-item>
@@ -88,7 +90,7 @@
 
 <script setup>
 import { computed, defineComponent, h, reactive, ref, watch, onMounted } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import ClassPicker from '@/components/ClassPicker.vue';
 import { learningExtrasApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
@@ -104,6 +106,7 @@ const flipped = ref(false);
 const activeDeck = ref(null);
 const showDeck = ref(false);
 const showCard = ref(false);
+const editingCardId = ref(null);
 const uploadingMedia = ref(false);
 const deckForm = reactive({ title: '', description: '' });
 const cardForm = reactive({ front: '', back: '', example: '', mediaUrl: '', mediaType: '' });
@@ -134,12 +137,41 @@ const createDeck = async () => {
   await reload();
 };
 
+const openCreateCard = () => {
+  editingCardId.value = null;
+  Object.assign(cardForm, { front: '', back: '', example: '', mediaUrl: '', mediaType: '' });
+  showCard.value = true;
+};
+
+const openEditCard = () => {
+  if (!activeCard.value) return;
+  editingCardId.value = activeCard.value.id;
+  Object.assign(cardForm, {
+    front: activeCard.value.front || '', back: activeCard.value.back || '', example: activeCard.value.example || '',
+    mediaUrl: activeCard.value.media_url || activeCard.value.mediaUrl || '',
+    mediaType: activeCard.value.media_type || activeCard.value.mediaType || '',
+  });
+  showCard.value = true;
+};
+
 const createCard = async () => {
   if (!activeDeck.value || !cardForm.front || !cardForm.back) return;
-  await learningExtrasApi.createCard(activeDeck.value.id, cardForm);
+  const isEditing = !!editingCardId.value;
+  if (isEditing) await learningExtrasApi.updateCard(editingCardId.value, cardForm);
+  else await learningExtrasApi.createCard(activeDeck.value.id, cardForm);
   Object.assign(cardForm, { front: '', back: '', example: '', mediaUrl: '', mediaType: '' });
   showCard.value = false;
   await selectDeck(activeDeck.value);
+  ElMessage.success(isEditing ? 'Đã cập nhật thẻ' : 'Đã thêm thẻ');
+  editingCardId.value = null;
+};
+
+const deleteCard = async () => {
+  if (!activeCard.value) return;
+  await ElMessageBox.confirm('Xóa thẻ này? Thao tác không thể hoàn tác.', 'Xác nhận xóa', { type: 'warning', confirmButtonText: 'Xóa', cancelButtonText: 'Hủy' });
+  await learningExtrasApi.deleteCard(activeCard.value.id);
+  await selectDeck(activeDeck.value);
+  ElMessage.success('Đã xóa thẻ');
 };
 
 const uploadRawMedia = async (rawFile) => {
@@ -169,19 +201,8 @@ const usePastedImageUrl = (value) => {
 };
 
 const pasteMedia = async (event) => {
-  const image = [...(event.clipboardData?.items || [])].find(item => item.type.startsWith('image/'));
-  if (image) {
-    event.preventDefault();
-    const blob = image.getAsFile();
-    if (!blob) return;
-    const extension = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
-    const pastedFile = new File([blob], `flashcard-paste-${Date.now()}.${extension}`, { type: blob.type });
-    await uploadRawMedia(pastedFile);
-    return;
-  }
-
   // Copying an image from many websites puts an <img> URL in the clipboard
-  // instead of a binary file. Keep that URL so animated GIFs remain animated.
+  // together with a static bitmap. Prefer the original URL so GIFs stay animated.
   const html = event.clipboardData?.getData('text/html') || '';
   if (html) {
     const document = new DOMParser().parseFromString(html, 'text/html');
@@ -193,7 +214,19 @@ const pasteMedia = async (event) => {
   }
 
   const text = event.clipboardData?.getData('text/plain') || '';
-  if (usePastedImageUrl(text)) event.preventDefault();
+  if (usePastedImageUrl(text)) {
+    event.preventDefault();
+    return;
+  }
+
+  const image = [...(event.clipboardData?.items || [])].find(item => item.type.startsWith('image/'));
+  if (!image) return;
+  event.preventDefault();
+  const blob = image.getAsFile();
+  if (!blob) return;
+  const extension = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+  const pastedFile = new File([blob], `flashcard-paste-${Date.now()}.${extension}`, { type: blob.type });
+  await uploadRawMedia(pastedFile);
 };
 
 const clearMedia = () => {

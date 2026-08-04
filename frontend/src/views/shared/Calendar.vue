@@ -85,6 +85,7 @@
         </div>
       </div>
       <template #footer>
+        <el-button v-if="canManage && selectedEvent?.eventType === 'SESSION'" type="danger" plain @click="deleteSession(selectedEvent)">Xóa lịch học</el-button>
         <el-button v-if="canManage && selectedEvent?.eventType === 'SESSION'" type="primary" plain @click="openEditSession(selectedEvent)">Sửa lịch học</el-button>
         <el-button @click="showEvent = false">Đóng</el-button>
       </template>
@@ -141,7 +142,7 @@ import { useAuthStore } from '@/stores/auth';
 import { calendarApi, classesApi, sessionsApi } from '@/api';
 import ClassPicker from '@/components/ClassPicker.vue';
 import dayjs from 'dayjs';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 const currentDate = ref(dayjs());
 const events = ref([]);
@@ -291,6 +292,14 @@ const openEditSession = async (e) => {
   });
   showEvent.value = false;
   showCreate.value = true;
+};
+const deleteSession = async (e) => {
+  await ElMessageBox.confirm(`Xóa lịch "${e.title}"? Thao tác này không thể hoàn tác.`, 'Xác nhận xóa lịch', { type: 'warning', confirmButtonText: 'Xóa lịch', cancelButtonText: 'Hủy' });
+  await sessionsApi.delete(e.id);
+  showEvent.value = false;
+  selectedEvent.value = null;
+  await load();
+  ElMessage.success('Đã xóa lịch học');
 };
 const validMeetingUrl = () => {
   if (!sessionForm.meetingUrl) return true;

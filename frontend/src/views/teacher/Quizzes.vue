@@ -54,8 +54,9 @@
           <el-tabs v-model="activeTab">
             <el-tab-pane label="Câu hỏi" name="questions">
               <div v-for="(q, idx) in fullQuiz.questions" :key="q.id" class="question-preview">
-                <div class="question-line"><b>Câu {{ idx + 1 }}.</b> {{ q.question }}</div>
-                <div class="options">
+                <div class="question-line"><b>Câu {{ idx + 1 }}.</b> <el-tag size="small">{{ questionTypes.find(t=>t.value===(q.questionType||'SINGLE_CHOICE'))?.label }}</el-tag> {{ q.question }}</div>
+                <img v-if="q.mediaType==='IMAGE'&&q.mediaUrl" :src="mediaUrl(q.mediaUrl)" class="preview-question-media" />
+                <div v-if="choiceTypes.includes(q.questionType||'SINGLE_CHOICE')" class="options">
                   <span v-for="letter in letters" :key="letter" :class="['option', q.correctAnswer === letter ? 'correct' : '']">
                     {{ letter }}. {{ q[`option${letter}`] }}
                   </span>
@@ -121,23 +122,67 @@
             <b>Câu {{ idx + 1 }}</b>
             <el-button size="small" type="danger" plain @click="removeQuestion(idx)">Xóa câu</el-button>
           </div>
+          <el-form-item label="Loại câu hỏi" class="question-type-select">
+            <el-select v-model="q.questionType" style="width:100%" @change="changeQuestionType(q)">
+              <el-option v-for="type in questionTypes" :key="type.value" :label="type.label" :value="type.value" />
+            </el-select>
+          </el-form-item>
           <el-input v-model="q.question" type="textarea" :rows="2" placeholder="Nội dung câu hỏi" />
-          <el-row :gutter="10" class="mt">
-            <el-col :span="12" v-for="letter in letters" :key="letter">
-              <el-input v-model="q[`option${letter}`]" :placeholder="`Đáp án ${letter}`" />
-            </el-col>
-          </el-row>
+          <div class="media-editor">
+            <el-input v-model="q.mediaUrl" placeholder="URL ảnh / GIF / âm thanh / video của câu hỏi" />
+            <el-upload :auto-upload="false" :show-file-list="false" :on-change="file=>uploadMedia(file,q)"><el-button :loading="uploadingMedia">Tải media</el-button></el-upload>
+          </div>
+          <img v-if="q.mediaType==='IMAGE'&&q.mediaUrl" class="media-preview" :src="mediaUrl(q.mediaUrl)" />
+          <audio v-if="q.mediaType==='AUDIO'&&q.mediaUrl" :src="mediaUrl(q.mediaUrl)" controls />
+          <video v-if="q.mediaType==='VIDEO'&&q.mediaUrl" :src="mediaUrl(q.mediaUrl)" class="media-preview" controls />
+
+          <template v-if="choiceTypes.includes(q.questionType)">
+            <el-input v-if="q.questionType==='READING'" v-model="q.config.passage" class="mt" type="textarea" :rows="4" placeholder="Đoạn văn dùng cho câu hỏi" />
+            <el-row :gutter="10" class="mt">
+              <el-col :span="12" v-for="letter in letters" :key="letter">
+                <div class="option-editor">
+                  <el-input v-model="q[`option${letter}`]" :placeholder="`Đáp án ${letter}`" />
+                  <el-input v-model="q.config.optionMedia[letter]" placeholder="URL ảnh đáp án (tùy chọn)" />
+                </div>
+              </el-col>
+            </el-row>
+            <div class="question-footer"><span>Đáp án đúng</span>
+              <el-checkbox-group v-if="q.questionType==='MULTIPLE_CHOICE'" v-model="q.config.correctAnswers"><el-checkbox-button v-for="letter in letters" :key="letter" :label="letter" /></el-checkbox-group>
+              <el-radio-group v-else v-model="q.correctAnswer"><el-radio-button v-for="letter in letters" :key="letter" :label="letter" /></el-radio-group>
+            </div>
+          </template>
+          <template v-else-if="q.questionType==='TRUE_FALSE'">
+            <div class="question-footer"><span>Đáp án đúng</span><el-radio-group v-model="q.correctAnswer"><el-radio-button label="TRUE">Đúng</el-radio-button><el-radio-button label="FALSE">Sai</el-radio-button></el-radio-group></div>
+          </template>
+          <template v-else-if="textTypes.includes(q.questionType)">
+            <el-input v-model="q.answerText" class="mt" placeholder="Các đáp án chấp nhận, cách nhau bằng dấu |" />
+            <el-input v-if="q.questionType==='DRAG_BLANK'" v-model="q.config.wordBankText" class="mt" placeholder="Ngân hàng từ, cách nhau bằng dấu |" />
+          </template>
+          <template v-else-if="q.questionType==='MATCHING'">
+            <div v-for="(pair,pairIndex) in q.config.pairs" :key="pairIndex" class="config-row"><el-input v-model="pair.left" placeholder="Vế trái / chữ Hán"/><el-input v-model="pair.right" placeholder="Vế phải / nghĩa"/><el-input v-model="pair.image" placeholder="URL ảnh (tùy chọn)"/><el-button @click="q.config.pairs.splice(pairIndex,1)">×</el-button></div>
+            <el-button class="mt" @click="q.config.pairs.push({left:'',right:'',image:''})">+ Thêm cặp nối</el-button>
+          </template>
+          <template v-else-if="q.questionType==='ORDERING'">
+            <el-input v-model="q.config.itemsText" class="mt" type="textarea" placeholder="Nhập thứ tự đúng, mỗi từ/cụm từ cách nhau bằng dấu |" />
+          </template>
+          <template v-else-if="q.questionType==='CLASSIFICATION'">
+            <el-input v-model="q.config.categoriesText" class="mt" placeholder="Tên các nhóm, cách nhau bằng dấu |" />
+            <div v-for="(item,itemIndex) in q.config.classItems" :key="itemIndex" class="config-row"><el-input v-model="item.text" placeholder="Từ hoặc nội dung"/><el-input v-model="item.image" placeholder="URL ảnh"/><el-input v-model="item.group" placeholder="Nhóm đúng"/><el-button @click="q.config.classItems.splice(itemIndex,1)">×</el-button></div>
+            <el-button class="mt" @click="q.config.classItems.push({text:'',image:'',group:''})">+ Thêm mục phân loại</el-button>
+          </template>
+          <template v-else-if="q.questionType==='IMAGE_HOTSPOT'">
+            <p class="form-tip">Vùng đúng tính theo phần trăm ảnh.</p><div class="hotspot-grid"><el-input-number v-model="q.config.correctArea.x" :min="0" :max="100"/><el-input-number v-model="q.config.correctArea.y" :min="0" :max="100"/><el-input-number v-model="q.config.correctArea.width" :min="1" :max="100"/><el-input-number v-model="q.config.correctArea.height" :min="1" :max="100"/></div>
+          </template>
+          <template v-else-if="q.questionType==='HANZI_WRITE'"><el-input v-model="q.config.character" class="mt" maxlength="1" placeholder="Chữ Hán học sinh phải viết" /></template>
+          <template v-else-if="q.questionType==='RECORDING'"><p class="recording-note">Học sinh sẽ ghi âm trực tiếp. Câu này được đánh dấu chờ giáo viên chấm.</p></template>
           <div class="question-footer">
-            <span>Đáp án đúng</span>
-            <el-radio-group v-model="q.correctAnswer">
-              <el-radio-button v-for="letter in letters" :key="letter" :label="letter" />
-            </el-radio-group>
             <span>Điểm</span>
             <el-input-number v-model="q.points" :min="0.25" :max="10" :step="0.25" />
+            <el-input v-model="q.explanation" placeholder="Giải thích sau khi nộp bài (tùy chọn)" />
           </div>
         </div>
 
-        <el-button class="add-question" @click="addQuestion">+ Thêm câu hỏi</el-button>
+        <div class="add-question-row"><el-select v-model="newQuestionType"><el-option v-for="type in questionTypes" :key="type.value" :label="type.label" :value="type.value" /></el-select><el-button type="primary" plain @click="addQuestion">+ Thêm câu hỏi loại này</el-button></div>
       </div>
       <template #footer>
         <el-button @click="showEditor = false">Hủy</el-button>
@@ -154,6 +199,7 @@ import ClassPicker from '@/components/ClassPicker.vue';
 import { useClassStore } from '@/stores/class';
 import { quizzesApi } from '@/api';
 import { fmtDateTime } from '@/utils/format';
+import { mediaUrl } from '@/utils/media';
 
 const classStore = useClassStore();
 const quizzes = ref([]);
@@ -164,6 +210,18 @@ const activeTab = ref('questions');
 const showEditor = ref(false);
 const editingId = ref(null);
 const letters = ['A', 'B', 'C', 'D'];
+const uploadingMedia = ref(false);
+const newQuestionType = ref('SINGLE_CHOICE');
+const questionTypes = [
+  ['SINGLE_CHOICE','Chọn một đáp án'],['MULTIPLE_CHOICE','Chọn nhiều đáp án'],['TRUE_FALSE','Đúng / Sai'],
+  ['IMAGE_CHOICE','Nhìn ảnh và chọn'],['AUDIO_CHOICE','Nghe và chọn'],['MATCHING','Nối cặp chữ / ảnh'],
+  ['ORDERING','Sắp xếp từ thành câu'],['TEXT_INPUT','Trả lời ngắn'],['FILL_BLANK','Điền chỗ trống'],
+  ['DRAG_BLANK','Kéo từ vào chỗ trống'],['LISTEN_TYPE','Nghe và nhập lại'],['CLASSIFICATION','Phân loại'],
+  ['READING','Đọc đoạn văn và trả lời'],['IMAGE_HOTSPOT','Chọn vị trí trên ảnh'],['HANZI_WRITE','Viết chữ Hán theo nét'],
+  ['RECORDING','Ghi âm câu trả lời'],
+].map(([value,label])=>({value,label}));
+const choiceTypes=['SINGLE_CHOICE','MULTIPLE_CHOICE','IMAGE_CHOICE','AUDIO_CHOICE','READING'];
+const textTypes=['TEXT_INPUT','FILL_BLANK','DRAG_BLANK','LISTEN_TYPE'];
 const form = reactive({
   title: '',
   description: '',
@@ -175,7 +233,9 @@ const form = reactive({
 
 const totalPoints = computed(() => (fullQuiz.value.questions || []).reduce((s, q) => s + Number(q.points || 0), 0));
 
-const blankQuestion = () => ({ question: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'A', points: 1 });
+const blankConfig = () => ({ optionMedia:{A:'',B:'',C:'',D:''}, correctAnswers:[], pairs:[{left:'',right:'',image:''}], itemsText:'', categoriesText:'', classItems:[{text:'',image:'',group:''}], correctArea:{x:25,y:25,width:50,height:50}, wordBankText:'', character:'', passage:'' });
+const blankQuestion = (questionType='SINGLE_CHOICE') => ({ questionType, question: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: questionType==='TRUE_FALSE'?'TRUE':'A', answerText:'', mediaUrl:'', mediaType:'', explanation:'', config:blankConfig(), points: 1 });
+const changeQuestionType = q => { const keep={question:q.question,points:q.points,questionType:q.questionType};Object.assign(q,blankQuestion(q.questionType),keep); };
 
 const resetForm = () => {
   Object.assign(form, { title: '', description: '', timeLimitMinutes: 30, availableFrom: '', availableUntil: '', questions: [blankQuestion()] });
@@ -215,19 +275,23 @@ const openEdit = async (quiz) => {
     availableFrom: data.availableFrom || '',
     availableUntil: data.availableUntil || '',
     questions: data.questions.map(q => ({
+      questionType: q.questionType || 'SINGLE_CHOICE',
       question: q.question,
       optionA: q.optionA || '',
       optionB: q.optionB || '',
       optionC: q.optionC || '',
       optionD: q.optionD || '',
       correctAnswer: q.correctAnswer || 'A',
+      answerText: (q.config?.acceptableAnswers || []).join('|'),
+      mediaUrl: q.mediaUrl || '', mediaType: q.mediaType || '', explanation: q.explanation || '',
+      config: { ...blankConfig(), ...(q.config || {}), optionMedia:{...blankConfig().optionMedia,...(q.config?.optionMedia||{})}, correctArea:{...blankConfig().correctArea,...(q.config?.correctArea||{})} },
       points: Number(q.points || 1),
     })),
   });
   showEditor.value = true;
 };
 
-const addQuestion = () => form.questions.push(blankQuestion());
+const addQuestion = () => form.questions.push(blankQuestion(newQuestionType.value));
 const removeQuestion = (idx) => {
   if (form.questions.length === 1) return ElMessage.warning('Quiz cần ít nhất 1 câu hỏi');
   form.questions.splice(idx, 1);
@@ -236,13 +300,24 @@ const removeQuestion = (idx) => {
 const saveQuiz = async () => {
   if (!form.title.trim()) return ElMessage.warning('Nhập tiêu đề quiz');
   if (!form.questions.length || form.questions.some(q => !q.question.trim())) return ElMessage.warning('Mỗi câu hỏi cần có nội dung');
-  const payload = { classId: classStore.selectedId, ...form };
+  const questions=form.questions.map(q=>{
+    const config={...q.config};
+    if(textTypes.includes(q.questionType))config.acceptableAnswers=String(q.answerText||'').split('|').map(v=>v.trim()).filter(Boolean);
+    if(q.questionType==='DRAG_BLANK')config.wordBank=String(config.wordBankText||'').split('|').map(v=>v.trim()).filter(Boolean);
+    if(q.questionType==='ORDERING')config.correctOrder=String(config.itemsText||'').split('|').map(v=>v.trim()).filter(Boolean);
+    if(q.questionType==='MATCHING')config.correctPairs=Object.fromEntries((config.pairs||[]).filter(p=>p.left).map(p=>[p.left,p.right]));
+    if(q.questionType==='CLASSIFICATION'){config.categories=String(config.categoriesText||'').split('|').map(v=>v.trim()).filter(Boolean);config.correctGroups=Object.fromEntries((config.classItems||[]).filter(i=>i.text).map(i=>[i.text,i.group]));}
+    return {...q,config,correctAnswer:q.questionType==='MULTIPLE_CHOICE'?(config.correctAnswers||[]).join(','):q.correctAnswer};
+  });
+  const payload = { classId: classStore.selectedId, ...form, questions };
   if (editingId.value) await quizzesApi.update(editingId.value, payload);
   else await quizzesApi.create(payload);
   ElMessage.success('Đã lưu quiz');
   showEditor.value = false;
   await reload();
 };
+
+const uploadMedia = async (file, question) => { if(!file.raw)return;uploadingMedia.value=true;try{const fd=new FormData();fd.append('file',file.raw);const result=await quizzesApi.uploadMedia(fd);question.mediaUrl=result.mediaUrl;question.mediaType=result.mediaType;}finally{uploadingMedia.value=false;} };
 
 const removeQuiz = async (quiz) => {
   try {
@@ -281,4 +356,5 @@ onMounted(reload);
 .question-footer { justify-content:flex-start; margin-top:10px; }
 .mt { margin-top:10px; row-gap:10px; }
 .add-question { width:100%; margin-top:12px; border-style:dashed; }
+.question-type-select{margin:0 0 10px}.media-editor,.add-question-row,.config-row{display:flex;gap:8px;margin-top:10px}.media-editor .el-input,.add-question-row .el-select{flex:1}.media-preview,.preview-question-media{display:block;max-height:220px;max-width:100%;object-fit:contain;margin:10px 0;border-radius:8px}.option-editor{display:grid;gap:5px}.config-row .el-input{flex:1}.hotspot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.recording-note,.form-tip{background:#fff7e8;color:#996515;padding:10px;border-radius:7px;font-size:12px}.add-question-row{margin-top:14px}@media(max-width:700px){.config-row,.media-editor,.add-question-row{flex-direction:column}.hotspot-grid{grid-template-columns:repeat(2,1fr)}.question-footer{align-items:flex-start;flex-wrap:wrap}}
 </style>

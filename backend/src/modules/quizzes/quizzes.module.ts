@@ -1,7 +1,11 @@
 import {
   Body, Controller, Delete, ForbiddenException, Get, Injectable, Module, NotFoundException,
-  Param, ParseIntPipe, Patch, Post, Query, UseGuards,
+  Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { ensureUploadDir } from '../../common/upload-dir.util';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, Repository, DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -30,6 +34,11 @@ export class QuizQuestion {
   @Column({ name: 'option_c', type: 'text', nullable: true }) optionC: string;
   @Column({ name: 'option_d', type: 'text', nullable: true }) optionD: string;
   @Column({ name: 'correct_answer', length: 1, nullable: true }) correctAnswer: string;
+  @Column({ name: 'question_type', default: 'SINGLE_CHOICE' }) questionType: string;
+  @Column({ name: 'media_url', type: 'text', nullable: true }) mediaUrl: string;
+  @Column({ name: 'media_type', nullable: true }) mediaType: string;
+  @Column({ type: 'jsonb', default: {} }) config: Record<string, any>;
+  @Column({ type: 'text', nullable: true }) explanation: string;
   @Column({ type: 'numeric', precision: 5, scale: 2, default: 1 }) points: number;
   @Column({ name: 'display_order', default: 0 }) displayOrder: number;
 }
@@ -43,6 +52,7 @@ export class QuizAttempt {
   @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true }) score: number;
   @CreateDateColumn({ name: 'started_at' }) startedAt: Date;
   @Column({ name: 'submitted_at', type: 'timestamp', nullable: true }) submittedAt: Date;
+  @Column({ name: 'needs_manual_grading', default: false }) needsManualGrading: boolean;
 }
 
 @Injectable()
@@ -127,6 +137,11 @@ export class QuizzesService {
         optionC: q.optionC || q.option_c || '',
         optionD: q.optionD || q.option_d || '',
         correctAnswer: String(q.correctAnswer || q.correct_answer || 'A').toUpperCase(),
+        questionType: q.questionType || q.question_type || 'SINGLE_CHOICE',
+        mediaUrl: q.mediaUrl || q.media_url || null,
+        mediaType: q.mediaType || q.media_type || null,
+        config: q.config || {},
+        explanation: q.explanation || null,
         points: +(q.points || 1),
         displayOrder: q.displayOrder ?? idx,
       }));
@@ -158,9 +173,21 @@ export class QuizzesService {
     const quiz = await this.quizWithClass(id);
     await (includeCorrect ? this.requireTeacher(user, quiz.classId) : this.requireClassAccess(user, quiz.classId));
     const questions = await this.questionRepo.find({ where: { quizId: id }, order: { displayOrder: 'ASC', id: 'ASC' } });
+    const studentQuestion = ({ correctAnswer, config, ...q }: QuizQuestion) => {
+      const safe: any = { ...(config || {}) };
+      delete safe.correctAnswers; delete safe.correctOrder; delete safe.correctPairs; delete safe.correctGroups; delete safe.acceptableAnswers; delete safe.correctArea;
+      if (q.questionType === 'MATCHING') {
+        safe.leftItems = (config?.pairs || []).map((p: any) => ({ text: p.left, image: p.image || '' }));
+        safe.rightOptions = (config?.pairs || []).map((p: any) => p.right).sort(() => Math.random() - .5);
+        delete safe.pairs;
+      }
+      if (q.questionType === 'ORDERING') safe.items = [...(config?.correctOrder || [])].sort(() => Math.random() - .5);
+      if (q.questionType === 'CLASSIFICATION') safe.classItems = (config?.classItems || []).map((i: any) => ({ text: i.text, image: i.image || '' }));
+      return { ...q, config: safe };
+    };
     return {
       ...quiz,
-      questions: includeCorrect ? questions : questions.map(({ correctAnswer, ...q }) => q),
+      questions: includeCorrect ? questions : questions.map(studentQuestion),
     };
   }
 
@@ -186,11 +213,33 @@ export class QuizzesService {
     await this.requireClassAccess(user, quiz.classId);
     const questions = await this.questionRepo.find({ where: { quizId: attempt.quizId } });
     const answers = body.answers || {};
+    let needsManualGrading = false;
+    const normalized = (value: any) => String(value ?? '').trim().toLocaleLowerCase('vi').replace(/\s+/g, ' ');
+    const sameArray = (a: any, b: any, sort = false) => {
+      const aa = Array.isArray(a) ? a.map(String) : [];
+      const bb = Array.isArray(b) ? b.map(String) : [];
+      if (sort) { aa.sort(); bb.sort(); }
+      return JSON.stringify(aa) === JSON.stringify(bb);
+    };
     const score = questions.reduce((sum, q) => {
-      const answer = String(answers[q.id] || '').toUpperCase();
-      return sum + (answer === q.correctAnswer ? +q.points : 0);
+      const type = q.questionType || 'SINGLE_CHOICE';
+      const answer = answers[q.id];
+      const config: any = q.config || {};
+      let correct = false;
+      if (['SINGLE_CHOICE','TRUE_FALSE','IMAGE_CHOICE','AUDIO_CHOICE','READING'].includes(type)) correct = normalized(answer) === normalized(q.correctAnswer);
+      else if (type === 'MULTIPLE_CHOICE') correct = sameArray(answer, config.correctAnswers || String(q.correctAnswer || '').split(','), true);
+      else if (['TEXT_INPUT','FILL_BLANK','LISTEN_TYPE','DRAG_BLANK'].includes(type)) correct = (config.acceptableAnswers || [q.correctAnswer]).some((item: any) => normalized(item) === normalized(answer));
+      else if (type === 'ORDERING') correct = sameArray(answer, config.correctOrder || []);
+      else if (type === 'MATCHING') correct = JSON.stringify(answer || {}) === JSON.stringify(config.correctPairs || {});
+      else if (type === 'CLASSIFICATION') correct = JSON.stringify(answer || {}) === JSON.stringify(config.correctGroups || {});
+      else if (type === 'IMAGE_HOTSPOT') {
+        const point = answer || {}, rect = config.correctArea || {};
+        correct = Number(point.x) >= Number(rect.x) && Number(point.x) <= Number(rect.x) + Number(rect.width) && Number(point.y) >= Number(rect.y) && Number(point.y) <= Number(rect.y) + Number(rect.height);
+      } else if (type === 'HANZI_WRITE') correct = !!answer?.completed;
+      else if (type === 'RECORDING') needsManualGrading = true;
+      return sum + (correct ? +q.points : 0);
     }, 0);
-    await this.attemptRepo.update(id, { answers, score, submittedAt: new Date() });
+    await this.attemptRepo.update(id, { answers, score, needsManualGrading, submittedAt: new Date() });
     return this.attemptResult(id, user);
   }
 
@@ -283,6 +332,17 @@ export class QuizzesController {
 
   @Get('quiz-attempts/:id') result(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
     return this.service.attemptResult(id, user);
+  }
+
+  @Post('quiz-media')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({ destination: (_req, _file, cb) => cb(null, ensureUploadDir('quizzes')), filename: (_req, file, cb) => cb(null, `quiz-${Date.now()}-${Math.round(Math.random()*1e9)}${extname(file.originalname)}`) }),
+    limits: { fileSize: 40 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => cb(null, /^(image|audio|video)\//.test(file.mimetype)),
+  }))
+  uploadMedia(@UploadedFile() file: any) {
+    const mediaType = file.mimetype.startsWith('image/') ? 'IMAGE' : file.mimetype.startsWith('audio/') ? 'AUDIO' : 'VIDEO';
+    return { mediaUrl: `/uploads/quizzes/${file.filename}`, mediaType };
   }
 }
 

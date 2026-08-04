@@ -73,12 +73,28 @@
 
         <div v-if="currentQuestion" class="question-box">
           <span class="question-kicker">Câu {{ currentIndex + 1 }}</span>
+          <div v-if="currentQuestion.config?.passage" class="reading-passage">{{ currentQuestion.config.passage }}</div>
           <h2>{{ currentQuestion.question }}</h2>
-          <el-radio-group v-model="answers[currentQuestion.id]" class="answer-list">
+          <img v-if="currentQuestion.mediaType==='IMAGE'&&currentQuestion.mediaUrl" :src="mediaUrl(currentQuestion.mediaUrl)" class="question-media" @click="selectHotspot" />
+          <audio v-if="currentQuestion.mediaType==='AUDIO'&&currentQuestion.mediaUrl" :src="mediaUrl(currentQuestion.mediaUrl)" controls class="question-audio" />
+          <video v-if="currentQuestion.mediaType==='VIDEO'&&currentQuestion.mediaUrl" :src="mediaUrl(currentQuestion.mediaUrl)" controls class="question-media" />
+
+          <el-radio-group v-if="singleChoiceTypes.includes(questionType)" v-model="answers[currentQuestion.id]" class="answer-list">
             <el-radio v-for="letter in letters" :key="letter" :label="letter" border>
-              <b>{{ letter }}</b><span>{{ currentQuestion[`option${letter}`] }}</span>
+              <b>{{ letter }}</b><img v-if="currentQuestion.config?.optionMedia?.[letter]" :src="mediaUrl(currentQuestion.config.optionMedia[letter])" class="option-image" /><span>{{ currentQuestion[`option${letter}`] }}</span>
             </el-radio>
           </el-radio-group>
+          <el-checkbox-group v-else-if="questionType==='MULTIPLE_CHOICE'" v-model="answers[currentQuestion.id]" class="answer-list">
+            <el-checkbox v-for="letter in letters" :key="letter" :label="letter" border><b>{{ letter }}</b><img v-if="currentQuestion.config?.optionMedia?.[letter]" :src="mediaUrl(currentQuestion.config.optionMedia[letter])" class="option-image"/><span>{{ currentQuestion[`option${letter}`] }}</span></el-checkbox>
+          </el-checkbox-group>
+          <el-radio-group v-else-if="questionType==='TRUE_FALSE'" v-model="answers[currentQuestion.id]" class="answer-list"><el-radio label="TRUE" border>Đúng</el-radio><el-radio label="FALSE" border>Sai</el-radio></el-radio-group>
+          <el-input v-else-if="textTypes.includes(questionType)" v-model="answers[currentQuestion.id]" type="textarea" :rows="3" placeholder="Nhập câu trả lời" />
+          <div v-else-if="questionType==='MATCHING'" class="matching-list"><div v-for="item in currentQuestion.config.leftItems" :key="item.text" class="matching-row"><span><img v-if="item.image" :src="mediaUrl(item.image)" class="mini-image"/>{{ item.text }}</span><el-select v-model="answers[currentQuestion.id][item.text]" placeholder="Chọn vế nối"><el-option v-for="right in currentQuestion.config.rightOptions" :key="right" :label="right" :value="right"/></el-select></div></div>
+          <div v-else-if="questionType==='ORDERING'" class="ordering"><div class="ordered-answer"><span v-for="(item,i) in answers[currentQuestion.id]" :key="i" @click="removeOrdered(i)">{{ i+1 }}. {{ item }}</span></div><p>Chọn lần lượt theo thứ tự đúng:</p><el-button v-for="item in currentQuestion.config.items" :key="item" :disabled="answers[currentQuestion.id].includes(item)" @click="answers[currentQuestion.id].push(item)">{{ item }}</el-button></div>
+          <div v-else-if="questionType==='CLASSIFICATION'" class="matching-list"><div v-for="item in currentQuestion.config.classItems" :key="item.text" class="matching-row"><span><img v-if="item.image" :src="mediaUrl(item.image)" class="mini-image"/>{{ item.text }}</span><el-select v-model="answers[currentQuestion.id][item.text]" placeholder="Chọn nhóm"><el-option v-for="group in currentQuestion.config.categories" :key="group" :label="group" :value="group"/></el-select></div></div>
+          <div v-else-if="questionType==='IMAGE_HOTSPOT'" class="hotspot-help">Bấm vào vị trí đúng trên ảnh.<span v-if="answers[currentQuestion.id]">Đã chọn: {{ Math.round(answers[currentQuestion.id].x) }}%, {{ Math.round(answers[currentQuestion.id].y) }}%</span></div>
+          <div v-else-if="questionType==='HANZI_WRITE'" class="hanzi-quiz"><div ref="hanziTarget" class="hanzi-target"></div><span>{{ hanziFeedback }}</span><el-button @click="startHanziQuestion">Viết lại</el-button></div>
+          <div v-else-if="questionType==='RECORDING'" class="record-answer"><el-button type="danger" @click="recording ? stopRecording() : startRecording()">{{ recording?'Dừng ghi âm':'Bắt đầu ghi âm' }}</el-button><audio v-if="recordingPreview" :src="recordingPreview" controls/><span v-if="answers[currentQuestion.id]">Đã lưu bản ghi âm</span></div>
         </div>
 
         <div class="take-actions">
@@ -135,7 +151,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import HanziWriter from 'hanzi-writer';
 import { ArrowLeft, ArrowRight, CircleCheck, Clock, EditPen, Reading, Trophy } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ClassPicker from '@/components/ClassPicker.vue';
@@ -144,6 +161,7 @@ import { useClassStore } from '@/stores/class';
 import { quizzesApi } from '@/api';
 import { fmtDateTime } from '@/utils/format';
 import { isChildLearner } from '@/utils/learner';
+import { mediaUrl } from '@/utils/media';
 
 const auth = useAuthStore();
 const classStore = useClassStore();
@@ -158,9 +176,14 @@ const answers = reactive({});
 const result = ref(null);
 const remainingSeconds = ref(0);
 const letters = ['A', 'B', 'C', 'D'];
+const singleChoiceTypes=['SINGLE_CHOICE','IMAGE_CHOICE','AUDIO_CHOICE','READING'];
+const textTypes=['TEXT_INPUT','FILL_BLANK','DRAG_BLANK','LISTEN_TYPE'];
+const hanziTarget=ref(null),hanziFeedback=ref('Viết từng nét theo đúng thứ tự'),recording=ref(false),recordingPreview=ref('');
+let hanziWriter=null,mediaRecorder=null,mediaStream=null,recordedChunks=[];
 let timer = null;
 
 const currentQuestion = computed(() => quizDetail.value.questions[currentIndex.value]);
+const questionType = computed(()=>currentQuestion.value?.questionType||'SINGLE_CHOICE');
 const answeredCount = computed(() => quizDetail.value.questions.filter(question => answers[question.id]).length);
 const progressPercent = computed(() => quizDetail.value.questions.length ? Math.round(((currentIndex.value + 1) / quizDetail.value.questions.length) * 100) : 0);
 const timeText = computed(() => {
@@ -202,9 +225,18 @@ const startQuiz = async (quiz) => {
     currentIndex.value = 0;
     remainingSeconds.value = (quizDetail.value.timeLimitMinutes || 0) * 60;
     mode.value = 'taking';
+    prepareQuestion();
     if (quizDetail.value.timeLimitMinutes) startTimer();
   } catch {}
 };
+
+const prepareQuestion=()=>{const q=currentQuestion.value;if(!q)return;if(answers[q.id]===undefined){if(['MULTIPLE_CHOICE','ORDERING'].includes(q.questionType))answers[q.id]=[];else if(['MATCHING','CLASSIFICATION'].includes(q.questionType))answers[q.id]={};else answers[q.id]='';}if(q.questionType==='HANZI_WRITE')nextTick(startHanziQuestion);};
+const removeOrdered=i=>answers[currentQuestion.value.id].splice(i,1);
+const selectHotspot=event=>{if(questionType.value!=='IMAGE_HOTSPOT')return;const rect=event.currentTarget.getBoundingClientRect();answers[currentQuestion.value.id]={x:(event.clientX-rect.left)/rect.width*100,y:(event.clientY-rect.top)/rect.height*100};};
+const startHanziQuestion=()=>{const q=currentQuestion.value;if(!hanziTarget.value||q?.questionType!=='HANZI_WRITE')return;hanziTarget.value.innerHTML='';const size=Math.min(320,Math.max(240,hanziTarget.value.parentElement?.clientWidth||280));hanziWriter=HanziWriter.create(hanziTarget.value,q.config.character,{width:size,height:size,padding:16,showCharacter:false,showOutline:true,drawingColor:'#16856f',drawingWidth:10});hanziWriter.quiz({showHintAfterMisses:1,onMistake:()=>hanziFeedback.value='Sai nét — hãy viết lại nét này',onCorrectStroke:d=>hanziFeedback.value=`Đúng · còn ${d.strokesRemaining} nét`,onComplete:()=>{answers[q.id]={completed:true};hanziFeedback.value='Đã viết đúng chữ';}});};
+const startRecording=async()=>{try{mediaStream=await navigator.mediaDevices.getUserMedia({audio:true});recordedChunks=[];mediaRecorder=new MediaRecorder(mediaStream);mediaRecorder.ondataavailable=e=>{if(e.data.size)recordedChunks.push(e.data);};mediaRecorder.onstop=uploadRecording;mediaRecorder.start();recording.value=true;}catch{ElMessage.error('Không thể truy cập micro');}};
+const stopRecording=()=>{mediaRecorder?.stop();mediaStream?.getTracks().forEach(t=>t.stop());recording.value=false;};
+const uploadRecording=async()=>{const blob=new Blob(recordedChunks,{type:mediaRecorder?.mimeType||'audio/webm'});if(recordingPreview.value)URL.revokeObjectURL(recordingPreview.value);recordingPreview.value=URL.createObjectURL(blob);const fd=new FormData();fd.append('file',new File([blob],`quiz-recording-${Date.now()}.webm`,{type:blob.type}));const uploaded=await quizzesApi.uploadMedia(fd);answers[currentQuestion.value.id]=uploaded.mediaUrl;ElMessage.success('Đã lưu bản ghi âm');};
 
 const submitQuiz = async (auto = false) => {
   if (!currentAttempt.value) return;
@@ -237,12 +269,13 @@ watch(() => classStore.selectedId, () => {
   backToList();
   reload();
 });
+watch(currentIndex,()=>{recordingPreview.value='';prepareQuestion();});
 
 onMounted(async () => {
   if (!classStore.classes.length) await classStore.fetchClasses();
   await reload();
 });
-onUnmounted(() => { if (timer) clearInterval(timer); });
+onUnmounted(() => { if (timer) clearInterval(timer);hanziWriter?.cancelQuiz();mediaStream?.getTracks().forEach(t=>t.stop());if(recordingPreview.value)URL.revokeObjectURL(recordingPreview.value); });
 </script>
 
 <style scoped>
@@ -294,6 +327,7 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
 .answer-list :deep(.el-radio__label) { align-items: center; color: var(--ink-900); display: flex; font-size: 14px; gap: 10px; padding-left: 9px; white-space: normal; }
 .answer-list :deep(.el-radio__label b) { align-items: center; background: #edf1ee; border-radius: 6px; color: var(--ink-700); display: inline-flex; flex: 0 0 auto; font-size: 11px; height: 25px; justify-content: center; width: 25px; }
 .answer-list :deep(.el-radio.is-checked .el-radio__label b) { background: #0f8e6d; color: #fff; }
+.answer-list :deep(.el-checkbox){align-items:center;border-radius:8px;display:flex;margin:0;min-height:58px;padding:11px 14px;width:100%}.answer-list :deep(.el-checkbox__label){align-items:center;display:flex;gap:10px;white-space:normal}.option-image{border-radius:7px;height:72px;object-fit:contain;width:92px}.question-media{border-radius:10px;cursor:crosshair;display:block;margin:0 auto 20px;max-height:360px;max-width:100%;object-fit:contain}.question-audio{margin-bottom:20px;width:100%}.reading-passage{background:#f6f8f7;border-left:4px solid #16856f;border-radius:7px;line-height:1.7;margin-bottom:20px;padding:16px;white-space:pre-wrap}.matching-list{display:grid;gap:10px}.matching-row{align-items:center;border:1px solid var(--border);border-radius:8px;display:grid;gap:12px;grid-template-columns:1fr 1fr;padding:10px}.matching-row>span{align-items:center;display:flex;gap:8px;font-weight:700}.mini-image{height:54px;object-fit:contain;width:68px}.ordering .ordered-answer{border:1px dashed #16856f;border-radius:8px;display:flex;flex-wrap:wrap;gap:7px;min-height:60px;padding:10px}.ordered-answer span{background:#e1f5ee;border-radius:6px;cursor:pointer;padding:7px}.ordering>.el-button{margin:5px}.hotspot-help{color:#66756f;display:flex;flex-direction:column;gap:6px;text-align:center}.hanzi-quiz{align-items:center;display:flex;flex-direction:column;gap:10px}.hanzi-target{border:2px solid #cddbd5;max-width:320px;touch-action:none;width:100%}.record-answer{align-items:center;display:flex;flex-direction:column;gap:12px}.record-answer audio{max-width:100%}
 .take-actions { align-items: center; border-top: 1px solid var(--border); display: flex; gap: 12px; justify-content: space-between; padding-top: 18px; }
 .question-dots { display: flex; flex: 1; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .question-dot { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px; color: var(--ink-500); cursor: pointer; font-size: 11px; font-weight: 800; height: 30px; padding: 0; transition: background 150ms ease, border-color 150ms ease; width: 30px; }
@@ -340,5 +374,6 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
   .result-summary { align-items: flex-start; flex-wrap: wrap; }
   .score { margin-left: 69px; }
   .review-options { grid-template-columns: 1fr; }
+  .matching-row{grid-template-columns:1fr}.option-image{height:58px;width:72px}
 }
 </style>

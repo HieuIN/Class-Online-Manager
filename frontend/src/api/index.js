@@ -168,6 +168,7 @@ export const quizzesApi = {
   attempts: (params) => http.get('/quiz-attempts', { params }),
   attempt: (id) => http.get(`/quiz-attempts/${id}`),
   submit: (id, answers) => http.post(`/quiz-attempts/${id}/submit`, { answers }),
+  uploadMedia: (formData) => http.post('/quiz-media', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
 };
 
 export const certificatesApi = {

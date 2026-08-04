@@ -331,10 +331,14 @@ CREATE TABLE IF NOT EXISTS quiz_questions (
     option_b        TEXT,
     option_c        TEXT,
     option_d        TEXT,
-    correct_answer  CHAR(1),
+    correct_answer  TEXT,
+    question_type   VARCHAR(40) DEFAULT 'SINGLE_CHOICE',
+    media_url       TEXT,
+    media_type      VARCHAR(20),
+    config          JSONB DEFAULT '{}'::jsonb,
+    explanation     TEXT,
     points          NUMERIC(5,2) DEFAULT 1,
-    display_order   INTEGER DEFAULT 0,
-    CONSTRAINT quiz_correct_answer_check CHECK (correct_answer IN ('A','B','C','D'))
+    display_order   INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS quiz_attempts (
@@ -345,6 +349,7 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
     score           NUMERIC(5,2),
     started_at      TIMESTAMP DEFAULT NOW(),
     submitted_at    TIMESTAMP
+    ,needs_manual_grading BOOLEAN DEFAULT FALSE
 );
 
 CREATE INDEX idx_quizzes_class ON quizzes(class_id);

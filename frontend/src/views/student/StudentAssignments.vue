@@ -67,6 +67,7 @@
           <span :class="['badge', submissionBadge(submissionFor(assignment)?.status || 'NOT_SUBMITTED').cls]">{{ submissionBadge(submissionFor(assignment)?.status || 'NOT_SUBMITTED').label }}</span>
         </div>
         <div v-if="submissionFor(assignment)?.score != null" class="score"><span>Diem</span><b>{{ submissionFor(assignment).score }}/{{ maxScore(assignment) }}</b></div>
+        <el-button plain @click="openDiscussion(assignment)">Thảo luận</el-button>
         <el-button v-if="canSubmit(assignment)" type="primary" :disabled="isGroupAssignment(assignment) && !assignment.myGroup" @click="openSubmit(assignment)">{{ submissionFor(assignment)?.status === 'REVISION_REQUIRED' ? 'Sua va nop lai' : 'Nop bai' }}</el-button>
         <span v-else-if="submissionFor(assignment)?.status === 'GRADED'" class="completed">Da hoan thanh</span>
       </div>
@@ -120,6 +121,19 @@
         </el-form>
       </template>
       <template #footer><el-button @click="showSubmit = false">Huy</el-button><el-button type="primary" :loading="submitting" @click="doSubmit">Nop bai</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="showDiscussion" :title="`Thảo luận: ${discussionAssignment?.title || 'Bài tập'}`" width="min(720px, 94vw)">
+      <div v-if="discussionAssignment" class="discussion-context">
+        <h3>{{ discussionAssignment.title }}</h3>
+        <p>{{ discussionAssignment.description || 'Giáo viên chưa thêm yêu cầu chi tiết.' }}</p>
+        <div class="discussion-meta"><span>Hạn nộp: <b>{{ fmtDateTime(dueDate(discussionAssignment)) }}</b></span><span>Hình thức: <b>{{ submissionTypeLabel(discussionAssignment) }}</b></span><span>Thang điểm: <b>{{ maxScore(discussionAssignment) }}</b></span></div>
+        <div v-if="attachments(discussionAssignment).length" class="discussion-files"><b>Tài liệu bài tập</b><el-button v-for="file in attachments(discussionAssignment)" :key="file.id" link type="primary" @click="openFile(file.fileUrl)">{{ file.fileName }}</el-button></div>
+      </div>
+      <div class="discussion-heading">Trao đổi của lớp</div>
+      <div class="comments-box"><div v-for="comment in discussionComments" :key="comment.id" class="comment-row"><b>{{ comment.authorName || 'Người dùng' }}</b><span>{{ fmtDateTime(comment.createdAt) }}</span><p>{{ comment.content }}</p></div><el-empty v-if="!discussionComments.length" description="Chưa có bình luận. Hãy đặt câu hỏi đầu tiên." /></div>
+      <el-input v-model="discussionText" type="textarea" :rows="3" placeholder="Nhập câu hỏi hoặc phản hồi về bài tập..." />
+      <template #footer><el-button @click="showDiscussion = false">Đóng</el-button><el-button type="primary" @click="addDiscussionComment">Gửi</el-button></template>
     </el-dialog>
 
     <el-dialog v-model="showHistory" title="Lich su nop bai" width="min(720px, 94vw)">
@@ -177,6 +191,10 @@ const versions = ref([]);
 const showAnnotation = ref(false);
 const annotations = ref([]);
 const annotationFile = ref(null);
+const showDiscussion = ref(false);
+const discussionAssignment = ref(null);
+const discussionComments = ref([]);
+const discussionText = ref('');
 
 const dueDate = assignment => assignment.dueDate ?? assignment.due_date;
 const maxScore = assignment => Number(assignment.maxScore ?? assignment.max_score ?? 10);
@@ -218,6 +236,20 @@ function openSubmit(assignment) {
   submitContent.value = '';
   submissionFiles.value = [];
   showSubmit.value = true;
+}
+
+async function openDiscussion(assignment) {
+  discussionAssignment.value = assignment;
+  discussionText.value = '';
+  discussionComments.value = await assignmentsApi.comments(assignment.id);
+  showDiscussion.value = true;
+}
+
+async function addDiscussionComment() {
+  if (!discussionAssignment.value || !discussionText.value.trim()) return;
+  await assignmentsApi.addComment(discussionAssignment.value.id, discussionText.value.trim());
+  discussionText.value = '';
+  discussionComments.value = await assignmentsApi.comments(discussionAssignment.value.id);
 }
 
 function validateSubmissionFile(file) {
@@ -342,5 +374,6 @@ onMounted(reload);
 .upload-copy { display: flex; flex-direction: column; gap: 5px; padding: 8px; }.upload-copy span { color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.45; }
 .history-row { border-bottom: 1px solid var(--el-border-color-lighter); padding: 13px 0; }.history-row > div:first-child { display: flex; gap: 12px; justify-content: space-between; }.history-row span { color: var(--el-text-color-secondary); font-size: 13px; }.history-row p { background: var(--el-fill-color-light); border-radius: 6px; line-height: 1.5; margin: 8px 0; padding: 8px; white-space: pre-wrap; }.history-score { color: var(--el-color-primary); font-size: 13px; margin-top: 5px; }.history-files { display: flex; flex-wrap: wrap; gap: 8px; }
 .annotation-layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 18px; }.annotation-preview { align-items: center; background: var(--el-fill-color-light); display: flex; justify-content: center; min-height: 420px; }.annotation-preview img { max-height: 620px; max-width: 100%; object-fit: contain; }.annotation-preview iframe { border: 0; height: 620px; width: 100%; }.no-inline-preview { color: var(--el-text-color-secondary); padding: 30px; text-align: center; }.annotation-list { border-left: 1px solid var(--el-border-color-lighter); padding-left: 16px; }.annotation-list > p { font-weight: 700; margin-top: 0; }.annotation-item { border-bottom: 1px solid var(--el-border-color-lighter); padding: 10px 0; }.annotation-item b { font-size: 13px; }.annotation-item span { color: var(--el-text-color-secondary); display: block; font-size: 12px; margin-top: 3px; }.annotation-item p { line-height: 1.5; margin: 6px 0 0; white-space: pre-wrap; }
+.discussion-context { background: var(--el-fill-color-light); border-left: 4px solid var(--el-color-primary); border-radius: 8px; margin-bottom: 16px; padding: 14px; }.discussion-context h3 { margin: 0 0 7px; }.discussion-context > p { line-height: 1.55; margin: 0; white-space: pre-wrap; }.discussion-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }.discussion-meta span { color: var(--el-text-color-secondary); font-size: 12px; }.discussion-files { align-items: center; display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 10px; }.discussion-heading { font-size: 13px; font-weight: 700; margin-bottom: 4px; }.comments-box { max-height: 280px; overflow: auto; margin-bottom: 14px; }.comment-row { border-bottom: 1px solid var(--el-border-color-lighter); padding: 10px 0; }.comment-row span { color: var(--el-text-color-secondary); font-size: 12px; margin-left: 8px; }.comment-row p { line-height: 1.5; margin: 5px 0 0; white-space: pre-wrap; }
 @media (max-width: 700px) { .page-heading, .assignment-header, .submission-summary { align-items: flex-start; flex-direction: column; }.due-group { align-items: flex-start; min-width: 0; }.due { text-align: left; }.submission-summary { gap: 12px; }.submission-summary > div:first-child { margin-right: 0; }.attachment-row { align-items: flex-start; flex-direction: column; gap: 2px; }.requirement-strip { flex-direction: column; gap: 7px; }.submitted-heading { align-items: flex-start; flex-direction: column; }.submission-actions { flex-wrap: wrap; }.annotation-layout { display: block; }.annotation-list { border-left: 0; border-top: 1px solid var(--el-border-color-lighter); margin-top: 14px; padding: 14px 0 0; } }
 </style>

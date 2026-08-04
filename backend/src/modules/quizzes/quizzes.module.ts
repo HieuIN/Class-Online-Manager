@@ -177,8 +177,14 @@ export class QuizzesService {
       const safe: any = { ...(config || {}) };
       delete safe.correctAnswers; delete safe.correctOrder; delete safe.correctPairs; delete safe.correctGroups; delete safe.acceptableAnswers; delete safe.correctArea;
       if (q.questionType === 'MATCHING') {
-        safe.leftItems = (config?.pairs || []).map((p: any) => ({ text: p.left, image: p.image || '' }));
-        safe.rightOptions = (config?.pairs || []).map((p: any) => p.right).sort(() => Math.random() - .5);
+        const shuffle = (items: any[]) => { const result = [...items]; for (let i = result.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [result[i], result[j]] = [result[j], result[i]]; } return result; };
+        const pairs = (config?.pairs || []).map((p: any, index: number) => ({
+          id: p.id || `pair-${index}`,
+          leftText: p.leftText ?? p.left ?? '', leftImage: p.leftImage ?? p.image ?? '',
+          rightText: p.rightText ?? p.right ?? '', rightImage: p.rightImage ?? '',
+        }));
+        safe.leftItems = shuffle(pairs.map((p: any) => ({ id: p.id, text: p.leftText, image: p.leftImage })));
+        safe.rightOptions = shuffle(pairs.map((p: any) => ({ id: p.id, text: p.rightText, image: p.rightImage })));
         delete safe.pairs;
       }
       if (q.questionType === 'ORDERING') safe.items = [...(config?.correctOrder || [])].sort(() => Math.random() - .5);
@@ -230,7 +236,14 @@ export class QuizzesService {
       else if (type === 'MULTIPLE_CHOICE') correct = sameArray(answer, config.correctAnswers || String(q.correctAnswer || '').split(','), true);
       else if (['TEXT_INPUT','FILL_BLANK','LISTEN_TYPE','DRAG_BLANK'].includes(type)) correct = (config.acceptableAnswers || [q.correctAnswer]).some((item: any) => normalized(item) === normalized(answer));
       else if (type === 'ORDERING') correct = sameArray(answer, config.correctOrder || []);
-      else if (type === 'MATCHING') correct = JSON.stringify(answer || {}) === JSON.stringify(config.correctPairs || {});
+      else if (type === 'MATCHING') {
+        const expected = (config.pairs || []).length
+          ? Object.fromEntries((config.pairs || []).map((p: any, index: number) => { const id = p.id || `pair-${index}`; return [id, id]; }))
+          : (config.correctPairs || {});
+        const submitted = answer || {};
+        correct = Object.keys(expected).length === Object.keys(submitted).length
+          && Object.entries(expected).every(([key, value]) => submitted[key] === value);
+      }
       else if (type === 'CLASSIFICATION') correct = JSON.stringify(answer || {}) === JSON.stringify(config.correctGroups || {});
       else if (type === 'IMAGE_HOTSPOT') {
         const point = answer || {}, rect = config.correctArea || {};

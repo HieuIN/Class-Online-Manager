@@ -160,8 +160,14 @@
             <el-input v-if="q.questionType==='DRAG_BLANK'" v-model="q.config.wordBankText" class="mt" placeholder="Ngân hàng từ, cách nhau bằng dấu |" />
           </template>
           <template v-else-if="q.questionType==='MATCHING'">
-            <div v-for="(pair,pairIndex) in q.config.pairs" :key="pairIndex" class="config-row"><el-input v-model="pair.left" placeholder="Vế trái / chữ Hán"/><el-input v-model="pair.right" placeholder="Vế phải / nghĩa"/><el-input v-model="pair.image" placeholder="URL ảnh (tùy chọn)"/><el-button @click="q.config.pairs.splice(pairIndex,1)">×</el-button></div>
-            <el-button class="mt" @click="q.config.pairs.push({left:'',right:'',image:''})">+ Thêm cặp nối</el-button>
+            <p class="form-tip">Mỗi vế có thể dùng chữ, ảnh hoặc cả hai. Hai cột sẽ được trộn độc lập khi học sinh làm bài.</p>
+            <div v-for="(pair,pairIndex) in q.config.pairs" :key="pair.id || pairIndex" class="matching-pair-editor">
+              <div class="matching-side"><b>Vế A</b><el-input v-model="pair.leftText" placeholder="Chữ / nội dung vế A"/><el-input v-model="pair.leftImage" placeholder="URL ảnh vế A"/><el-upload :auto-upload="false" :show-file-list="false" :on-change="file=>uploadPairImage(file,pair,'leftImage')"><el-button :loading="uploadingMedia">Tải ảnh A</el-button></el-upload><img v-if="pair.leftImage" :src="mediaUrl(pair.leftImage)" class="pair-preview"/></div>
+              <div class="matching-arrow">↔</div>
+              <div class="matching-side"><b>Vế B</b><el-input v-model="pair.rightText" placeholder="Chữ / nội dung vế B"/><el-input v-model="pair.rightImage" placeholder="URL ảnh vế B"/><el-upload :auto-upload="false" :show-file-list="false" :on-change="file=>uploadPairImage(file,pair,'rightImage')"><el-button :loading="uploadingMedia">Tải ảnh B</el-button></el-upload><img v-if="pair.rightImage" :src="mediaUrl(pair.rightImage)" class="pair-preview"/></div>
+              <el-button type="danger" plain @click="q.config.pairs.splice(pairIndex,1)">×</el-button>
+            </div>
+            <el-button class="mt" @click="q.config.pairs.push(blankPair())">+ Thêm cặp nối</el-button>
           </template>
           <template v-else-if="q.questionType==='ORDERING'">
             <el-input v-model="q.config.itemsText" class="mt" type="textarea" placeholder="Nhập thứ tự đúng, mỗi từ/cụm từ cách nhau bằng dấu |" />
@@ -239,7 +245,9 @@ const form = reactive({
 
 const totalPoints = computed(() => (fullQuiz.value.questions || []).reduce((s, q) => s + Number(q.points || 0), 0));
 
-const blankConfig = () => ({ optionMedia:{A:'',B:'',C:'',D:''}, correctAnswers:[], pairs:[{left:'',right:'',image:''}], itemsText:'', categoriesText:'', classItems:[{text:'',image:'',group:''}], correctArea:{x:25,y:25,width:50,height:50}, wordBankText:'', character:'', passage:'' });
+const blankPair = () => ({ id:`pair-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,leftText:'',leftImage:'',rightText:'',rightImage:'' });
+const normalizePair = (pair, index=0) => ({ id:pair.id || `pair-${Date.now()}-${index}`, leftText:pair.leftText ?? pair.left ?? '', leftImage:pair.leftImage ?? pair.image ?? '', rightText:pair.rightText ?? pair.right ?? '', rightImage:pair.rightImage ?? '' });
+const blankConfig = () => ({ optionMedia:{A:'',B:'',C:'',D:''}, correctAnswers:[], pairs:[blankPair()], itemsText:'', categoriesText:'', classItems:[{text:'',image:'',group:''}], correctArea:{x:25,y:25,width:50,height:50}, wordBankText:'', character:'', passage:'' });
 const blankQuestion = (questionType='SINGLE_CHOICE') => ({ questionType, question: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: questionType==='TRUE_FALSE'?'TRUE':'A', answerText:'', mediaUrl:'', mediaType:'', explanation:'', config:blankConfig(), points: 1 });
 const changeQuestionType = q => { const keep={question:q.question,points:q.points,questionType:q.questionType};Object.assign(q,blankQuestion(q.questionType),keep); };
 
@@ -290,7 +298,7 @@ const openEdit = async (quiz) => {
       correctAnswer: q.correctAnswer || 'A',
       answerText: (q.config?.acceptableAnswers || []).join('|'),
       mediaUrl: q.mediaUrl || '', mediaType: q.mediaType || '', explanation: q.explanation || '',
-      config: { ...blankConfig(), ...(q.config || {}), optionMedia:{...blankConfig().optionMedia,...(q.config?.optionMedia||{})}, correctArea:{...blankConfig().correctArea,...(q.config?.correctArea||{})} },
+      config: { ...blankConfig(), ...(q.config || {}), pairs:(q.config?.pairs || []).map(normalizePair), optionMedia:{...blankConfig().optionMedia,...(q.config?.optionMedia||{})}, correctArea:{...blankConfig().correctArea,...(q.config?.correctArea||{})} },
       points: Number(q.points || 1),
     })),
   });
@@ -311,7 +319,10 @@ const saveQuiz = async () => {
     if(textTypes.includes(q.questionType))config.acceptableAnswers=String(q.answerText||'').split('|').map(v=>v.trim()).filter(Boolean);
     if(q.questionType==='DRAG_BLANK')config.wordBank=String(config.wordBankText||'').split('|').map(v=>v.trim()).filter(Boolean);
     if(q.questionType==='ORDERING')config.correctOrder=String(config.itemsText||'').split('|').map(v=>v.trim()).filter(Boolean);
-    if(q.questionType==='MATCHING')config.correctPairs=Object.fromEntries((config.pairs||[]).filter(p=>p.left).map(p=>[p.left,p.right]));
+    if(q.questionType==='MATCHING'){
+      config.pairs=(config.pairs||[]).map(normalizePair).filter(p=>(p.leftText||p.leftImage)&&(p.rightText||p.rightImage));
+      config.correctPairs=Object.fromEntries(config.pairs.map(p=>[p.id,p.id]));
+    }
     if(q.questionType==='CLASSIFICATION'){config.categories=String(config.categoriesText||'').split('|').map(v=>v.trim()).filter(Boolean);config.correctGroups=Object.fromEntries((config.classItems||[]).filter(i=>i.text).map(i=>[i.text,i.group]));}
     return {...q,config,correctAnswer:q.questionType==='MULTIPLE_CHOICE'?(config.correctAnswers||[]).join(','):q.correctAnswer};
   });
@@ -324,6 +335,7 @@ const saveQuiz = async () => {
 };
 
 const uploadMedia = async (file, question) => { if(!file.raw)return;uploadingMedia.value=true;try{const fd=new FormData();fd.append('file',file.raw);const result=await quizzesApi.uploadMedia(fd);question.mediaUrl=result.mediaUrl;question.mediaType=result.mediaType;}finally{uploadingMedia.value=false;} };
+const uploadPairImage = async (file, pair, field) => { if(!file.raw)return;uploadingMedia.value=true;try{const fd=new FormData();fd.append('file',file.raw);const result=await quizzesApi.uploadMedia(fd);pair[field]=result.mediaUrl;}finally{uploadingMedia.value=false;} };
 const openAttempt=async row=>{attemptDetail.value=await quizzesApi.attempt(row.id);manualScore.value=Number(attemptDetail.value.score||0);showAttempt.value=true;};
 const saveManualGrade=async()=>{await quizzesApi.gradeAttempt(attemptDetail.value.id,manualScore.value);showAttempt.value=false;await selectQuiz(activeQuiz.value);ElMessage.success('Đã lưu điểm');};
 
@@ -365,5 +377,6 @@ onMounted(reload);
 .mt { margin-top:10px; row-gap:10px; }
 .add-question { width:100%; margin-top:12px; border-style:dashed; }
 .question-type-select{margin:0 0 10px}.media-editor,.add-question-row,.config-row{display:flex;gap:8px;margin-top:10px}.media-editor .el-input,.add-question-row .el-select{flex:1}.media-preview,.preview-question-media{display:block;max-height:220px;max-width:100%;object-fit:contain;margin:10px 0;border-radius:8px}.option-editor{display:grid;gap:5px}.config-row .el-input{flex:1}.hotspot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.recording-note,.form-tip{background:#fff7e8;color:#996515;padding:10px;border-radius:7px;font-size:12px}.add-question-row{margin-top:14px}@media(max-width:700px){.config-row,.media-editor,.add-question-row{flex-direction:column}.hotspot-grid{grid-template-columns:repeat(2,1fr)}.question-footer{align-items:flex-start;flex-wrap:wrap}}
+.matching-pair-editor{align-items:center;border:1px solid var(--border);border-radius:10px;display:grid;gap:10px;grid-template-columns:1fr auto 1fr auto;margin-top:10px;padding:12px}.matching-side{display:grid;gap:7px}.matching-arrow{color:#16856f;font-size:22px;font-weight:700}.pair-preview{border-radius:7px;height:90px;max-width:150px;object-fit:contain}@media(max-width:700px){.matching-pair-editor{grid-template-columns:1fr}.matching-arrow{text-align:center;transform:rotate(90deg)}}
 .attempt-answer{border-bottom:1px solid #eee;padding:12px 0}.attempt-answer audio{display:block;margin-top:10px;width:100%}
 </style>

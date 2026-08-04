@@ -76,7 +76,7 @@
           <div v-if="currentQuestion.config?.passage" class="reading-passage">{{ currentQuestion.config.passage }}</div>
           <h2>{{ currentQuestion.question }}</h2>
           <img v-if="currentQuestion.mediaType==='IMAGE'&&currentQuestion.mediaUrl" :src="mediaUrl(currentQuestion.mediaUrl)" class="question-media" @click="selectHotspot" />
-          <audio v-if="currentQuestion.mediaType==='AUDIO'&&currentQuestion.mediaUrl" :src="mediaUrl(currentQuestion.mediaUrl)" controls class="question-audio" />
+          <audio v-if="currentQuestion.mediaType==='AUDIO'&&currentQuestion.mediaUrl" :src="mediaUrl(currentQuestion.mediaUrl)" controls class="question-audio" @loadedmetadata="prepareAudioClip" @play="playStudentClip" @timeupdate="limitStudentClip" />
           <video v-if="currentQuestion.mediaType==='VIDEO'&&currentQuestion.mediaUrl" :src="mediaUrl(currentQuestion.mediaUrl)" controls class="question-media" />
 
           <el-radio-group v-if="singleChoiceTypes.includes(questionType)" v-model="answers[currentQuestion.id]" class="answer-list">
@@ -232,6 +232,10 @@ const startQuiz = async (quiz) => {
 
 const prepareQuestion=()=>{const q=currentQuestion.value;if(!q)return;if(answers[q.id]===undefined){if(['MULTIPLE_CHOICE','ORDERING'].includes(q.questionType))answers[q.id]=[];else if(['MATCHING','CLASSIFICATION'].includes(q.questionType))answers[q.id]={};else answers[q.id]='';}if(q.questionType==='HANZI_WRITE')nextTick(startHanziQuestion);};
 const removeOrdered=i=>answers[currentQuestion.value.id].splice(i,1);
+const audioClipBounds=()=>({start:Number(currentQuestion.value?.config?.audioStart||0),end:Number(currentQuestion.value?.config?.audioEnd||0)});
+const prepareAudioClip=e=>{const {start}=audioClipBounds();e.currentTarget.currentTime=start;};
+const playStudentClip=e=>{const audio=e.currentTarget,{start,end}=audioClipBounds();if(audio.currentTime<start||(end&&audio.currentTime>=end))audio.currentTime=start;};
+const limitStudentClip=e=>{const audio=e.currentTarget,{start,end}=audioClipBounds();if(audio.currentTime<start)audio.currentTime=start;if(end&&audio.currentTime>=end){audio.pause();audio.currentTime=start;}};
 const selectHotspot=event=>{if(questionType.value!=='IMAGE_HOTSPOT')return;const rect=event.currentTarget.getBoundingClientRect();answers[currentQuestion.value.id]={x:(event.clientX-rect.left)/rect.width*100,y:(event.clientY-rect.top)/rect.height*100};};
 const startHanziQuestion=()=>{const q=currentQuestion.value;if(!hanziTarget.value||q?.questionType!=='HANZI_WRITE')return;hanziTarget.value.innerHTML='';const size=Math.min(320,Math.max(240,hanziTarget.value.parentElement?.clientWidth||280));hanziWriter=HanziWriter.create(hanziTarget.value,q.config.character,{width:size,height:size,padding:16,showCharacter:false,showOutline:true,drawingColor:'#16856f',drawingWidth:10});hanziWriter.quiz({showHintAfterMisses:1,onMistake:()=>hanziFeedback.value='Sai nét — hãy viết lại nét này',onCorrectStroke:d=>hanziFeedback.value=`Đúng · còn ${d.strokesRemaining} nét`,onComplete:()=>{answers[q.id]={completed:true};hanziFeedback.value='Đã viết đúng chữ';}});};
 const startRecording=async()=>{try{mediaStream=await navigator.mediaDevices.getUserMedia({audio:true});recordedChunks=[];mediaRecorder=new MediaRecorder(mediaStream);mediaRecorder.ondataavailable=e=>{if(e.data.size)recordedChunks.push(e.data);};mediaRecorder.onstop=uploadRecording;mediaRecorder.start();recording.value=true;}catch{ElMessage.error('Không thể truy cập micro');}};

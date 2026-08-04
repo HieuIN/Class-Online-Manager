@@ -103,6 +103,9 @@
               </el-col>
             </el-row>
             <el-form-item label="Mô tả"><el-input v-model="form.description" type="textarea" :rows="2" /></el-form-item>
+            <el-form-item label="Audio nguồn dùng chung (tùy chọn)">
+              <div class="source-audio-editor"><el-input v-model="sourceAudioUrl" placeholder="Dán URL audio hoặc tải một file dài"/><el-upload :auto-upload="false" :show-file-list="false" accept="audio/*" :on-change="uploadSourceAudio"><el-button :loading="uploadingMedia">Tải audio nguồn</el-button></el-upload><audio v-if="sourceAudioUrl" :src="mediaUrl(sourceAudioUrl)" controls /></div>
+            </el-form-item>
             <el-row :gutter="14">
               <el-col :span="12">
                 <el-form-item label="Mở từ">
@@ -134,7 +137,14 @@
             <el-upload :auto-upload="false" :show-file-list="false" :on-change="file=>uploadMedia(file,q)"><el-button :loading="uploadingMedia">Tải media</el-button></el-upload>
           </div>
           <img v-if="q.mediaType==='IMAGE'&&q.mediaUrl" class="media-preview" :src="mediaUrl(q.mediaUrl)" />
-          <audio v-if="q.mediaType==='AUDIO'&&q.mediaUrl" :src="mediaUrl(q.mediaUrl)" controls />
+          <div v-if="audioQuestionTypes.includes(q.questionType)" class="audio-cutter">
+            <div class="cutter-head"><b>Cắt đoạn nghe cho câu này</b><el-button size="small" :disabled="!sourceAudioUrl" @click="useSourceAudio(q)">Dùng audio nguồn</el-button></div>
+            <audio v-if="q.mediaUrl" :src="mediaUrl(q.mediaUrl)" controls @loadedmetadata="e=>loadAudioDuration(e,q)" @play="e=>playAudioClip(e,q)" @timeupdate="e=>limitAudioClip(e,q)" />
+            <el-slider v-if="q.config.audioDuration" v-model="q.config.audioRange" range :min="0" :max="q.config.audioDuration" :step="0.1" @change="range=>setAudioRange(q,range)" />
+            <div class="clip-times"><el-input-number v-model="q.config.audioStart" :min="0" :max="q.config.audioDuration||9999" :step="0.1"/><span>đến</span><el-input-number v-model="q.config.audioEnd" :min="0" :max="q.config.audioDuration||9999" :step="0.1"/><span>giây</span></div>
+            <small>Nhấn phát để nghe thử đúng đoạn đã chọn. Có thể dùng cùng audio nguồn cho nhiều câu.</small>
+          </div>
+          <audio v-else-if="q.mediaType==='AUDIO'&&q.mediaUrl" :src="mediaUrl(q.mediaUrl)" controls />
           <video v-if="q.mediaType==='VIDEO'&&q.mediaUrl" :src="mediaUrl(q.mediaUrl)" class="media-preview" controls />
 
           <template v-if="choiceTypes.includes(q.questionType)">
@@ -222,6 +232,7 @@ const showEditor = ref(false);
 const editingId = ref(null);
 const letters = ['A', 'B', 'C', 'D'];
 const uploadingMedia = ref(false);
+const sourceAudioUrl = ref('');
 const showAttempt=ref(false),attemptDetail=ref(null),manualScore=ref(0);
 const newQuestionType = ref('SINGLE_CHOICE');
 const questionTypes = [
@@ -234,6 +245,7 @@ const questionTypes = [
 ].map(([value,label])=>({value,label}));
 const choiceTypes=['SINGLE_CHOICE','MULTIPLE_CHOICE','IMAGE_CHOICE','AUDIO_CHOICE','READING'];
 const textTypes=['TEXT_INPUT','FILL_BLANK','DRAG_BLANK','LISTEN_TYPE'];
+const audioQuestionTypes=['AUDIO_CHOICE','LISTEN_TYPE'];
 const form = reactive({
   title: '',
   description: '',
@@ -247,11 +259,12 @@ const totalPoints = computed(() => (fullQuiz.value.questions || []).reduce((s, q
 
 const blankPair = () => ({ id:`pair-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,leftText:'',leftImage:'',rightText:'',rightImage:'' });
 const normalizePair = (pair, index=0) => ({ id:pair.id || `pair-${Date.now()}-${index}`, leftText:pair.leftText ?? pair.left ?? '', leftImage:pair.leftImage ?? pair.image ?? '', rightText:pair.rightText ?? pair.right ?? '', rightImage:pair.rightImage ?? '' });
-const blankConfig = () => ({ optionMedia:{A:'',B:'',C:'',D:''}, correctAnswers:[], pairs:[blankPair()], itemsText:'', categoriesText:'', classItems:[{text:'',image:'',group:''}], correctArea:{x:25,y:25,width:50,height:50}, wordBankText:'', character:'', passage:'' });
+const blankConfig = () => ({ optionMedia:{A:'',B:'',C:'',D:''}, correctAnswers:[], pairs:[blankPair()], itemsText:'', categoriesText:'', classItems:[{text:'',image:'',group:''}], correctArea:{x:25,y:25,width:50,height:50}, wordBankText:'', character:'', passage:'', audioStart:0, audioEnd:0, audioDuration:0, audioRange:[0,0] });
 const blankQuestion = (questionType='SINGLE_CHOICE') => ({ questionType, question: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: questionType==='TRUE_FALSE'?'TRUE':'A', answerText:'', mediaUrl:'', mediaType:'', explanation:'', config:blankConfig(), points: 1 });
 const changeQuestionType = q => { const keep={question:q.question,points:q.points,questionType:q.questionType};Object.assign(q,blankQuestion(q.questionType),keep); };
 
 const resetForm = () => {
+  sourceAudioUrl.value='';
   Object.assign(form, { title: '', description: '', timeLimitMinutes: 30, availableFrom: '', availableUntil: '', questions: [blankQuestion()] });
 };
 
@@ -302,6 +315,7 @@ const openEdit = async (quiz) => {
       points: Number(q.points || 1),
     })),
   });
+  sourceAudioUrl.value=data.questions.find(q=>q.mediaType==='AUDIO'&&q.mediaUrl)?.mediaUrl || '';
   showEditor.value = true;
 };
 
@@ -335,6 +349,12 @@ const saveQuiz = async () => {
 };
 
 const uploadMedia = async (file, question) => { if(!file.raw)return;uploadingMedia.value=true;try{const fd=new FormData();fd.append('file',file.raw);const result=await quizzesApi.uploadMedia(fd);question.mediaUrl=result.mediaUrl;question.mediaType=result.mediaType;}finally{uploadingMedia.value=false;} };
+const uploadSourceAudio=async file=>{if(!file.raw)return;uploadingMedia.value=true;try{const fd=new FormData();fd.append('file',file.raw);const result=await quizzesApi.uploadMedia(fd);sourceAudioUrl.value=result.mediaUrl;}finally{uploadingMedia.value=false;}};
+const useSourceAudio=q=>{q.mediaUrl=sourceAudioUrl.value;q.mediaType='AUDIO';q.config.audioStart=0;q.config.audioEnd=0;q.config.audioDuration=0;q.config.audioRange=[0,0];};
+const loadAudioDuration=(event,q)=>{const duration=Math.round(event.currentTarget.duration*10)/10;q.config.audioDuration=duration;if(!q.config.audioEnd||q.config.audioEnd>duration)q.config.audioEnd=duration;q.config.audioRange=[Number(q.config.audioStart||0),Number(q.config.audioEnd||duration)];};
+const setAudioRange=(q,range)=>{q.config.audioStart=range[0];q.config.audioEnd=range[1];};
+const playAudioClip=(event,q)=>{const audio=event.currentTarget,start=Number(q.config.audioStart||0);if(audio.currentTime<start||audio.currentTime>=Number(q.config.audioEnd||audio.duration))audio.currentTime=start;};
+const limitAudioClip=(event,q)=>{const audio=event.currentTarget,end=Number(q.config.audioEnd||audio.duration);if(audio.currentTime>=end){audio.pause();audio.currentTime=Number(q.config.audioStart||0);}};
 const uploadPairImage = async (file, pair, field) => { if(!file.raw)return;uploadingMedia.value=true;try{const fd=new FormData();fd.append('file',file.raw);const result=await quizzesApi.uploadMedia(fd);pair[field]=result.mediaUrl;}finally{uploadingMedia.value=false;} };
 const openAttempt=async row=>{attemptDetail.value=await quizzesApi.attempt(row.id);manualScore.value=Number(attemptDetail.value.score||0);showAttempt.value=true;};
 const saveManualGrade=async()=>{await quizzesApi.gradeAttempt(attemptDetail.value.id,manualScore.value);showAttempt.value=false;await selectQuiz(activeQuiz.value);ElMessage.success('Đã lưu điểm');};
@@ -378,5 +398,6 @@ onMounted(reload);
 .add-question { width:100%; margin-top:12px; border-style:dashed; }
 .question-type-select{margin:0 0 10px}.media-editor,.add-question-row,.config-row{display:flex;gap:8px;margin-top:10px}.media-editor .el-input,.add-question-row .el-select{flex:1}.media-preview,.preview-question-media{display:block;max-height:220px;max-width:100%;object-fit:contain;margin:10px 0;border-radius:8px}.option-editor{display:grid;gap:5px}.config-row .el-input{flex:1}.hotspot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.recording-note,.form-tip{background:#fff7e8;color:#996515;padding:10px;border-radius:7px;font-size:12px}.add-question-row{margin-top:14px}@media(max-width:700px){.config-row,.media-editor,.add-question-row{flex-direction:column}.hotspot-grid{grid-template-columns:repeat(2,1fr)}.question-footer{align-items:flex-start;flex-wrap:wrap}}
 .matching-pair-editor{align-items:center;border:1px solid var(--border);border-radius:10px;display:grid;gap:10px;grid-template-columns:1fr auto 1fr auto;margin-top:10px;padding:12px}.matching-side{display:grid;gap:7px}.matching-arrow{color:#16856f;font-size:22px;font-weight:700}.pair-preview{border-radius:7px;height:90px;max-width:150px;object-fit:contain}@media(max-width:700px){.matching-pair-editor{grid-template-columns:1fr}.matching-arrow{text-align:center;transform:rotate(90deg)}}
+.source-audio-editor{display:grid;gap:8px;width:100%}.source-audio-editor audio,.audio-cutter audio{width:100%}.audio-cutter{background:#f2f8f5;border:1px solid #cde4da;border-radius:9px;margin-top:10px;padding:12px}.cutter-head,.clip-times{align-items:center;display:flex;gap:10px;justify-content:space-between}.clip-times{justify-content:flex-start}.audio-cutter small{color:#65736e;display:block;margin-top:7px}@media(max-width:700px){.clip-times{align-items:stretch;flex-direction:column}}
 .attempt-answer{border-bottom:1px solid #eee;padding:12px 0}.attempt-answer audio{display:block;margin-top:10px;width:100%}
 </style>

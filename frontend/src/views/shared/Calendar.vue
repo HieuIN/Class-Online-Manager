@@ -7,6 +7,7 @@
         <el-button size="small" @click="goToday">Hôm nay</el-button>
         <el-button size="small" @click="changePeriod(1)">{{ viewMode === 'week' ? 'Tuần sau' : 'Tháng sau' }} →</el-button>
         <el-button size="small" type="primary" plain :disabled="!classStore.selectedId" @click="exportIcs">Xuất .ics</el-button>
+        <el-button v-if="canManage" size="small" type="primary" :disabled="!classStore.selectedId" @click="openCreateSession">+ Tạo lịch học</el-button>
       </div>
     </div>
 
@@ -48,7 +49,8 @@
         <div class="event-date">{{ formatShort(e.startTime) }}</div>
         <div class="event-title">{{ e.title }}</div>
         <span :class="['badge', typeBadgeClass(e.eventType)]">{{ typeLabel(e.eventType) }}</span>
-        <el-button v-if="eventMeetingUrl(e)" size="small" type="success" @click.stop="joinEvent(e)">Tham gia</el-button>
+        <el-button v-if="canJoinEvent(e)" size="small" type="success" @click.stop="joinEvent(e)">Vào lớp</el-button>
+        <span v-else-if="eventMeetingUrl(e) && e.eventType === 'SESSION'" class="join-hint">{{ joinHint(e) }}</span>
       </div>
     </el-card>
 
@@ -77,30 +79,70 @@
         <div class="detail-row"><span>Lớp</span><b>{{ selectedEvent.className || '—' }}</b></div>
         <div class="detail-row"><span>Thời gian</span><b>{{ formatEventTime(selectedEvent) }}</b></div>
         <div v-if="eventMeetingUrl(selectedEvent)" class="meeting-box">
-          <div class="meeting-url">{{ eventMeetingUrl(selectedEvent) }}</div>
-          <el-button type="success" @click="joinEvent(selectedEvent)">Tham gia học</el-button>
+          <div><b>{{ meetingPlatform(selectedEvent) }}</b><div class="meeting-url">{{ eventMeetingUrl(selectedEvent) }}</div></div>
+          <el-button v-if="canJoinEvent(selectedEvent)" type="success" @click="joinEvent(selectedEvent)">Vào lớp</el-button>
+          <span v-else class="join-hint">{{ joinHint(selectedEvent) }}</span>
         </div>
       </div>
       <template #footer>
         <el-button @click="showEvent = false">Đóng</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showCreate" title="Tạo lịch học" width="500px">
+      <el-form label-position="top">
+        <el-form-item label="Lớp"><el-input :model-value="classStore.selected?.name" disabled /></el-form-item>
+        <el-form-item label="Chủ đề buổi học"><el-input v-model="sessionForm.topic" placeholder="VD: Ngữ pháp Bài 3" /></el-form-item>
+        <el-form-item label="Ngày học">
+          <el-date-picker v-model="sessionForm.plannedDate" type="date" value-format="YYYY-MM-DD" style="width:100%" />
+        </el-form-item>
+        <el-row :gutter="12">
+          <el-col :span="12"><el-form-item label="Bắt đầu"><el-time-picker v-model="sessionForm.startTime" format="HH:mm" value-format="HH:mm" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="Kết thúc"><el-time-picker v-model="sessionForm.endTime" format="HH:mm" value-format="HH:mm" style="width:100%" /></el-form-item></el-col>
+        </el-row>
+        <el-form-item label="Nền tảng học trực tuyến">
+          <el-radio-group v-model="sessionForm.platform">
+            <el-radio-button label="GOOGLE_MEET">Google Meet</el-radio-button>
+            <el-radio-button label="TEAMS">Microsoft Teams</el-radio-button>
+            <el-radio-button label="ZOOM">Zoom</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="Đường dẫn phòng học">
+          <el-input v-model="sessionForm.meetingUrl" :placeholder="meetingPlaceholder">
+            <template #append><el-button @click="openMeetingCreator">Tạo phòng</el-button></template>
+          </el-input>
+          <div class="form-tip">Mở trang tạo phòng, sau đó dán đường dẫn mời vào đây.</div>
+        </el-form-item>
+        <el-form-item label="Ghi chú"><el-input v-model="sessionForm.note" type="textarea" :rows="2" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showCreate = false">Hủy</el-button>
+        <el-button type="primary" :loading="saving" @click="createSession">Tạo lịch học</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, reactive } from 'vue';
 import { useClassStore } from '@/stores/class';
-import { calendarApi } from '@/api';
+import { useAuthStore } from '@/stores/auth';
+import { calendarApi, sessionsApi } from '@/api';
 import ClassPicker from '@/components/ClassPicker.vue';
 import dayjs from 'dayjs';
+import { ElMessage } from 'element-plus';
 
 const currentDate = ref(dayjs());
 const events = ref([]);
 const showEvent = ref(false);
 const selectedEvent = ref(null);
+const showCreate = ref(false);
+const saving = ref(false);
 const viewMode = ref('week');
 const classStore = useClassStore();
+const auth = useAuthStore();
+const canManage = computed(() => auth.isTeacher || auth.isAdmin);
+const sessionForm = reactive({ topic: '', plannedDate: '', startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', note: '' });
 const viewOptions = [{ label: 'Tuần', value: 'week' }, { label: 'Tháng', value: 'month' }];
 const hours = Array.from({ length: 16 }, (_, i) => i + 7);
 
@@ -124,6 +166,26 @@ const formatEventTime = (e) => {
   return e.endTime ? `${start} - ${dayjs(e.endTime).format('HH:mm')}` : start;
 };
 const eventMeetingUrl = (e) => e?.meetingUrl || e?.meeting_url || '';
+const meetingPlatform = (e) => {
+  const url = eventMeetingUrl(e).toLowerCase();
+  if (url.includes('teams.microsoft.com')) return 'Microsoft Teams';
+  if (url.includes('zoom.us')) return 'Zoom';
+  if (url.includes('meet.google.com')) return 'Google Meet';
+  return 'Phòng học trực tuyến';
+};
+const canJoinEvent = (e) => {
+  if (!eventMeetingUrl(e)) return false;
+  if (e.eventType !== 'SESSION') return true;
+  const now = dayjs();
+  const start = dayjs(e.startTime);
+  const end = e.endTime ? dayjs(e.endTime) : start.add(2, 'hour');
+  return now.isAfter(start.subtract(15, 'minute')) && now.isBefore(end.add(30, 'minute'));
+};
+const joinHint = (e) => {
+  const start = dayjs(e.startTime);
+  if (dayjs().isBefore(start.subtract(15, 'minute'))) return `Mở trước giờ học 15 phút`;
+  return 'Buổi học đã kết thúc';
+};
 const openEvent = (e) => { selectedEvent.value = e; showEvent.value = true; };
 const joinEvent = (e) => { const url = eventMeetingUrl(e); if (url) window.open(url, '_blank'); };
 const typeLabel = (t) => ({ SESSION: 'Buổi học', ASSIGNMENT_DUE: 'Deadline', EXAM: 'Kiểm tra' }[t] || 'Sự kiện');
@@ -169,11 +231,50 @@ const exportIcs = async () => {
   downloadBlob(blob, `lich-hoc-${classStore.selected?.name || 'class'}.ics`);
 };
 
+const meetingCreators = {
+  GOOGLE_MEET: 'https://meet.google.com/new',
+  TEAMS: 'https://teams.microsoft.com/v2/',
+  ZOOM: 'https://zoom.us/meeting/schedule',
+};
+const meetingPlaceholder = computed(() => ({
+  GOOGLE_MEET: 'https://meet.google.com/xxx-xxxx-xxx',
+  TEAMS: 'https://teams.microsoft.com/l/meetup-join/...',
+  ZOOM: 'https://zoom.us/j/...',
+}[sessionForm.platform]));
+const openMeetingCreator = () => window.open(meetingCreators[sessionForm.platform], '_blank', 'noopener');
+const openCreateSession = () => {
+  Object.assign(sessionForm, { topic: '', plannedDate: dayjs().format('YYYY-MM-DD'), startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', note: '' });
+  showCreate.value = true;
+};
+const validMeetingUrl = () => {
+  if (!sessionForm.meetingUrl) return true;
+  try {
+    const host = new URL(sessionForm.meetingUrl).hostname.toLowerCase();
+    return ({ GOOGLE_MEET: ['meet.google.com'], TEAMS: ['teams.microsoft.com'], ZOOM: ['zoom.us'] }[sessionForm.platform] || []).some(domain => host === domain || host.endsWith(`.${domain}`));
+  } catch { return false; }
+};
+const createSession = async () => {
+  if (!sessionForm.topic.trim() || !sessionForm.plannedDate || !sessionForm.startTime || !sessionForm.endTime) { ElMessage.warning('Nhập đầy đủ chủ đề, ngày và giờ học'); return; }
+  if (sessionForm.endTime <= sessionForm.startTime) { ElMessage.warning('Giờ kết thúc phải sau giờ bắt đầu'); return; }
+  if (!validMeetingUrl()) { ElMessage.warning('Đường dẫn không đúng với nền tảng đã chọn'); return; }
+  saving.value = true;
+  try {
+    const existing = await sessionsApi.list(classStore.selectedId);
+    const nextNo = Math.max(0, ...existing.map(s => Number(s.session_no || s.sessionNo || 0))) + 1;
+    await sessionsApi.create({ classId: classStore.selectedId, sessionNo: nextNo, plannedDate: sessionForm.plannedDate, startTime: sessionForm.startTime, endTime: sessionForm.endTime, topic: sessionForm.topic.trim(), status: 'PLANNED', note: sessionForm.note.trim() || null, meetingUrl: sessionForm.meetingUrl.trim() || null });
+    ElMessage.success('Đã tạo lịch học và lên lịch nhắc lớp');
+    showCreate.value = false;
+    await load();
+  } finally { saving.value = false; }
+};
+
 const load = async () => {
   const weekStart = currentDate.value.startOf('week').add(1, 'day');
   const start = viewMode.value === 'week' ? weekStart.format('YYYY-MM-DD') : currentDate.value.startOf('month').format('YYYY-MM-DD');
   const end = viewMode.value === 'week' ? weekStart.add(6, 'day').format('YYYY-MM-DD') : currentDate.value.endOf('month').format('YYYY-MM-DD');
-  events.value = await calendarApi.list(start, end);
+  const allEvents = await calendarApi.list(start, end);
+  const selectedClassId = Number(classStore.selectedId || 0);
+  events.value = selectedClassId ? allEvents.filter(e => Number(e.classId || e.class_id) === selectedClassId) : allEvents;
 };
 
 onMounted(load);
@@ -199,6 +300,8 @@ onMounted(load);
 .event-row:hover { background: #fafaf8; }
 .event-date { font-size: 12px; font-weight: 500; min-width: 95px; color: #666; }
 .event-title { font-size: 13px; flex: 1; }
+.join-hint { color:#888; font-size:11px; white-space:nowrap; }
+.form-tip { margin-top:6px; color:#888; font-size:11px; }
 .empty { padding: 20px; text-align: center; color: #aaa; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cal-head { padding: 6px; text-align: center; font-size: 11px; color: #888; font-weight: 600; }

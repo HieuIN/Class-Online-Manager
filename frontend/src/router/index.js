@@ -23,6 +23,7 @@ const routes = [
       { path: 'forum', component: () => import('@/views/shared/Forum.vue'), meta: { roles: ['TEACHER','STUDENT'] } },
       { path: 'pronunciation', component: () => import('@/views/shared/Pronunciation.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
       { path: 'flashcards', component: () => import('@/views/shared/Flashcards.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
+      { path: 'hanzi-practice', component: () => import('@/views/shared/HanziPractice.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
       { path: 'class-extras', component: () => import('@/views/shared/ClassExtras.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
       { path: 'calendar', component: () => import('@/views/shared/Calendar.vue') },
       { path: 'analytics', component: () => import('@/views/teacher/Analytics.vue'), meta: { roles: ['TEACHER','ADMIN'] } },

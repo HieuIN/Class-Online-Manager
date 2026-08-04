@@ -218,6 +218,16 @@ export const learningExtrasApi = {
   sentiment: (text) => http.post('/feedback/sentiment', { text }),
 };
 
+export const hanziApi = {
+  sets: (classId) => http.get('/hanzi/sets', { params: { classId } }),
+  createSet: (data) => http.post('/hanzi/sets', data),
+  characters: (setId) => http.get(`/hanzi/sets/${setId}/characters`),
+  createCharacter: (setId, data) => http.post(`/hanzi/sets/${setId}/characters`, data),
+  updateCharacter: (id, data) => http.patch(`/hanzi/characters/${id}`, data),
+  deleteCharacter: (id) => http.delete(`/hanzi/characters/${id}`),
+  saveProgress: (id, data) => http.patch(`/hanzi/characters/${id}/progress`, data),
+};
+
 export const opsApi = {
   auditLogs: (params) => http.get('/audit-logs', { params }),
   createAudit: (d) => http.post('/audit-logs', d),

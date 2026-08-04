@@ -126,6 +126,69 @@ export class LearningExtrasService {
     ).then(r => r[0]);
   }
 
+  hanziSets(classId: number, userId: number) {
+    return this.dataSource.query(
+      `SELECT s.*, COUNT(c.id)::int AS "characterCount",
+              COUNT(p.id) FILTER (WHERE p.student_id = $2 AND p.completed = true)::int AS "completedCount"
+       FROM hanzi_sets s LEFT JOIN hanzi_characters c ON c.set_id = s.id
+       LEFT JOIN hanzi_practice_progress p ON p.character_id = c.id AND p.student_id = $2
+       WHERE s.class_id = $1 GROUP BY s.id ORDER BY s.created_at DESC`, [classId, userId],
+    );
+  }
+
+  createHanziSet(body: any, userId: number) {
+    return this.dataSource.query(
+      `INSERT INTO hanzi_sets (class_id, title, description, created_by) VALUES ($1,$2,$3,$4) RETURNING *`,
+      [body.classId, body.title, body.description || null, userId],
+    ).then(r => r[0]);
+  }
+
+  hanziCharacters(setId: number, userId: number) {
+    return this.dataSource.query(
+      `SELECT c.*, COALESCE(p.learned,false) AS learned, COALESCE(p.completed,false) AS completed,
+              COALESCE(p.mistakes,0)::int AS mistakes, COALESCE(p.attempts,0)::int AS attempts
+       FROM hanzi_characters c LEFT JOIN hanzi_practice_progress p ON p.character_id = c.id AND p.student_id = $2
+       WHERE c.set_id = $1 ORDER BY c.display_order, c.id`, [setId, userId],
+    );
+  }
+
+  createHanziCharacter(setId: number, body: any) {
+    return this.dataSource.query(
+      `INSERT INTO hanzi_characters (set_id, character, pinyin, meaning, note, example, stroke_gif_url, illustration_url, display_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [setId, body.character, body.pinyin || null, body.meaning, body.note || null, body.example || null,
+       body.strokeGifUrl || null, body.illustrationUrl || null, body.displayOrder || 0],
+    ).then(r => r[0]);
+  }
+
+  updateHanziCharacter(id: number, body: any) {
+    return this.dataSource.query(
+      `UPDATE hanzi_characters SET character=$1,pinyin=$2,meaning=$3,note=$4,example=$5,stroke_gif_url=$6,illustration_url=$7,display_order=$8
+       WHERE id=$9 RETURNING *`,
+      [body.character, body.pinyin || null, body.meaning, body.note || null, body.example || null,
+       body.strokeGifUrl || null, body.illustrationUrl || null, body.displayOrder || 0, id],
+    ).then(r => r[0] || null);
+  }
+
+  deleteHanziCharacter(id: number) {
+    return this.dataSource.query(`DELETE FROM hanzi_characters WHERE id=$1 RETURNING id`, [id]).then(r => r[0] || null);
+  }
+
+  saveHanziProgress(characterId: number, studentId: number, body: any) {
+    return this.dataSource.query(
+      `INSERT INTO hanzi_practice_progress (character_id,student_id,learned,completed,mistakes,attempts,completed_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $4 THEN NOW() ELSE NULL END,NOW())
+       ON CONFLICT (character_id,student_id) DO UPDATE SET
+         learned=hanzi_practice_progress.learned OR EXCLUDED.learned,
+         completed=hanzi_practice_progress.completed OR EXCLUDED.completed,
+         mistakes=hanzi_practice_progress.mistakes + EXCLUDED.mistakes,
+         attempts=hanzi_practice_progress.attempts + EXCLUDED.attempts,
+         completed_at=CASE WHEN EXCLUDED.completed THEN NOW() ELSE hanzi_practice_progress.completed_at END,
+         updated_at=NOW() RETURNING *`,
+      [characterId, studentId, !!body.learned, !!body.completed, Number(body.mistakes || 0), Number(body.attempts || 0)],
+    ).then(r => r[0]);
+  }
+
   transcript(studentId: number) {
     return this.dataSource.query(
       `SELECT c.id as "classId", c.name as "className", e.enrolled_at as "enrolledAt",
@@ -244,6 +307,13 @@ export class LearningExtrasController {
   @Patch('flashcards/cards/:id/progress') markCard(@Param('id', ParseIntPipe) id: number, @Body() body: any, @CurrentUser() user: any) {
     return this.service.markCard(id, user.id, !!body.remembered);
   }
+  @Get('hanzi/sets') hanziSets(@Query('classId', ParseIntPipe) classId: number, @CurrentUser() user: any) { return this.service.hanziSets(classId, user.id); }
+  @Post('hanzi/sets') @Roles('ADMIN','TEACHER') createHanziSet(@Body() body: any, @CurrentUser() user: any) { return this.service.createHanziSet(body, user.id); }
+  @Get('hanzi/sets/:id/characters') hanziCharacters(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) { return this.service.hanziCharacters(id, user.id); }
+  @Post('hanzi/sets/:id/characters') @Roles('ADMIN','TEACHER') createHanziCharacter(@Param('id', ParseIntPipe) id: number, @Body() body: any) { return this.service.createHanziCharacter(id, body); }
+  @Patch('hanzi/characters/:id') @Roles('ADMIN','TEACHER') updateHanziCharacter(@Param('id', ParseIntPipe) id: number, @Body() body: any) { return this.service.updateHanziCharacter(id, body); }
+  @Delete('hanzi/characters/:id') @Roles('ADMIN','TEACHER') deleteHanziCharacter(@Param('id', ParseIntPipe) id: number) { return this.service.deleteHanziCharacter(id); }
+  @Patch('hanzi/characters/:id/progress') @Roles('STUDENT') saveHanziProgress(@Param('id', ParseIntPipe) id: number, @Body() body: any, @CurrentUser() user: any) { return this.service.saveHanziProgress(id, user.id, body); }
   @Get('students/:id/transcript') transcript(@Param('id', ParseIntPipe) id: number) { return this.service.transcript(id); }
   @Post('classes/:id/duplicate') @Roles('ADMIN','TEACHER') duplicate(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
     return this.service.duplicateClass(id, body);

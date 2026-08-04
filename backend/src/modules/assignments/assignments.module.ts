@@ -222,8 +222,11 @@ export class AssignmentsService {
       data.isGroupAssignment = this.bool(body.isGroupAssignment ?? body.is_group_assignment, false);
     }
     const groupMaxMembers = body.groupMaxMembers ?? body.group_max_members;
-    if (!partial || groupMaxMembers !== undefined) {
-      if (groupMaxMembers === '' || groupMaxMembers === null) data.groupMaxMembers = null;
+    if ((!partial && !data.isGroupAssignment) || data.isGroupAssignment === false) {
+      data.groupMaxMembers = null;
+    } else if (!partial || groupMaxMembers !== undefined) {
+      if ((groupMaxMembers === undefined || groupMaxMembers === '' || groupMaxMembers === null) && data.isGroupAssignment) data.groupMaxMembers = 2;
+      else if (groupMaxMembers === undefined || groupMaxMembers === '' || groupMaxMembers === null) data.groupMaxMembers = null;
       else {
         const parsed = +groupMaxMembers;
         if (!Number.isInteger(parsed) || parsed < 2 || parsed > 20) throw new BadRequestException('Số thành viên nhóm phải từ 2 đến 20');

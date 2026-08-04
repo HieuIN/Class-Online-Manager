@@ -46,7 +46,7 @@
       <template #header><span class="section-title">Sự kiện sắp tới</span></template>
       <div v-if="events.length === 0" class="empty">Không có sự kiện nào trong khoảng này</div>
       <div v-for="(e, i) in events" :key="i" class="event-row" @click="openEvent(e)">
-        <div class="event-date">{{ formatShort(e.startTime) }}</div>
+        <div class="event-date">{{ formatShort(e) }}</div>
         <div class="event-title">{{ e.title }}</div>
         <span :class="['badge', typeBadgeClass(e.eventType)]">{{ typeLabel(e.eventType) }}</span>
         <el-button v-if="canJoinEvent(e)" size="small" type="success" @click.stop="joinEvent(e)">Vào lớp</el-button>
@@ -156,14 +156,21 @@ const weekDays = computed(() => {
   });
 });
 
-const formatShort = (d) => dayjs(d).format('DD/MM HH:mm');
+const eventDateTime = (e, field = 'startTime') => {
+  const value = e?.[field];
+  if (!value) return null;
+  // Session date + time is stored as a timezone-less classroom wall clock.
+  // PostgreSQL serializes it with Z, so remove that suffix to avoid adding UTC+7 twice.
+  return dayjs(e.eventType === 'SESSION' ? String(value).replace(/Z$/, '') : value);
+};
+const formatShort = (e) => eventDateTime(e)?.format('DD/MM HH:mm') || '';
 const eventTimeRange = (e) => {
-  const start = dayjs(e.startTime).format('HH:mm');
-  return e.endTime ? `${start}-${dayjs(e.endTime).format('HH:mm')}` : start;
+  const start = eventDateTime(e)?.format('HH:mm') || '';
+  return e.endTime ? `${start}-${eventDateTime(e, 'endTime').format('HH:mm')}` : start;
 };
 const formatEventTime = (e) => {
-  const start = dayjs(e.startTime).format('DD/MM/YYYY HH:mm');
-  return e.endTime ? `${start} - ${dayjs(e.endTime).format('HH:mm')}` : start;
+  const start = eventDateTime(e)?.format('DD/MM/YYYY HH:mm') || '';
+  return e.endTime ? `${start} - ${eventDateTime(e, 'endTime').format('HH:mm')}` : start;
 };
 const eventMeetingUrl = (e) => e?.meetingUrl || e?.meeting_url || '';
 const meetingPlatform = (e) => {
@@ -177,12 +184,12 @@ const canJoinEvent = (e) => {
   if (!eventMeetingUrl(e)) return false;
   if (e.eventType !== 'SESSION') return true;
   const now = dayjs();
-  const start = dayjs(e.startTime);
-  const end = e.endTime ? dayjs(e.endTime) : start.add(2, 'hour');
+  const start = eventDateTime(e);
+  const end = e.endTime ? eventDateTime(e, 'endTime') : start.add(2, 'hour');
   return now.isAfter(start.subtract(15, 'minute')) && now.isBefore(end.add(30, 'minute'));
 };
 const joinHint = (e) => {
-  const start = dayjs(e.startTime);
+  const start = eventDateTime(e);
   if (dayjs().isBefore(start.subtract(15, 'minute'))) return `Mở trước giờ học 15 phút`;
   return 'Buổi học đã kết thúc';
 };
@@ -191,7 +198,7 @@ const joinEvent = (e) => { const url = eventMeetingUrl(e); if (url) window.open(
 const typeLabel = (t) => ({ SESSION: 'Buổi học', ASSIGNMENT_DUE: 'Deadline', EXAM: 'Kiểm tra' }[t] || 'Sự kiện');
 const typeBadgeClass = (t) => ({ SESSION: 'badge-blue', ASSIGNMENT_DUE: 'badge-amber', EXAM: 'badge-red' }[t] || 'badge-gray');
 const eventsForSlot = (day, hour) => events.value.filter(e => {
-  const start = dayjs(e.startTime);
+  const start = eventDateTime(e);
   return start.isSame(day, 'day') && start.hour() === hour;
 });
 
@@ -205,7 +212,7 @@ const days = computed(() => {
       date: cur.date(),
       inMonth: cur.month() === currentDate.value.month(),
       isToday: cur.isSame(dayjs(), 'day'),
-      events: events.value.filter(e => dayjs(e.startTime).isSame(cur, 'day')),
+      events: events.value.filter(e => eventDateTime(e).isSame(cur, 'day')),
     });
     cur = cur.add(1, 'day');
   }

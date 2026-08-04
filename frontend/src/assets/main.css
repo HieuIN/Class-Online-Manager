@@ -118,6 +118,21 @@ h1, h2, h3, h4, p { margin-top: 0; }
   border-color: var(--brand-700);
 }
 
+/* Element Plus plain buttons keep a colored label. Do not apply the solid
+   primary background to them or the label becomes invisible until hover. */
+.el-button--primary.is-plain {
+  background: var(--surface);
+  border-color: var(--brand-600);
+  color: var(--brand-700);
+}
+
+.el-button--primary.is-plain:hover,
+.el-button--primary.is-plain:focus {
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+  color: #fff;
+}
+
 .el-input__wrapper,
 .el-select__wrapper,
 .el-textarea__inner,

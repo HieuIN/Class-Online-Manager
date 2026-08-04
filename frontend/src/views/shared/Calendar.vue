@@ -307,8 +307,15 @@ const saveSession = async () => {
   try {
     const data = { plannedDate: sessionForm.plannedDate, startTime: sessionForm.startTime, endTime: sessionForm.endTime, topic: sessionForm.topic.trim(), meetingUrl: sessionForm.meetingUrl.trim() || null, inviteStudentIds: sessionForm.inviteStudentIds, sendEmailInvites: sessionForm.sendEmailInvites };
     if (editingSessionId.value) {
-      await sessionsApi.update(editingSessionId.value, data);
-      ElMessage.success('Đã cập nhật lịch học và đường dẫn phòng');
+      try {
+        await sessionsApi.update(editingSessionId.value, data, { suppressErrorMessage: true });
+        ElMessage.success('Đã cập nhật lịch học, đường dẫn và danh sách mời');
+      } catch (error) {
+        if (![400, 500].includes(error?.response?.status)) throw error;
+        const { inviteStudentIds, sendEmailInvites, ...legacyData } = data;
+        await sessionsApi.update(editingSessionId.value, legacyData);
+        ElMessage.warning('Đã lưu thay đổi lịch học. Máy chủ chưa hỗ trợ gửi lại lời mời học viên.');
+      }
     } else {
       const existing = await sessionsApi.list(classStore.selectedId);
       const nextNo = Math.max(0, ...existing.map(s => Number(s.session_no || s.sessionNo || 0))) + 1;

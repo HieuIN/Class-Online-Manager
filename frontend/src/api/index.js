@@ -51,7 +51,7 @@ export const sessionsApi = {
   progress: (classId) => http.get(`/sessions/progress/${classId}`),
   generate: (d) => http.post('/sessions/generate', d),
   create: (d) => http.post('/sessions', d),
-  update: (id, d) => http.patch(`/sessions/${id}`, d),
+  update: (id, d, config = {}) => http.patch(`/sessions/${id}`, d, config),
   delete: (id) => http.delete(`/sessions/${id}`),
 };
 

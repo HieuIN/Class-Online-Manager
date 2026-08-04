@@ -80,6 +80,9 @@
               <el-button size="small" @click="loadSubmissions">↻ Refresh</el-button>
             </div>
             <el-table :data="submissions" size="small">
+              <el-table-column type="expand">
+                <template #default="{ row }"><div v-if="row.submissionId" class="ai-review-box"><b>AI đánh giá sơ bộ</b><p><strong>{{ row.aiScore ?? '—' }}/10</strong> · {{ row.aiFeedback || 'Chưa có nhận xét tự động' }}</p><p v-if="row.transcript"><b>Nhận diện:</b> {{ row.transcript }}</p><div v-if="row.aiBreakdown" class="score-chips"><span>Phát âm {{ row.aiBreakdown.pronunciation }}%</span><span>Thanh điệu {{ row.aiBreakdown.tone }}%</span><span>Trôi chảy {{ row.aiBreakdown.fluency }}%</span><span>Đọc đủ {{ row.aiBreakdown.completeness }}%</span></div><small>Điểm AI chỉ tham khảo; giáo viên nghe lại và chốt điểm cuối.</small></div></template>
+              </el-table-column>
               <el-table-column label="Học viên" prop="studentName" min-width="150" />
               <el-table-column label="Trạng thái" width="110">
                 <template #default="{ row }">
@@ -125,7 +128,7 @@
                 <div class="timer">{{ recordSeconds }}s</div>
               </div>
               <div class="record-actions">
-                <el-button v-if="!isRecording" type="danger" plain @click="startRecording">
+                <el-button v-if="!isRecording" type="danger" plain :disabled="attemptLimitReached" @click="startRecording">
                   <el-icon><Microphone /></el-icon> Ghi âm
                 </el-button>
                 <el-button v-else type="warning" @click="stopRecording">Dừng ghi</el-button>
@@ -133,6 +136,9 @@
                 <el-button type="primary" :disabled="!recordedBlob" :loading="submitting" @click="submitRecording">Nộp bài</el-button>
               </div>
               <audio v-if="recordedUrl" :src="recordedUrl" controls class="preview-audio" />
+              <p class="review-note">Số lần đã nộp: {{ activeExercise.myAttemptCount || 0 }}/{{ activeExercise.maxAttempts || 3 }}<span v-if="attemptLimitReached"> · Đã hết lượt thu</span></p>
+              <el-alert v-if="speechSupported" type="info" :closable="false" show-icon :title="liveTranscript ? `AI đang nhận diện: ${liveTranscript}` : 'Khi ghi âm, AI sẽ nhận diện tiếng Trung và đưa ra đánh giá sơ bộ.'" />
+              <el-alert v-else type="warning" :closable="false" show-icon title="Trình duyệt này chưa hỗ trợ nhận diện trực tiếp. Audio vẫn được gửi để giáo viên nghe và chấm." />
               <section v-if="activeExercise.mySubmissionId" class="submission-review">
                 <div class="review-head">
                   <div>
@@ -146,6 +152,7 @@
                   </span>
                 </div>
                 <audio v-if="activeExercise.myAudioUrl" :src="mediaUrl(activeExercise.myAudioUrl)" controls class="preview-audio" />
+                <div v-if="activeExercise.myAiScore != null" class="ai-review-box"><b>AI đánh giá sơ bộ: {{ activeExercise.myAiScore }}/10</b><p>{{ activeExercise.myAiFeedback }}</p><p v-if="activeExercise.myTranscript"><b>AI nghe được:</b> {{ activeExercise.myTranscript }}</p><div v-if="activeExercise.myAiBreakdown" class="score-chips"><span>Phát âm {{ activeExercise.myAiBreakdown.pronunciation }}%</span><span>Thanh điệu {{ activeExercise.myAiBreakdown.tone }}%</span><span>Trôi chảy {{ activeExercise.myAiBreakdown.fluency }}%</span><span>Đọc đủ {{ activeExercise.myAiBreakdown.completeness }}%</span></div><small>Đây là kết quả tham khảo. Giáo viên sẽ nghe và xác nhận điểm cuối.</small></div>
                 <div v-if="activeExercise.myStatus === 'GRADED'" class="review-score">
                   <span>Điểm phát âm</span>
                   <strong>{{ hasScore ? activeExercise.myScore : 'Chưa có điểm' }}</strong>
@@ -179,6 +186,12 @@
         <el-form-item label="Hạn nộp">
           <el-date-picker v-model="form.dueDate" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width:100%" />
         </el-form-item>
+        <el-form-item label="Chấm sơ bộ bằng AI"><el-switch v-model="form.aiEnabled" active-text="Bật" inactive-text="Tắt" /></el-form-item>
+        <el-row :gutter="12" v-if="form.aiEnabled">
+          <el-col :span="8"><el-form-item label="Giọng chuẩn"><el-select v-model="form.accent"><el-option label="Trung Quốc đại lục" value="zh-CN"/><el-option label="Đài Loan" value="zh-TW"/></el-select></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="Số lần được thu"><el-input-number v-model="form.maxAttempts" :min="1" :max="20" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="Ngưỡng đạt"><el-input-number v-model="form.passScore" :min="0" :max="10" :step="0.5" /></el-form-item></el-col>
+        </el-row>
         <el-form-item label="Audio mẫu">
           <el-upload :auto-upload="false" :limit="1" :on-change="onSampleAudio" :file-list="sampleFileList" accept="audio/*">
             <el-button>Chọn audio mẫu</el-button>
@@ -217,7 +230,7 @@ const saving = ref(false);
 const submitting = ref(false);
 const sampleFile = ref(null);
 const sampleFileList = ref([]);
-const form = reactive({ title: '', promptText: '', pinyin: '', meaning: '', dueDate: '', sampleAudioUrl: '' });
+const form = reactive({ title: '', promptText: '', pinyin: '', meaning: '', dueDate: '', sampleAudioUrl: '', aiEnabled:true, accent:'zh-CN', maxAttempts:3, passScore:7 });
 
 const isRecording = ref(false);
 const recordedBlob = ref(null);
@@ -227,10 +240,15 @@ let recorder = null;
 let mediaStream = null;
 let timer = null;
 let chunks = [];
+let speechRecognition = null;
+const liveTranscript = ref('');
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const speechSupported = computed(() => !!SpeechRecognition);
 
 const canManage = computed(() => auth.isTeacher || auth.isAdmin);
 const childMode = computed(() => isChildLearner(auth.user));
 const hasScore = computed(() => activeExercise.value?.myScore !== null && activeExercise.value?.myScore !== undefined);
+const attemptLimitReached = computed(() => Number(activeExercise.value?.myAttemptCount || 0) >= Number(activeExercise.value?.maxAttempts || 3));
 const recorderStatus = computed(() => {
   if (isRecording.value) return 'Đang ghi âm, đọc rõ từng âm và thanh điệu.';
   if (recordedBlob.value) return 'Bạn có thể nghe lại trước khi nộp.';
@@ -238,7 +256,7 @@ const recorderStatus = computed(() => {
 });
 
 const resetForm = () => {
-  Object.assign(form, { title: '', promptText: '', pinyin: '', meaning: '', dueDate: '', sampleAudioUrl: '' });
+  Object.assign(form, { title: '', promptText: '', pinyin: '', meaning: '', dueDate: '', sampleAudioUrl: '', aiEnabled:true, accent:'zh-CN', maxAttempts:3, passScore:7 });
   sampleFile.value = null;
   sampleFileList.value = [];
 };
@@ -291,6 +309,7 @@ const openEdit = (ex) => {
     meaning: ex.meaning || '',
     dueDate: ex.dueDate || '',
     sampleAudioUrl: ex.sampleAudioUrl || '',
+    aiEnabled: ex.aiEnabled !== false, accent: ex.accent || 'zh-CN', maxAttempts: ex.maxAttempts || 3, passScore: Number(ex.passScore ?? 7),
   });
   sampleFile.value = null;
   sampleFileList.value = [];
@@ -313,6 +332,7 @@ const saveExercise = async () => {
     fd.append('pinyin', form.pinyin || '');
     fd.append('meaning', form.meaning || '');
     fd.append('dueDate', form.dueDate || '');
+    fd.append('aiEnabled', String(form.aiEnabled)); fd.append('accent', form.accent); fd.append('maxAttempts', String(form.maxAttempts)); fd.append('passScore', String(form.passScore));
     if (form.sampleAudioUrl) fd.append('sampleAudioUrl', form.sampleAudioUrl);
     if (sampleFile.value) fd.append('file', sampleFile.value);
     if (editingId.value) await pronunciationApi.update(editingId.value, fd);
@@ -355,6 +375,8 @@ const startRecording = async () => {
   recordSeconds.value = 0;
   timer = setInterval(() => { recordSeconds.value += 1; }, 1000);
   recorder.start();
+  liveTranscript.value='';
+  if (form.aiEnabled !== false && SpeechRecognition) { speechRecognition = new SpeechRecognition(); speechRecognition.lang=activeExercise.value?.accent || 'zh-CN'; speechRecognition.continuous=true; speechRecognition.interimResults=true; speechRecognition.onresult=e=>{liveTranscript.value=Array.from(e.results).map(r=>r[0].transcript).join('');}; try{speechRecognition.start();}catch{} }
   isRecording.value = true;
 };
 
@@ -363,6 +385,7 @@ const stopRecording = () => {
   timer = null;
   isRecording.value = false;
   if (recorder && recorder.state !== 'inactive') recorder.stop();
+  try{speechRecognition?.stop();}catch{} speechRecognition=null;
 };
 
 const stopStream = () => {
@@ -376,6 +399,7 @@ const clearRecording = () => {
   recordedBlob.value = null;
   recordedUrl.value = '';
   recordSeconds.value = 0;
+  liveTranscript.value = '';
 };
 
 const submitRecording = async () => {
@@ -384,6 +408,7 @@ const submitRecording = async () => {
   try {
     const fd = new FormData();
     fd.append('durationSeconds', recordSeconds.value);
+    fd.append('transcript', liveTranscript.value || '');
     fd.append('file', new File([recordedBlob.value], `pronunciation-${activeExercise.value.id}.webm`, { type: recordedBlob.value.type || 'audio/webm' }));
     await pronunciationApi.submit(activeExercise.value.id, fd);
     ElMessage.success('Đã nộp bài phát âm');
@@ -439,6 +464,7 @@ onUnmounted(() => {
 .audio-block audio, .preview-audio, .sample-preview { width: 100%; max-width: 520px; }
 .submissions-head { margin-bottom: 10px; }
 .table-audio { width: 190px; height: 32px; }
+.ai-review-box{background:#f0f8f5;border:1px solid #cde6db;border-radius:9px;margin:10px 0;padding:14px}.ai-review-box p{line-height:1.55;margin:7px 0}.ai-review-box small{color:#6a7772}.score-chips{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0}.score-chips span{background:#fff;border:1px solid #cde6db;border-radius:999px;font-size:12px;padding:5px 9px}
 .muted { color:#aaa; }
 .recorder { display:flex; flex-direction:column; gap:14px; }
 .recorder-status { align-items:center; background:#e8f7f0; border:1px solid #cde6db; border-radius:8px; display:flex; justify-content:space-between; padding:14px; }

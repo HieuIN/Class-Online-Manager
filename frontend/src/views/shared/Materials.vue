@@ -9,10 +9,12 @@
     <el-card v-for="(items, chapter) in grouped" :key="chapter" class="mb-3">
       <template #header><span class="section-title">{{ chapter || 'Tài liệu chung' }}</span></template>
       <div v-for="m in items" :key="m.id" class="mat-row">
-        <span class="mat-icon">{{ typeIcon(m.material_type) }}</span>
+        <span :class="['mat-icon', `mat-icon--${resolvedMaterialType(m).toLowerCase()}`]">
+          {{ typeIcon(m) }}
+        </span>
         <div class="mat-info">
           <div class="mat-title">{{ m.title }}</div>
-          <div class="mat-meta">{{ m.lesson }} • {{ m.material_type || 'FILE' }}</div>
+          <div class="mat-meta">{{ m.lesson }} • {{ resolvedMaterialType(m) }}</div>
         </div>
         <span :class="['badge', m.is_required ? 'badge-red' : 'badge-gray']">
           {{ m.is_required ? 'Bắt buộc' : 'Tham khảo' }}
@@ -151,10 +153,27 @@ const grouped = computed(() => {
   return out;
 });
 
-const typeIcon = (t) => ({ PDF: '📄', PPT: '📊', AUDIO: '🎵', VIDEO: '🎬', DOC: '📝', LINK: '🔗' }[t] || '📁');
 const materialUrl = (m) => mediaUrl(m.link_url || m.linkUrl || m.file_url || m.fileUrl || '');
 const fileExt = (m) => materialUrl(m).split('?')[0].split('.').pop()?.toLowerCase() || '';
 const materialType = (m) => (m.material_type || m.materialType || '').toUpperCase();
+const resolvedMaterialType = (m) => {
+  const ext = fileExt(m);
+  if (ext === 'pdf') return 'PDF';
+  if (['doc', 'docx'].includes(ext)) return 'WORD';
+  if (['xls', 'xlsx', 'csv'].includes(ext)) return 'EXCEL';
+  if (['ppt', 'pptx'].includes(ext)) return 'PPT';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return 'IMAGE';
+  if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'AUDIO';
+  if (['mp4', 'webm', 'mov', 'avi'].includes(ext)) return 'VIDEO';
+  if (['zip', 'rar', '7z'].includes(ext)) return 'ZIP';
+  const type = materialType(m);
+  if (type === 'DOC') return 'WORD';
+  return type || 'FILE';
+};
+const typeIcon = (m) => ({
+  PDF: 'PDF', WORD: 'W', EXCEL: 'X', PPT: 'P', IMAGE: 'IMG',
+  AUDIO: '♪', VIDEO: '▶', LINK: '↗', ZIP: 'ZIP', FILE: 'FILE',
+}[resolvedMaterialType(m)] || 'FILE');
 
 const previewLabel = (m) => {
   const type = materialType(m);
@@ -290,7 +309,25 @@ onMounted(reload);
 .mb-3 { margin-bottom: 12px; }
 .mat-row { display:flex; align-items:center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f0ee; }
 .mat-row:last-child { border-bottom: none; }
-.mat-icon { font-size: 22px; }
+.mat-icon {
+  width: 38px; height: 44px; flex: 0 0 38px; display:flex; align-items:center; justify-content:center;
+  position:relative; overflow:hidden; border-radius: 5px 5px 6px 6px; background:#73808c;
+  color:#fff; font-size: 10px; line-height:1; font-weight:800; letter-spacing:-.2px;
+  box-shadow: inset 0 -12px 0 rgba(0,0,0,.08);
+}
+.mat-icon::after {
+  content:''; position:absolute; top:0; right:0; width:10px; height:10px;
+  background:rgba(255,255,255,.75); border-radius:0 0 0 3px;
+}
+.mat-icon--pdf { background:#d94b4b; }
+.mat-icon--word { background:#3478c5; }
+.mat-icon--excel { background:#27865b; }
+.mat-icon--ppt { background:#df6b3b; }
+.mat-icon--image { background:#8b5fc4; }
+.mat-icon--audio { background:#b65aa0; font-size:20px; }
+.mat-icon--video { background:#5a61b6; font-size:17px; }
+.mat-icon--link { background:#168b8b; font-size:20px; }
+.mat-icon--zip { background:#ae8327; }
 .mat-info { flex: 1; }
 .mat-title { font-size: 13px; font-weight: 500; }
 .mat-meta { font-size: 11px; color: #888; }

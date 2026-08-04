@@ -21,6 +21,10 @@
           {{ previewLabel(m) }}
         </el-button>
         <el-button size="small" text @click="download(m)">Tải</el-button>
+        <template v-if="canEdit">
+          <el-button size="small" text type="primary" @click="openEdit(m)">Sửa</el-button>
+          <el-button size="small" text type="danger" @click="removeMat(m)">Xóa</el-button>
+        </template>
       </div>
       <div v-if="items.length === 0" class="empty">Chưa có tài liệu</div>
     </el-card>
@@ -57,6 +61,29 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="showEdit" title="Sửa tài liệu" width="460px">
+      <el-form label-position="top">
+        <el-form-item label="Tiêu đề"><el-input v-model="editMat.title" /></el-form-item>
+        <el-form-item label="Chương"><el-input v-model="editMat.chapter" placeholder="VD: Chương 1" /></el-form-item>
+        <el-form-item label="Bài"><el-input v-model="editMat.lesson" placeholder="VD: Bài 1" /></el-form-item>
+        <el-form-item label="Loại">
+          <el-select v-model="editMat.materialType">
+            <el-option label="PDF" value="PDF" /> <el-option label="PPT" value="PPT" />
+            <el-option label="Video" value="VIDEO" /> <el-option label="Audio" value="AUDIO" />
+            <el-option label="Doc" value="DOC" /> <el-option label="Link" value="LINK" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="editMat.materialType === 'LINK'" label="URL">
+          <el-input v-model="editMat.linkUrl" placeholder="https://..." />
+        </el-form-item>
+        <el-form-item><el-checkbox v-model="editMat.isRequired">Bắt buộc</el-checkbox></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEdit = false">Hủy</el-button>
+        <el-button type="primary" :loading="savingEdit" @click="saveEdit">Lưu thay đổi</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="showPreview" :title="previewItem?.title || 'Xem tài liệu'" width="82vw" class="preview-dialog">
       <div v-if="previewItem" class="preview-body">
         <iframe v-if="previewKind === 'iframe'" :src="previewUrl" class="preview-frame" />
@@ -81,7 +108,7 @@
 import { ref, computed, reactive, watch, onMounted } from 'vue';
 import { useClassStore } from '@/stores/class';
 import { useAuthStore } from '@/stores/auth';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import ClassPicker from '@/components/ClassPicker.vue';
 import { materialsApi } from '@/api';
 import { mediaUrl } from '@/utils/media';
@@ -91,10 +118,13 @@ const auth = useAuthStore();
 const canEdit = computed(() => auth.isTeacher || auth.isAdmin);
 const materials = ref([]);
 const showAdd = ref(false);
+const showEdit = ref(false);
 const showPreview = ref(false);
 const previewItem = ref(null);
 const uploading = ref(false);
+const savingEdit = ref(false);
 const newMat = reactive({ title: '', chapter: '', lesson: '', materialType: 'PDF', isRequired: false, linkUrl: '' });
+const editMat = reactive({ id: null, title: '', chapter: '', lesson: '', materialType: 'PDF', isRequired: false, linkUrl: '' });
 const file = ref(null);
 
 const grouped = computed(() => {
@@ -164,6 +194,53 @@ const addMat = async () => {
     newMat.title = ''; file.value = null;
     reload();
   } finally { uploading.value = false; }
+};
+
+const openEdit = (m) => {
+  Object.assign(editMat, {
+    id: m.id,
+    title: m.title || '',
+    chapter: m.chapter || '',
+    lesson: m.lesson || '',
+    materialType: materialType(m) || 'PDF',
+    isRequired: Boolean(m.is_required ?? m.isRequired),
+    linkUrl: m.link_url || m.linkUrl || '',
+  });
+  showEdit.value = true;
+};
+
+const saveEdit = async () => {
+  if (!editMat.title.trim()) { ElMessage.warning('Nhập tiêu đề'); return; }
+  if (editMat.materialType === 'LINK' && !editMat.linkUrl.trim()) { ElMessage.warning('Nhập URL tài liệu'); return; }
+  savingEdit.value = true;
+  try {
+    await materialsApi.update(editMat.id, {
+      title: editMat.title.trim(),
+      chapter: editMat.chapter.trim(),
+      lesson: editMat.lesson.trim(),
+      materialType: editMat.materialType,
+      isRequired: editMat.isRequired,
+      linkUrl: editMat.materialType === 'LINK' ? editMat.linkUrl.trim() : null,
+    });
+    ElMessage.success('Đã cập nhật tài liệu');
+    showEdit.value = false;
+    await reload();
+  } finally { savingEdit.value = false; }
+};
+
+const removeMat = async (m) => {
+  try {
+    await ElMessageBox.confirm(
+      `Bạn có chắc muốn xóa tài liệu “${m.title}”?`,
+      'Xóa tài liệu',
+      { confirmButtonText: 'Xóa', cancelButtonText: 'Hủy', type: 'warning' },
+    );
+    await materialsApi.delete(m.id);
+    ElMessage.success('Đã xóa tài liệu');
+    await reload();
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') throw error;
+  }
 };
 
 const preview = (m) => {

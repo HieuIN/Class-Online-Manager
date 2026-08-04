@@ -159,15 +159,41 @@ const uploadRawMedia = async (rawFile) => {
 
 const uploadMedia = (file) => uploadRawMedia(file.raw);
 
+const usePastedImageUrl = (value) => {
+  const url = String(value || '').trim();
+  if (!/^https?:\/\//i.test(url)) return false;
+  cardForm.mediaUrl = url;
+  cardForm.mediaType = 'IMAGE';
+  ElMessage.success(/\.gif(?:$|[?#])/i.test(url) ? 'Đã dán ảnh GIF' : 'Đã dán ảnh');
+  return true;
+};
+
 const pasteMedia = async (event) => {
   const image = [...(event.clipboardData?.items || [])].find(item => item.type.startsWith('image/'));
-  if (!image) return;
-  event.preventDefault();
-  const blob = image.getAsFile();
-  if (!blob) return;
-  const extension = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
-  const pastedFile = new File([blob], `flashcard-paste-${Date.now()}.${extension}`, { type: blob.type });
-  await uploadRawMedia(pastedFile);
+  if (image) {
+    event.preventDefault();
+    const blob = image.getAsFile();
+    if (!blob) return;
+    const extension = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+    const pastedFile = new File([blob], `flashcard-paste-${Date.now()}.${extension}`, { type: blob.type });
+    await uploadRawMedia(pastedFile);
+    return;
+  }
+
+  // Copying an image from many websites puts an <img> URL in the clipboard
+  // instead of a binary file. Keep that URL so animated GIFs remain animated.
+  const html = event.clipboardData?.getData('text/html') || '';
+  if (html) {
+    const document = new DOMParser().parseFromString(html, 'text/html');
+    const source = document.querySelector('img')?.getAttribute('src');
+    if (usePastedImageUrl(source)) {
+      event.preventDefault();
+      return;
+    }
+  }
+
+  const text = event.clipboardData?.getData('text/plain') || '';
+  if (usePastedImageUrl(text)) event.preventDefault();
 };
 
 const clearMedia = () => {

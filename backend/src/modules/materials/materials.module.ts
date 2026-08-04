@@ -123,6 +123,33 @@ export class MaterialsController {
     }, user);
   }
 
+  @Post(':id/upload')
+  @Roles('ADMIN','TEACHER')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: (_req, _file, cb) => cb(null, ensureUploadDir('materials')),
+      filename: (_req, file, cb) => cb(null, `material-${Date.now()}${extname(file.originalname)}`),
+    }),
+    limits: { fileSize: 200 * 1024 * 1024 },
+  }))
+  async replaceFile(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: any,
+    @Body() body: any,
+    @CurrentUser() user: any,
+  ) {
+    if (!file) throw new BadRequestException('Vui lòng chọn file tài liệu mới để tải lên');
+    return this.service.update(id, {
+      title: body.title,
+      chapter: body.chapter,
+      lesson: body.lesson,
+      materialType: body.materialType,
+      isRequired: body.isRequired === 'true' || body.isRequired === true,
+      fileUrl: `/uploads/materials/${file.filename}`,
+      linkUrl: null,
+    }, user);
+  }
+
   @Post() @Roles('ADMIN','TEACHER') create(@Body() body: any, @CurrentUser() user: any) {
     return this.service.create({ ...body, createdBy: user.id }, user);
   }

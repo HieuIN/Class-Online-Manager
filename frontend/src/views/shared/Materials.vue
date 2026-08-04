@@ -76,6 +76,18 @@
         <el-form-item v-if="editMat.materialType === 'LINK'" label="URL">
           <el-input v-model="editMat.linkUrl" placeholder="https://..." />
         </el-form-item>
+        <el-form-item v-else label="Tệp mới (không bắt buộc)">
+          <el-upload
+            ref="editUploadRef"
+            :auto-upload="false"
+            :on-change="onEditFileChange"
+            :on-remove="onEditFileRemove"
+            :limit="1"
+          >
+            <el-button>Chọn tệp mới</el-button>
+            <template #tip><div class="el-upload__tip">Bỏ trống để giữ nguyên tệp hiện tại.</div></template>
+          </el-upload>
+        </el-form-item>
         <el-form-item><el-checkbox v-model="editMat.isRequired">Bắt buộc</el-checkbox></el-form-item>
       </el-form>
       <template #footer>
@@ -126,6 +138,8 @@ const savingEdit = ref(false);
 const newMat = reactive({ title: '', chapter: '', lesson: '', materialType: 'PDF', isRequired: false, linkUrl: '' });
 const editMat = reactive({ id: null, title: '', chapter: '', lesson: '', materialType: 'PDF', isRequired: false, linkUrl: '' });
 const file = ref(null);
+const editFile = ref(null);
+const editUploadRef = ref(null);
 
 const grouped = computed(() => {
   const out = {};
@@ -197,6 +211,8 @@ const addMat = async () => {
 };
 
 const openEdit = (m) => {
+  editFile.value = null;
+  editUploadRef.value?.clearFiles();
   Object.assign(editMat, {
     id: m.id,
     title: m.title || '',
@@ -209,19 +225,27 @@ const openEdit = (m) => {
   showEdit.value = true;
 };
 
+const onEditFileChange = (selectedFile) => { editFile.value = selectedFile.raw; };
+const onEditFileRemove = () => { editFile.value = null; };
+
 const saveEdit = async () => {
   if (!editMat.title.trim()) { ElMessage.warning('Nhập tiêu đề'); return; }
   if (editMat.materialType === 'LINK' && !editMat.linkUrl.trim()) { ElMessage.warning('Nhập URL tài liệu'); return; }
   savingEdit.value = true;
   try {
-    await materialsApi.update(editMat.id, {
-      title: editMat.title.trim(),
-      chapter: editMat.chapter.trim(),
-      lesson: editMat.lesson.trim(),
-      materialType: editMat.materialType,
-      isRequired: editMat.isRequired,
+    const data = {
+      title: editMat.title.trim(), chapter: editMat.chapter.trim(), lesson: editMat.lesson.trim(),
+      materialType: editMat.materialType, isRequired: editMat.isRequired,
       linkUrl: editMat.materialType === 'LINK' ? editMat.linkUrl.trim() : null,
-    });
+    };
+    if (editMat.materialType !== 'LINK' && editFile.value) {
+      const fd = new FormData();
+      fd.append('file', editFile.value);
+      Object.entries(data).forEach(([key, value]) => fd.append(key, String(value ?? '')));
+      await materialsApi.replaceFile(editMat.id, fd);
+    } else {
+      await materialsApi.update(editMat.id, data);
+    }
     ElMessage.success('Đã cập nhật tài liệu');
     showEdit.value = false;
     await reload();

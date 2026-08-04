@@ -119,6 +119,7 @@ export const submissionsApi = {
 export const materialsApi = {
   list: (courseId) => http.get('/materials', { params: { courseId } }),
   upload: (formData) => http.post('/materials/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  replaceFile: (id, formData) => http.post(`/materials/${id}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   create: (d) => http.post('/materials', d),
   update: (id, d) => http.patch(`/materials/${id}`, d),
   delete: (id) => http.delete(`/materials/${id}`),

@@ -26,7 +26,7 @@
           <div v-if="activeCard" class="study-card" @click="flipped = !flipped">
             <div class="side">{{ flipped ? activeCard.back : activeCard.front }}</div>
             <div v-if="flipped && activeCard.example" class="example">{{ activeCard.example }}</div>
-            <FlashcardMedia v-if="activeCard.media_url" :card="activeCard" />
+            <FlashcardMedia v-if="activeCard.media_url || activeCard.mediaUrl" :card="activeCard" />
           </div>
           <div v-else class="empty">Chọn bộ flashcard để học</div>
           <div v-if="activeCard" class="study-actions">
@@ -80,6 +80,7 @@ import ClassPicker from '@/components/ClassPicker.vue';
 import { learningExtrasApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import { useClassStore } from '@/stores/class';
+import { mediaUrl } from '@/utils/media';
 
 const auth = useAuthStore();
 const classStore = useClassStore();
@@ -152,8 +153,8 @@ const FlashcardMedia = defineComponent({
   props: { card: { type: Object, required: true } },
   setup(props) {
     return () => {
-      const url = props.card.media_url;
-      const type = props.card.media_type;
+      const url = mediaUrl(props.card.media_url || props.card.mediaUrl || '');
+      const type = String(props.card.media_type || props.card.mediaType || '').toUpperCase();
       if (type === 'IMAGE') return h('img', { class: 'flash-media image', src: url, alt: 'Flashcard media' });
       if (type === 'AUDIO') return h('audio', { class: 'flash-media', src: url, controls: true, onClick: e => e.stopPropagation() });
       if (type === 'VIDEO') return h('video', { class: 'flash-media video', src: url, controls: true, onClick: e => e.stopPropagation() });

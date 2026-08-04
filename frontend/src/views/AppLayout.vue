@@ -91,6 +91,7 @@ import { notificationsApi } from '@/api';
 import UserAvatar from '@/components/UserAvatar.vue';
 import BrandWordmark from '@/components/BrandWordmark.vue';
 import { isChildLearner } from '@/utils/learner';
+import { notificationContent, notificationTarget } from '@/utils/notification';
 import {
   House, School, Select, Histogram, Document, TrendCharts, Folder, Calendar,
   PieChart, Money, Bell, SwitchButton, User, CaretTop, UserFilled, Reading, ChatDotRound, EditPen, Moon, Sunny, Menu as MenuIcon, Microphone,
@@ -208,19 +209,16 @@ const saveSeenPopupIds = (ids) => {
   sessionStorage.setItem(seenStorageKey.value, JSON.stringify([...ids].slice(-100)));
 };
 
-const cleanNotificationContent = (content) => String(content || '').replace(/^session_id=\d+;\s*/, '');
-
 const showNotificationPopup = (n) => {
   ElNotification({
     title: n.title || 'Thông báo mới',
-    message: cleanNotificationContent(n.content),
+    message: notificationContent(n.content),
     type: n.notifType === 'REMINDER' ? 'info' : 'warning',
     position: 'bottom-right',
     duration: 9000,
     onClick: async () => {
       try { await notificationsApi.markRead(n.id); unread.value = Math.max(0, unread.value - 1); } catch {}
-      if (n.relatedUrl) window.open(n.relatedUrl, '_blank');
-      else router.push('/notifications');
+      router.push(notificationTarget(n, auth.role));
     },
   });
 };

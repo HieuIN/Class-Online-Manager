@@ -7,7 +7,7 @@
 
     <el-card class="mb-4">
       <div v-if="notifications.length === 0" class="empty">Không có thông báo</div>
-      <div v-for="n in notifications" :key="n.id" class="notif-row" @click="markOne(n)">
+      <div v-for="n in notifications" :key="n.id" :class="['notif-row', { unread: !n.isRead }]" @click="openNotification(n)">
         <span class="notif-dot" :style="{ background: dotColor(n.notifType) }">{{ notifIcon(n.notifType) }}</span>
         <div class="notif-body">
           <div class="notif-title">
@@ -15,10 +15,10 @@
             <span :class="['badge', typeClass(n.notifType)]">{{ typeLabel(n.notifType) }}</span>
             <span v-if="!n.isRead" class="badge badge-red">Mới</span>
           </div>
-          <div class="notif-content">{{ displayContent(n.content) }}</div>
-          <div class="notif-time">{{ fmtTime(n.createdAt) }}</div>
+          <div class="notif-content">{{ notificationContent(n.content) }}</div>
+          <div class="notif-time">{{ notificationTime(n.createdAt) }}</div>
         </div>
-        <el-button v-if="n.relatedUrl" size="small" type="primary" plain @click.stop="openRelated(n)">Mở</el-button>
+        <el-button size="small" type="primary" plain @click.stop="openNotification(n)">Xem</el-button>
       </div>
     </el-card>
 
@@ -49,20 +49,20 @@ import { useAuthStore } from '@/stores/auth';
 import { useClassStore } from '@/stores/class';
 import { ElMessage } from 'element-plus';
 import { notificationsApi } from '@/api';
-import dayjs from 'dayjs';
+import { useRouter } from 'vue-router';
+import { notificationContent, notificationTarget, notificationTime } from '@/utils/notification';
 
 const auth = useAuthStore();
 const classStore = useClassStore();
+const router = useRouter();
 const canEdit = computed(() => auth.isTeacher || auth.isAdmin);
 const notifications = ref([]);
 const rule = reactive({ maxTotalAbsences: 3, maxConsecutiveAbsences: 2, maxMissingAssignments: 2 });
 
-const dotColor = (t) => ({ ALERT_ABSENCE: '#E24B4A', ALERT_HOMEWORK: '#EF9F27', REMINDER: '#378ADD' }[t] || '#378ADD');
-const notifIcon = (t) => ({ REMINDER: '⏰' }[t] || '');
-const typeLabel = (t) => ({ ALERT_ABSENCE: 'Chuyên cần', ALERT_HOMEWORK: 'Bài tập', REMINDER: 'Nhắc lịch' }[t] || 'Thông báo');
-const typeClass = (t) => ({ ALERT_ABSENCE: 'badge-red', ALERT_HOMEWORK: 'badge-amber', REMINDER: 'badge-blue' }[t] || 'badge-gray');
-const fmtTime = (d) => dayjs(d).format('DD/MM/YYYY HH:mm');
-const displayContent = (content) => String(content || '').replace(/^session_id=\d+;\s*/, '');
+const dotColor = (t) => ({ ALERT_ABSENCE: '#E24B4A', ALERT_HOMEWORK: '#EF9F27', ASSIGNMENT_DUE: '#EF9F27', ASSIGNMENT_PUBLISHED: '#1D9E75', REMINDER: '#378ADD' }[t] || '#73808c');
+const notifIcon = (t) => ({ REMINDER: '⏰', ALERT_ABSENCE: '!', ALERT_HOMEWORK: '!', ASSIGNMENT_DUE: '!', ASSIGNMENT_PUBLISHED: '✓' }[t] || '');
+const typeLabel = (t) => ({ ALERT_ABSENCE: 'Cảnh báo chuyên cần', ALERT_HOMEWORK: 'Cảnh báo bài tập', ASSIGNMENT_DUE: 'Sắp đến hạn', ASSIGNMENT_PUBLISHED: 'Bài tập mới', REMINDER: 'Nhắc lịch học' }[t] || 'Thông báo');
+const typeClass = (t) => ({ ALERT_ABSENCE: 'badge-red', ALERT_HOMEWORK: 'badge-amber', ASSIGNMENT_DUE: 'badge-amber', ASSIGNMENT_PUBLISHED: 'badge-green', REMINDER: 'badge-blue' }[t] || 'badge-gray');
 
 const load = async () => {
   notifications.value = await notificationsApi.list();
@@ -81,9 +81,9 @@ const markOne = async (n) => {
   window.dispatchEvent(new CustomEvent('notifications:read-change', { detail: { delta: -1 } }));
 };
 
-const openRelated = async (n) => {
+const openNotification = async (n) => {
   await markOne(n);
-  window.open(n.relatedUrl, '_blank');
+  router.push(notificationTarget(n, auth.role));
 };
 
 const markAll = async () => {
@@ -108,6 +108,7 @@ onMounted(load);
 .notif-row { display:flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f0ee; cursor: pointer; }
 .notif-row:last-child { border-bottom: none; }
 .notif-row:hover { background: #fafaf8; }
+.notif-row.unread { background:rgba(55,138,221,.04); }
 .notif-dot { width: 22px; height: 22px; border-radius: 50%; margin-top: 1px; flex-shrink: 0; display:flex; align-items:center; justify-content:center; font-size: 12px; color:#fff; }
 .notif-body { flex: 1; }
 .notif-title { font-size: 13px; font-weight: 500; margin-bottom: 3px; }

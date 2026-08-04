@@ -74,14 +74,15 @@
           </div>
         </template>
         <div v-if="notifications.length === 0" class="empty-state">Không có thông báo mới.</div>
-        <div v-for="n in notifications.slice(0, 5)" :key="n.id" class="notif-row">
+        <button v-for="n in notifications.slice(0, 5)" :key="n.id" type="button" :class="['notif-row', { unread: !n.isRead }]" @click="openNotification(n)">
           <span class="notif-dot" :style="{ background: dotColor(n.notifType) }"></span>
           <div class="notif-body">
             <div class="notif-title">{{ n.title }} <span v-if="!n.isRead" class="badge badge-red">Mới</span></div>
-            <div class="notif-content">{{ n.content }}</div>
-            <div class="notif-time">{{ formatTime(n.createdAt) }}</div>
+            <div class="notif-content">{{ notificationContent(n.content) }}</div>
+            <div class="notif-time">{{ notificationTime(n.createdAt) }}</div>
           </div>
-        </div>
+          <span class="notif-arrow">›</span>
+        </button>
       </el-card>
     </div>
   </div>
@@ -89,11 +90,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useClassStore } from '@/stores/class';
 import { notificationsApi } from '@/api';
-import dayjs from 'dayjs';
+import { notificationContent, notificationTarget, notificationTime } from '@/utils/notification';
 
 const classStore = useClassStore();
+const router = useRouter();
 const notifications = ref([]);
 const unreadCount = computed(() => notifications.value.filter(n => !n.isRead).length);
 const classes = computed(() => classStore.classes);
@@ -102,8 +105,15 @@ const totalStudents = computed(() => classes.value.reduce((s, c) => s + (+c.stud
 const totalDone = computed(() => classes.value.reduce((s, c) => s + (+c.doneSessions || 0), 0));
 const totalPlanned = computed(() => classes.value.reduce((s, c) => s + (+c.total_sessions || 0), 0));
 
-const dotColor = (t) => ({ ALERT_ABSENCE: '#E24B4A', ALERT_HOMEWORK: '#EF9F27' }[t] || '#378ADD');
-const formatTime = (d) => dayjs(d).fromNow ? dayjs(d).fromNow() : dayjs(d).format('DD/MM HH:mm');
+const dotColor = (t) => ({ ALERT_ABSENCE: '#E24B4A', ALERT_HOMEWORK: '#EF9F27', ASSIGNMENT_DUE: '#EF9F27', ASSIGNMENT_PUBLISHED: '#1D9E75', REMINDER: '#378ADD' }[t] || '#73808c');
+const openNotification = async (n) => {
+  if (!n.isRead) {
+    await notificationsApi.markRead(n.id);
+    n.isRead = true;
+    window.dispatchEvent(new CustomEvent('notifications:read-change', { detail: { delta: -1 } }));
+  }
+  router.push(notificationTarget(n, 'TEACHER'));
+};
 
 onMounted(async () => {
   await classStore.fetchClasses();
@@ -125,10 +135,13 @@ onMounted(async () => {
 .class-progress-line { align-items: center; display: flex; gap: 8px; }
 .class-progress-line :deep(.el-progress) { flex: 1; }
 .class-progress-line small { color: var(--ink-500); font-size: 11px; font-weight: 700; width: 30px; }
-.notif-row { border-bottom: 1px solid var(--border); display: flex; gap: 11px; padding: 13px 0; }
+.notif-row { align-items:flex-start; background:transparent; border:0; border-bottom: 1px solid var(--border); cursor:pointer; display: flex; gap: 11px; padding: 13px 8px; text-align:left; width:100%; }
 .notif-row:last-child { border-bottom: 0; padding-bottom: 1px; }
+.notif-row:hover { background:var(--surface-soft); }
+.notif-row.unread { background:rgba(55,138,221,.035); }
 .notif-dot { border-radius: 50%; flex: 0 0 auto; height: 8px; margin-top: 6px; width: 8px; }
-.notif-body { min-width: 0; }
+.notif-body { flex:1; min-width: 0; }
+.notif-arrow { color:var(--ink-400); font-size:22px; line-height:1; margin-top:2px; }
 .notif-title { align-items: center; color: var(--ink-900); display: flex; flex-wrap: wrap; font-size: 13px; font-weight: 800; gap: 6px; }
 .notif-content { color: var(--ink-500); font-size: 12px; line-height: 1.45; margin-top: 3px; }
 .notif-time { color: var(--ink-400); font-size: 11px; margin-top: 5px; }

@@ -55,20 +55,29 @@
     </el-dialog>
 
     <el-dialog v-model="showCard" title="Thêm thẻ" width="420px">
+      <div class="card-editor" @paste="pasteMedia">
       <el-form label-position="top">
         <el-form-item label="Mặt trước"><el-input v-model="cardForm.front" /></el-form-item>
         <el-form-item label="Mặt sau"><el-input v-model="cardForm.back" /></el-form-item>
         <el-form-item label="Ví dụ"><el-input v-model="cardForm.example" type="textarea" /></el-form-item>
         <el-form-item label="Ảnh / media">
-          <el-upload :auto-upload="false" :show-file-list="false" :on-change="uploadMedia" accept="image/*,audio/*,video/*,application/pdf">
-            <el-button :loading="uploadingMedia">Chọn file</el-button>
-          </el-upload>
+          <div class="media-inputs">
+            <el-upload :auto-upload="false" :show-file-list="false" :on-change="uploadMedia" accept="image/*,audio/*,video/*,application/pdf">
+              <el-button :loading="uploadingMedia">Chọn file</el-button>
+            </el-upload>
+            <div class="paste-zone" tabindex="0" @paste.stop="pasteMedia">
+              <b>Hoặc dán ảnh trực tiếp</b>
+              <span>Copy ảnh rồi nhấn Ctrl+V tại đây</span>
+            </div>
+          </div>
           <div v-if="cardForm.mediaUrl" class="media-picked">
+            <img v-if="cardForm.mediaType === 'IMAGE'" :src="mediaUrl(cardForm.mediaUrl)" alt="Ảnh flashcard đã chọn" />
             <span>{{ cardForm.mediaType }}</span>
             <el-button size="small" text @click="clearMedia">Xóa</el-button>
           </div>
         </el-form-item>
       </el-form>
+      </div>
       <template #footer>
         <el-button @click="showCard = false">Hủy</el-button>
         <el-button type="primary" @click="createCard">Lưu</el-button>
@@ -133,12 +142,12 @@ const createCard = async () => {
   await selectDeck(activeDeck.value);
 };
 
-const uploadMedia = async (file) => {
-  if (!file.raw) return;
+const uploadRawMedia = async (rawFile) => {
+  if (!rawFile) return;
   uploadingMedia.value = true;
   try {
     const fd = new FormData();
-    fd.append('file', file.raw);
+    fd.append('file', rawFile);
     const uploaded = await learningExtrasApi.uploadFlashcardMedia(fd);
     cardForm.mediaUrl = uploaded.mediaUrl;
     cardForm.mediaType = uploaded.mediaType;
@@ -146,6 +155,19 @@ const uploadMedia = async (file) => {
   } finally {
     uploadingMedia.value = false;
   }
+};
+
+const uploadMedia = (file) => uploadRawMedia(file.raw);
+
+const pasteMedia = async (event) => {
+  const image = [...(event.clipboardData?.items || [])].find(item => item.type.startsWith('image/'));
+  if (!image) return;
+  event.preventDefault();
+  const blob = image.getAsFile();
+  if (!blob) return;
+  const extension = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+  const pastedFile = new File([blob], `flashcard-paste-${Date.now()}.${extension}`, { type: blob.type });
+  await uploadRawMedia(pastedFile);
 };
 
 const clearMedia = () => {
@@ -197,6 +219,11 @@ onMounted(reload);
 .flash-media.video { max-height: 280px; border-radius: 8px; }
 .flash-media-link { margin-top: 14px; color: #0F6E56; font-weight: 600; }
 .media-picked { margin-top: 8px; display:flex; align-items:center; gap:8px; color:#666; font-size:12px; }
+.media-picked img { border:1px solid var(--border); border-radius:7px; height:64px; object-fit:contain; width:82px; }
+.media-inputs { align-items:stretch; display:flex; gap:10px; width:100%; }
+.paste-zone { align-items:center; border:1px dashed var(--brand-500); border-radius:7px; color:var(--brand-700); cursor:text; display:flex; flex:1; flex-direction:column; justify-content:center; min-height:58px; outline:none; padding:7px 10px; text-align:center; }
+.paste-zone:focus { background:var(--brand-100); box-shadow:0 0 0 2px color-mix(in srgb,var(--brand-500) 20%,transparent); }
+.paste-zone span { color:var(--ink-500); font-size:11px; margin-top:2px; }
 .study-actions { margin-top: 12px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
 .empty { padding: 24px; text-align:center; color:#999; }
 @media (max-width: 768px) {

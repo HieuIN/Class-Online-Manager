@@ -1,6 +1,7 @@
 import { Injectable, Module, Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository, DataSource } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles, RolesGuard } from '../../common/roles.guard';
 import { NotificationsModule, NotificationsService } from '../notifications/notifications.module';
@@ -26,15 +27,52 @@ export class SessionsService {
   constructor(
     @InjectRepository(ClassSession) private repo: Repository<ClassSession>,
     private notificationsService: NotificationsService,
+    private dataSource: DataSource,
+    private config: ConfigService,
   ) {}
   findByClass(classId: number) {
     return this.repo.find({ where: { classId }, order: { sessionNo: 'ASC' } });
   }
   findOne(id: number) { return this.repo.findOne({ where: { id } }); }
-  async create(data: Partial<ClassSession>) {
-    const session = await this.repo.save(this.repo.create(data));
+  private async inviteStudents(session: ClassSession, studentIds: number[], sendEmail: boolean, isUpdate = false) {
+    const ids = [...new Set((studentIds || []).map(Number).filter(Boolean))];
+    if (!ids.length) return { selected: 0, notified: 0, emailed: 0, emailConfigured: false };
+    const students = await this.dataSource.query(
+      `SELECT u.id, u.email, u.full_name as "fullName", c.name as "className"
+       FROM users u JOIN enrollments e ON e.student_id = u.id JOIN classes c ON c.id = e.class_id
+       WHERE e.class_id = $1 AND e.is_active = true AND u.id = ANY($2::int[])`,
+      [session.classId, ids],
+    );
+    const date = String(session.plannedDate).slice(0, 10).split('-').reverse().join('/');
+    const start = String(session.startTime || '').slice(0, 5);
+    for (const student of students) {
+      await this.notificationsService.create({
+        userId: student.id, notifType: 'REMINDER',
+        title: isUpdate ? 'Lịch học đã được cập nhật' : 'Bạn có lịch học mới',
+        content: `Lớp ${student.className}: ${session.topic || `Buổi ${session.sessionNo}`} vào ${date} lúc ${start}.${session.meetingUrl ? ' Đã có đường dẫn phòng học.' : ''}`,
+        relatedUrl: '/calendar',
+      });
+    }
+    const host = this.config.get<string>('SMTP_HOST');
+    const user = this.config.get<string>('SMTP_USER');
+    const pass = this.config.get<string>('SMTP_PASS');
+    if (!sendEmail || !host || !user || !pass) return { selected: students.length, notified: students.length, emailed: 0, emailConfigured: !!(host && user && pass) };
+    const nodemailer = await import('nodemailer');
+    const transporter = nodemailer.createTransport({ host, port: parseInt(this.config.get<string>('SMTP_PORT') || '587', 10), secure: this.config.get<string>('SMTP_SECURE') === 'true', auth: { user, pass } });
+    const results = await Promise.allSettled(students.map((student: any) => transporter.sendMail({
+      from: this.config.get<string>('SMTP_FROM') || user,
+      to: student.email,
+      subject: `${isUpdate ? '[Cập nhật] ' : ''}Lịch học ${student.className} - ${date} ${start}`,
+      text: `Xin chào ${student.fullName},\n\n${isUpdate ? 'Lịch học đã được cập nhật.' : 'Bạn được mời tham gia buổi học mới.'}\nLớp: ${student.className}\nChủ đề: ${session.topic || `Buổi ${session.sessionNo}`}\nThời gian: ${date} ${start}-${String(session.endTime || '').slice(0, 5)}\nLink phòng học: ${session.meetingUrl || 'Giáo viên sẽ cập nhật sau'}\n\nCtalk Chinese`,
+    })));
+    return { selected: students.length, notified: students.length, emailed: results.filter(result => result.status === 'fulfilled').length, emailConfigured: true };
+  }
+  async create(data: Partial<ClassSession> & { inviteStudentIds?: number[]; sendEmailInvites?: boolean }) {
+    const { inviteStudentIds = [], sendEmailInvites = false, ...sessionData } = data;
+    const session = await this.repo.save(this.repo.create(sessionData));
+    const invites = await this.inviteStudents(session, inviteStudentIds, sendEmailInvites);
     await this.notificationsService.runClassReminders();
-    return session;
+    return { ...session, invites };
   }
   async generate(data: { classId: number; startDate: string; weekdays: number[]; startTime?: string; endTime?: string; totalSessions: number }) {
     const classId = +data.classId;
@@ -67,13 +105,16 @@ export class SessionsService {
     const saved = sessions.length ? await this.repo.save(this.repo.create(sessions)) : [];
     return { created: saved.length, sessions: saved };
   }
-  async update(id: number, data: Partial<ClassSession>) {
-    if (data.plannedDate !== undefined || data.startTime !== undefined || data.meetingUrl !== undefined) {
+  async update(id: number, data: Partial<ClassSession> & { inviteStudentIds?: number[]; sendEmailInvites?: boolean }) {
+    const { inviteStudentIds = [], sendEmailInvites = false, ...sessionData } = data;
+    if (sessionData.plannedDate !== undefined || sessionData.startTime !== undefined || sessionData.meetingUrl !== undefined) {
       await this.notificationsService.clearSessionReminder(id);
     }
-    await this.repo.update(id, data);
+    await this.repo.update(id, sessionData);
     await this.notificationsService.runClassReminders();
-    return this.findOne(id);
+    const session = await this.findOne(id);
+    const invites = session ? await this.inviteStudents(session, inviteStudentIds, sendEmailInvites, true) : null;
+    return session ? { ...session, invites } : null;
   }
   remove(id: number) { return this.repo.delete(id); }
 

@@ -114,6 +114,16 @@
           </el-input>
           <div class="form-tip">Mở trang tạo phòng, sau đó dán đường dẫn mời vào đây.</div>
         </el-form-item>
+        <el-form-item label="Mời học viên">
+          <el-select v-model="sessionForm.inviteStudentIds" multiple collapse-tags collapse-tags-tooltip placeholder="Chọn học viên" style="width:100%">
+            <el-option v-for="student in classStudents" :key="student.id" :label="`${student.fullName} (${student.email})`" :value="student.id" />
+          </el-select>
+          <div class="invite-tools">
+            <el-button link type="primary" @click="selectAllStudents">Chọn tất cả</el-button>
+            <span>{{ sessionForm.inviteStudentIds.length }}/{{ classStudents.length }} học viên</span>
+          </div>
+        </el-form-item>
+        <el-form-item><el-checkbox v-model="sessionForm.sendEmailInvites">Gửi email mời trực tiếp</el-checkbox></el-form-item>
         <el-form-item label="Ghi chú"><el-input v-model="sessionForm.note" type="textarea" :rows="2" /></el-form-item>
       </el-form>
       <template #footer>
@@ -128,7 +138,7 @@
 import { ref, computed, onMounted, reactive } from 'vue';
 import { useClassStore } from '@/stores/class';
 import { useAuthStore } from '@/stores/auth';
-import { calendarApi, sessionsApi } from '@/api';
+import { calendarApi, classesApi, sessionsApi } from '@/api';
 import ClassPicker from '@/components/ClassPicker.vue';
 import dayjs from 'dayjs';
 import { ElMessage } from 'element-plus';
@@ -140,11 +150,12 @@ const selectedEvent = ref(null);
 const showCreate = ref(false);
 const editingSessionId = ref(null);
 const saving = ref(false);
+const classStudents = ref([]);
 const viewMode = ref('week');
 const classStore = useClassStore();
 const auth = useAuthStore();
 const canManage = computed(() => auth.isTeacher || auth.isAdmin);
-const sessionForm = reactive({ topic: '', plannedDate: '', startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', note: '' });
+const sessionForm = reactive({ topic: '', plannedDate: '', startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', note: '', inviteStudentIds: [], sendEmailInvites: true });
 const viewOptions = [{ label: 'Tuần', value: 'week' }, { label: 'Tháng', value: 'month' }];
 const hours = Array.from({ length: 16 }, (_, i) => i + 7);
 
@@ -251,9 +262,14 @@ const meetingPlaceholder = computed(() => ({
   ZOOM: 'https://zoom.us/j/...',
 }[sessionForm.platform]));
 const openMeetingCreator = () => window.open(meetingCreators[sessionForm.platform], '_blank', 'noopener');
-const openCreateSession = () => {
+const loadClassStudents = async () => {
+  classStudents.value = classStore.selectedId ? await classesApi.students(classStore.selectedId) : [];
+};
+const selectAllStudents = () => { sessionForm.inviteStudentIds = classStudents.value.map(student => student.id); };
+const openCreateSession = async () => {
   editingSessionId.value = null;
-  Object.assign(sessionForm, { topic: '', plannedDate: dayjs().format('YYYY-MM-DD'), startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', note: '' });
+  await loadClassStudents();
+  Object.assign(sessionForm, { topic: '', plannedDate: dayjs().format('YYYY-MM-DD'), startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', note: '', inviteStudentIds: classStudents.value.map(student => student.id), sendEmailInvites: true });
   showCreate.value = true;
 };
 const platformFromUrl = (url) => {
@@ -262,7 +278,8 @@ const platformFromUrl = (url) => {
   if (value.includes('zoom.us')) return 'ZOOM';
   return 'GOOGLE_MEET';
 };
-const openEditSession = (e) => {
+const openEditSession = async (e) => {
+  await loadClassStudents();
   editingSessionId.value = e.id;
   const start = eventDateTime(e);
   const end = eventDateTime(e, 'endTime');
@@ -270,7 +287,7 @@ const openEditSession = (e) => {
   Object.assign(sessionForm, {
     topic: e.title || '', plannedDate: start.format('YYYY-MM-DD'), startTime: start.format('HH:mm'),
     endTime: end?.format('HH:mm') || start.add(2, 'hour').format('HH:mm'),
-    platform: platformFromUrl(meetingUrl), meetingUrl, note: '',
+    platform: platformFromUrl(meetingUrl), meetingUrl, note: '', inviteStudentIds: classStudents.value.map(student => student.id), sendEmailInvites: true,
   });
   showEvent.value = false;
   showCreate.value = true;
@@ -288,7 +305,7 @@ const saveSession = async () => {
   if (!validMeetingUrl()) { ElMessage.warning('Đường dẫn không đúng với nền tảng đã chọn'); return; }
   saving.value = true;
   try {
-    const data = { plannedDate: sessionForm.plannedDate, startTime: sessionForm.startTime, endTime: sessionForm.endTime, topic: sessionForm.topic.trim(), meetingUrl: sessionForm.meetingUrl.trim() || null };
+    const data = { plannedDate: sessionForm.plannedDate, startTime: sessionForm.startTime, endTime: sessionForm.endTime, topic: sessionForm.topic.trim(), meetingUrl: sessionForm.meetingUrl.trim() || null, inviteStudentIds: sessionForm.inviteStudentIds, sendEmailInvites: sessionForm.sendEmailInvites };
     if (editingSessionId.value) {
       await sessionsApi.update(editingSessionId.value, data);
       ElMessage.success('Đã cập nhật lịch học và đường dẫn phòng');
@@ -337,6 +354,7 @@ onMounted(load);
 .event-title { font-size: 13px; flex: 1; }
 .join-hint { color:#888; font-size:11px; white-space:nowrap; }
 .form-tip { margin-top:6px; color:#888; font-size:11px; }
+.invite-tools { display:flex; justify-content:space-between; align-items:center; width:100%; color:#888; font-size:11px; }
 .empty { padding: 20px; text-align: center; color: #aaa; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cal-head { padding: 6px; text-align: center; font-size: 11px; color: #888; font-weight: 600; }

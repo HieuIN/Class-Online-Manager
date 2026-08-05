@@ -69,7 +69,7 @@ Trả về JSON hợp lệ duy nhất: {"reply":"nội dung trả lời","sugges
     const history = Array.isArray(body.history) ? body.history.slice(-8).filter((m: any) => ['user','assistant'].includes(m.role) && typeof m.content === 'string').map((m: any) => ({ role:m.role, content:m.content.slice(0,3000) })) : [];
     let text = '';
     if (geminiKey) {
-      const model = this.config.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
+      const model = this.config.get<string>('GEMINI_MODEL') || 'gemini-3.6-flash';
       const contents = [...history,{role:'user',content:message}].map((item: any) => ({ role:item.role === 'assistant' ? 'model' : 'user', parts:[{ text:item.content }] }));
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
         method:'POST', headers:{ 'content-type':'application/json', 'x-goog-api-key':geminiKey },

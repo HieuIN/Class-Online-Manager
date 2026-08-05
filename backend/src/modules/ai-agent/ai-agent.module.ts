@@ -75,8 +75,16 @@ Trả về JSON hợp lệ duy nhất: {"reply":"nội dung trả lời","sugges
         method:'POST', headers:{ 'content-type':'application/json', 'x-goog-api-key':geminiKey },
         body:JSON.stringify({ systemInstruction:{ parts:[{ text:system }] }, contents, generationConfig:{ maxOutputTokens:900, responseMimeType:'application/json', temperature:.35 } }),
       });
-      if (!response.ok) throw new ServiceUnavailableException(`Gemini API tạm thời không khả dụng (${response.status})`);
       const data: any = await response.json();
+      if (response.status === 429) {
+        const retryInfo = (data.error?.details || []).find((detail: any) => String(detail['@type'] || '').includes('RetryInfo'));
+        const retryAfterSeconds = Math.max(30, Math.min(86400, parseInt(String(retryInfo?.retryDelay || response.headers.get('retry-after') || '300'), 10) || 300));
+        const waitText = retryAfterSeconds >= 3600 ? 'Hạn mức miễn phí có thể đã dùng hết trong hôm nay. Bạn hãy thử lại vào ngày mai.' : `Gemini đang tạm giới hạn lượt dùng miễn phí. Bạn có thể thử lại sau khoảng ${Math.ceil(retryAfterSeconds / 60)} phút.`;
+        const limited = { reply:`${waitText} Trong lúc chờ, các phần hướng dẫn và dữ liệu cơ bản của hệ thống vẫn hoạt động.`, suggestions:[], navigate:null, draft:null, rateLimited:true, retryAfterSeconds };
+        await this.db.query(`INSERT INTO ai_agent_logs(user_id,role,page_path,class_id,user_message,assistant_reply,created_at) VALUES($1,$2,$3,$4,$5,$6,NOW())`, [user.id,user.role,String(body.path||'').slice(0,255),context.selectedClass?.id||null,message,limited.reply]);
+        return limited;
+      }
+      if (!response.ok) throw new ServiceUnavailableException('Gemini đang bảo trì hoặc mất kết nối. Vui lòng thử lại sau ít phút.');
       text = (data.candidates?.[0]?.content?.parts || []).map((part: any) => part.text || '').join('').trim();
     } else {
       const anthropic = new Anthropic({ apiKey:anthropicKey });

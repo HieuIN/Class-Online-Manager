@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { BadRequestException, Body, Controller, Injectable, Module, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Injectable, Module, Post, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -48,8 +48,9 @@ export class AiAgentService {
       : user.role === 'TEACHER'
         ? ['/dashboard','/classes','/assignments','/quizzes','/pronunciation','/flashcards','/hanzi-practice','/materials','/calendar','/notifications','/analytics']
         : ['/admin/dashboard','/admin/users','/classes','/admin/operations','/analytics','/notifications'];
-    const apiKey = this.config.get<string>('ANTHROPIC_API_KEY');
-    if (!apiKey) {
+    const geminiKey = this.config.get<string>('GEMINI_API_KEY');
+    const anthropicKey = this.config.get<string>('ANTHROPIC_API_KEY');
+    if (!geminiKey && !anthropicKey) {
       const lower = message.toLocaleLowerCase('vi');
       let result: any = { reply:'Mình có thể hướng dẫn sử dụng và tóm tắt dữ liệu hiện có. Tính năng tạo nội dung nâng cao đang chờ cấu hình mô hình AI.', suggestions:['Hướng dẫn trang này'], navigate:null, draft:null };
       if (lower.includes('hướng dẫn') || lower.includes('trang này')) result = { ...result, reply:`Bạn đang ở ${String(body.path||'trang hiện tại')}. Hãy chọn lớp trước, sau đó dùng các nút tạo/sửa trên trang. Mình có thể đưa bạn tới đúng khu vực cần thao tác.`, navigate:{label:'Mở trang tổng quan',path:user.role==='STUDENT'?'/student/dashboard':user.role==='ADMIN'?'/admin/dashboard':'/dashboard'} };
@@ -66,9 +67,22 @@ Trang hiện tại: ${String(body.path || '')}. Các route hợp lệ: ${routes.
 CONTEXT: ${JSON.stringify(context)}
 Trả về JSON hợp lệ duy nhất: {"reply":"nội dung trả lời","suggestions":["gợi ý ngắn"],"navigate":{"label":"mở trang phù hợp","path":"route hợp lệ"}|null,"draft":{"type":"QUIZ|ASSIGNMENT|FLASHCARD|MESSAGE|NONE","title":"","content":""}|null}.`;
     const history = Array.isArray(body.history) ? body.history.slice(-8).filter((m: any) => ['user','assistant'].includes(m.role) && typeof m.content === 'string').map((m: any) => ({ role:m.role, content:m.content.slice(0,3000) })) : [];
-    const anthropic = new Anthropic({ apiKey });
-    const response = await anthropic.messages.create({ model:'claude-haiku-4-5', max_tokens:900, system, messages:[...history,{role:'user',content:message}] });
-    const text = response.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('').trim();
+    let text = '';
+    if (geminiKey) {
+      const model = this.config.get<string>('GEMINI_MODEL') || 'gemini-2.5-flash';
+      const contents = [...history,{role:'user',content:message}].map((item: any) => ({ role:item.role === 'assistant' ? 'model' : 'user', parts:[{ text:item.content }] }));
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method:'POST', headers:{ 'content-type':'application/json', 'x-goog-api-key':geminiKey },
+        body:JSON.stringify({ systemInstruction:{ parts:[{ text:system }] }, contents, generationConfig:{ maxOutputTokens:900, responseMimeType:'application/json', temperature:.35 } }),
+      });
+      if (!response.ok) throw new ServiceUnavailableException(`Gemini API tạm thời không khả dụng (${response.status})`);
+      const data: any = await response.json();
+      text = (data.candidates?.[0]?.content?.parts || []).map((part: any) => part.text || '').join('').trim();
+    } else {
+      const anthropic = new Anthropic({ apiKey:anthropicKey });
+      const response = await anthropic.messages.create({ model:'claude-haiku-4-5', max_tokens:900, system, messages:[...history,{role:'user',content:message}] });
+      text = response.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('').trim();
+    }
     let result: any;
     try { result = JSON.parse(text.replace(/^```json\s*|\s*```$/g,'')); } catch { result = { reply:text, suggestions:[], navigate:null, draft:null }; }
     if (result.navigate && !routes.includes(result.navigate.path)) result.navigate = null;

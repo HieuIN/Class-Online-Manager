@@ -253,3 +253,7 @@ export const pronunciationApi = {
   mySubmissions: (classId) => http.get('/pronunciation-submissions', { params: { classId } }),
   grade: (id, data) => http.patch(`/pronunciation-submissions/${id}/grade`, data),
 };
+
+export const aiAgentApi = {
+  chat: (data) => http.post('/ai/agent/chat', data, { timeout: 60000, suppressErrorMessage: true }),
+};

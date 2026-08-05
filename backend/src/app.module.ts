@@ -28,6 +28,7 @@ import { FinanceExtrasModule } from './modules/finance-extras/finance-extras.mod
 import { OpsExtrasModule } from './modules/ops-extras/ops-extras.module';
 import { PronunciationModule } from './modules/pronunciation/pronunciation.module';
 import { HealthController } from './health.controller';
+import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { HealthController } from './health.controller';
     FinanceExtrasModule,
     OpsExtrasModule,
     PronunciationModule,
+    AiAgentModule,
   ],
   controllers: [HealthController],
 })

@@ -76,6 +76,7 @@
         <router-view />
       </el-main>
     </el-container>
+    <AiAgentWidget />
   </el-container>
 </template>
 
@@ -90,6 +91,7 @@ import { ElNotification } from 'element-plus';
 import { notificationsApi } from '@/api';
 import UserAvatar from '@/components/UserAvatar.vue';
 import BrandWordmark from '@/components/BrandWordmark.vue';
+import AiAgentWidget from '@/components/AiAgentWidget.vue';
 import { isChildLearner } from '@/utils/learner';
 import { notificationContent, notificationIsVisible, notificationTarget } from '@/utils/notification';
 import {

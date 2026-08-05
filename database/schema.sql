@@ -419,6 +419,16 @@ CREATE INDEX idx_pronunciation_exercises_class ON pronunciation_exercises(class_
 CREATE INDEX idx_pronunciation_submissions_exercise ON pronunciation_submissions(exercise_id);
 CREATE INDEX idx_pronunciation_submissions_student ON pronunciation_submissions(student_id);
 
+CREATE TABLE IF NOT EXISTS ai_agent_logs (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    role VARCHAR(20), page_path VARCHAR(255),
+    class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL,
+    user_message TEXT NOT NULL, assistant_reply TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ai_agent_logs_user_created ON ai_agent_logs(user_id, created_at DESC);
+
 -- =====================================================
 -- MATERIALS (Tài liệu)
 -- =====================================================

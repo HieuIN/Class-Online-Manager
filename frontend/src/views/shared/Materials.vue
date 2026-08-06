@@ -11,6 +11,11 @@
       <el-tab-pane label="Bài giảng" name="lectures" />
     </el-tabs>
 
+    <div v-if="activeTab === 'lectures'" class="lecture-intro">
+      <b>Xem lại bài học mọi lúc</b>
+      <span>Video chỉ bắt đầu tải khi người dùng mở bài giảng, giúp trang tải nhanh và tiết kiệm dữ liệu.</span>
+    </div>
+
     <el-card v-for="(items, chapter) in grouped" :key="chapter" class="mb-3">
       <template #header><span class="section-title">{{ chapter || 'Tài liệu chung' }}</span></template>
       <div v-for="m in items" :key="m.id" class="mat-row">
@@ -27,7 +32,7 @@
         <el-button size="small" type="primary" plain @click="preview(m)">
           {{ previewLabel(m) }}
         </el-button>
-        <el-button size="small" text @click="download(m)">Tải</el-button>
+        <el-button size="small" text @click="download(m)">{{ materialType(m) === 'LECTURE_YOUTUBE' ? 'Mở YouTube' : 'Tải' }}</el-button>
         <template v-if="canEdit">
           <el-button size="small" text type="primary" @click="openEdit(m)">Sửa</el-button>
           <el-button size="small" text type="danger" @click="removeMat(m)">Xóa</el-button>
@@ -90,7 +95,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showEdit" title="Sửa tài liệu" width="460px">
+    <el-dialog v-model="showEdit" :title="isLecture(editMat) ? 'Sửa bài giảng' : 'Sửa tài liệu'" width="min(520px, 94vw)">
       <el-form label-position="top">
         <el-form-item label="Tiêu đề"><el-input v-model="editMat.title" /></el-form-item>
         <el-form-item label="Chương"><el-input v-model="editMat.chapter" placeholder="VD: Chương 1" /></el-form-item>
@@ -128,11 +133,11 @@
 
     <el-dialog v-model="showPreview" :title="previewItem?.title || 'Xem tài liệu'" width="82vw" class="preview-dialog">
       <div v-if="previewItem" class="preview-body">
-        <iframe v-if="previewKind === 'youtube'" :src="previewUrl" class="preview-frame youtube-frame" title="Video bài giảng YouTube" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
-        <iframe v-else-if="previewKind === 'iframe'" :src="previewUrl" class="preview-frame" />
-        <iframe v-else-if="previewKind === 'office'" :src="officePreviewUrl" class="preview-frame" allowfullscreen />
-        <video v-else-if="previewKind === 'video'" :src="previewUrl" class="preview-media" controls playsinline />
-        <audio v-else-if="previewKind === 'audio'" :src="previewUrl" class="preview-audio" controls />
+        <iframe v-if="previewKind === 'youtube'" :src="previewUrl" class="preview-frame youtube-frame" title="Video bài giảng YouTube" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+        <iframe v-else-if="previewKind === 'iframe'" :src="previewUrl" class="preview-frame" loading="lazy" />
+        <iframe v-else-if="previewKind === 'office'" :src="officePreviewUrl" class="preview-frame" loading="lazy" allowfullscreen />
+        <video v-else-if="previewKind === 'video'" :src="previewUrl" class="preview-media" controls playsinline preload="metadata" />
+        <audio v-else-if="previewKind === 'audio'" :src="previewUrl" class="preview-audio" controls preload="metadata" />
         <img v-else-if="previewKind === 'image'" :src="previewUrl" class="preview-image" />
         <div v-else class="preview-fallback">
           <p>Loại tài liệu này không hỗ trợ xem trực tiếp ổn định trên trình duyệt.</p>
@@ -386,6 +391,8 @@ onMounted(reload);
 <style scoped>
 .header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
 .material-tabs { margin-bottom: 12px; }
+.lecture-intro { align-items:center; background:var(--el-color-primary-light-9); border:1px solid var(--el-color-primary-light-7); border-radius:10px; display:flex; gap:10px 18px; margin:-2px 0 14px; padding:12px 14px; }
+.lecture-intro span { color:var(--el-text-color-secondary); font-size:12px; }
 .form-tip { color:var(--el-text-color-secondary); font-size:12px; line-height:1.45; margin-top:6px; }
 .lecture-upload-copy { display:flex; flex-direction:column; gap:6px; padding:12px; }
 .lecture-upload-copy span { color:var(--el-text-color-secondary); font-size:12px; }
@@ -422,5 +429,5 @@ onMounted(reload);
 .preview-audio { width: min(720px, 100%); }
 .preview-image { max-width: 100%; max-height: 68vh; object-fit: contain; }
 .preview-fallback { text-align:center; color: #666; padding: 28px; }
-@media (max-width: 640px) { .header-bar { align-items:flex-start; flex-direction:column; gap:10px; } .header-bar .el-button { width:100%; } .mat-row { align-items:flex-start; flex-wrap:wrap; } .mat-info { min-width:calc(100% - 62px); } .youtube-frame { min-height:220px; } }
+@media (max-width: 640px) { .header-bar { align-items:flex-start; flex-direction:column; gap:10px; } .header-bar .el-button { width:100%; } .lecture-intro { align-items:flex-start; flex-direction:column; } .mat-row { align-items:flex-start; flex-wrap:wrap; } .mat-info { min-width:calc(100% - 62px); } .youtube-frame { min-height:220px; } }
 </style>

@@ -156,6 +156,7 @@
 import { ref, computed, reactive, watch, onMounted } from 'vue';
 import { useClassStore } from '@/stores/class';
 import { useAuthStore } from '@/stores/auth';
+import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import ClassPicker from '@/components/ClassPicker.vue';
 import { materialsApi } from '@/api';
@@ -163,9 +164,10 @@ import { mediaUrl } from '@/utils/media';
 
 const classStore = useClassStore();
 const auth = useAuthStore();
+const route = useRoute();
 const canEdit = computed(() => auth.isTeacher || auth.isAdmin);
 const materials = ref([]);
-const activeTab = ref('materials');
+const activeTab = ref(route.path === '/lectures' ? 'lectures' : 'materials');
 const showAdd = ref(false);
 const showLectureAdd = ref(false);
 const showEdit = ref(false);
@@ -385,6 +387,7 @@ const download = (m) => {
 };
 
 watch(() => classStore.selectedId, reload);
+watch(() => route.path, path => { activeTab.value = path === '/lectures' ? 'lectures' : 'materials'; });
 onMounted(reload);
 </script>
 

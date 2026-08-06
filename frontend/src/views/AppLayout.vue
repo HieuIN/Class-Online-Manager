@@ -95,7 +95,7 @@ import AiAgentWidget from '@/components/AiAgentWidget.vue';
 import { isChildLearner } from '@/utils/learner';
 import { notificationContent, notificationIsVisible, notificationTarget } from '@/utils/notification';
 import {
-  House, School, Select, Histogram, Document, TrendCharts, Folder, Calendar,
+  House, School, Select, Histogram, Document, TrendCharts, Folder, Calendar, VideoPlay,
   PieChart, Money, Bell, SwitchButton, User, CaretTop, UserFilled, Reading, ChatDotRound, EditPen, Moon, Sunny, Menu as MenuIcon, Microphone,
 } from '@element-plus/icons-vue';
 
@@ -130,6 +130,7 @@ const teacherNav = [
   { path: '/flashcards', label: 'Flashcards', icon: Reading, group: 'nav.learning' },
   { path: '/hanzi-practice', label: 'Luyện chữ Hán', icon: EditPen, group: 'nav.learning' },
   { path: '/materials', labelKey: 'menu.materials', icon: Folder, group: 'nav.learning' },
+  { path: '/lectures', labelKey: 'menu.lectures', icon: VideoPlay, group: 'nav.learning' },
   { path: '/class-extras', label: 'Extras', icon: Folder, group: 'nav.learning' },
   { path: '/progress', labelKey: 'menu.progress', icon: TrendCharts, group: 'nav.insights' },
   { path: '/calendar', labelKey: 'menu.calendar', icon: Calendar, group: 'nav.insights' },
@@ -146,6 +147,7 @@ const studentNav = [
   { path: '/flashcards', label: 'Flashcards', icon: Reading, group: 'nav.learning' },
   { path: '/hanzi-practice', label: 'Luyện chữ Hán', icon: EditPen, group: 'nav.learning' },
   { path: '/materials', labelKey: 'menu.materials', icon: Folder, group: 'nav.learning' },
+  { path: '/lectures', labelKey: 'menu.lectures', icon: VideoPlay, group: 'nav.learning' },
   { path: '/forum', labelKey: 'menu.forum', icon: ChatDotRound, group: 'nav.learning' },
   { path: '/student/grades', labelKey: 'menu.myGrades', icon: Histogram, group: 'nav.progress' },
   { path: '/student/attendance', labelKey: 'menu.attendance', icon: Select, group: 'nav.progress' },

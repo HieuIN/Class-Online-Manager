@@ -92,7 +92,9 @@ export class NotificationsService {
       const time = String(s.start_time).slice(0, 5);
       const date = String(s.planned_date).slice(0, 10);
       const endTime = s.end_time ? String(s.end_time).slice(0, 5) : '';
-      const content = `session_id=${s.id};start_at=${date}T${time};end_at=${endTime ? `${date}T${endTime}` : ''}; Lớp ${s.class_name} sẽ bắt đầu lúc ${time}. ${s.meeting_url ? 'Đã có đường dẫn phòng học.' : 'Giáo viên chưa cập nhật đường dẫn phòng học.'}`;
+      const [year, month, day] = date.split('-');
+      const displayDate = `${day}/${month}/${year}`;
+      const content = `session_id=${s.id};start_at=${date}T${time};end_at=${endTime ? `${date}T${endTime}` : ''}; Lớp ${s.class_name} sẽ bắt đầu vào ngày ${displayDate} lúc ${time}. ${s.meeting_url ? 'Đã có đường dẫn phòng học.' : 'Giáo viên chưa cập nhật đường dẫn phòng học.'}`;
       for (const u of users) {
         const wasCreated = await this.createOnce(u.user_id, 'REMINDER', `session_id=${s.id};`, {
           title: 'Buổi học sắp bắt đầu',

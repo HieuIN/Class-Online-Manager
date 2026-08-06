@@ -2,7 +2,13 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 
 export function notificationContent(content) {
-  return String(content || '')
+  const raw = String(content || '');
+  const explicitStart = contentValue(raw, 'start_at');
+  const start = explicitStart ? dayjs(explicitStart) : null;
+  const enriched = start?.isValid() && !/sẽ bắt đầu vào (?:thứ|chủ nhật|ngày)/i.test(raw)
+    ? raw.replace(/sẽ bắt đầu lúc\s+(\d{1,2}:\d{2})/i, `sẽ bắt đầu vào ${start.locale('vi').format('dddd, DD/MM/YYYY')} lúc $1`)
+    : raw;
+  return enriched
     .replace(/^(?:session_id|assignment_id)=\d+;(?:start_at=[^;]*;)?(?:end_at=[^;]*;)?(?:[^;]+;)?\s*/i, '')
     .replace('Chưa có link Zoom/Meet.', 'Giáo viên chưa cập nhật đường dẫn phòng học.');
 }

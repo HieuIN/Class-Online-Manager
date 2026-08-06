@@ -2,9 +2,14 @@
   <div>
     <ClassPicker @change="reload" />
     <div class="header-bar">
-      <span class="section-title" style="margin:0">Thư viện tài liệu</span>
-      <el-button type="primary" @click="showAdd = true" v-if="canEdit">+ Thêm tài liệu</el-button>
+      <span class="section-title" style="margin:0">{{ activeTab === 'lectures' ? 'Bài giảng và buổi học đã ghi lại' : 'Thư viện tài liệu' }}</span>
+      <el-button v-if="canEdit" type="primary" @click="openAdd">+ {{ activeTab === 'lectures' ? 'Thêm bài giảng' : 'Thêm tài liệu' }}</el-button>
     </div>
+
+    <el-tabs v-model="activeTab" class="material-tabs">
+      <el-tab-pane label="Tài liệu" name="materials" />
+      <el-tab-pane label="Bài giảng" name="lectures" />
+    </el-tabs>
 
     <el-card v-for="(items, chapter) in grouped" :key="chapter" class="mb-3">
       <template #header><span class="section-title">{{ chapter || 'Tài liệu chung' }}</span></template>
@@ -28,12 +33,34 @@
           <el-button size="small" text type="danger" @click="removeMat(m)">Xóa</el-button>
         </template>
       </div>
-      <div v-if="items.length === 0" class="empty">Chưa có tài liệu</div>
+      <div v-if="items.length === 0" class="empty">{{ activeTab === 'lectures' ? 'Chưa có bài giảng' : 'Chưa có tài liệu' }}</div>
     </el-card>
 
     <el-card v-if="Object.keys(grouped).length === 0">
-      <div class="empty">Chưa có tài liệu nào trong khóa học này</div>
+      <div class="empty">{{ activeTab === 'lectures' ? 'Chưa có bài giảng nào trong khóa học này' : 'Chưa có tài liệu nào trong khóa học này' }}</div>
     </el-card>
+
+    <el-dialog v-model="showLectureAdd" title="Thêm bài giảng" width="min(520px, 94vw)">
+      <el-form label-position="top">
+        <el-form-item label="Tiêu đề bài giảng"><el-input v-model="newLecture.title" placeholder="Ví dụ: Buổi 6 - Giao tiếp tại nhà hàng" /></el-form-item>
+        <el-form-item label="Buổi / bài"><el-input v-model="newLecture.lesson" placeholder="Ví dụ: Buổi 6" /></el-form-item>
+        <el-form-item label="Nguồn bài giảng">
+          <el-radio-group v-model="newLecture.sourceType"><el-radio-button value="YOUTUBE">Link YouTube</el-radio-button><el-radio-button value="FILE">Tải tệp lên</el-radio-button></el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="newLecture.sourceType === 'YOUTUBE'" label="Link video YouTube">
+          <el-input v-model="newLecture.linkUrl" placeholder="https://www.youtube.com/watch?v=... hoặc https://youtu.be/..." />
+          <div class="form-tip">Nên dùng video Không công khai (Unlisted) để học viên có link mới xem được.</div>
+        </el-form-item>
+        <el-form-item v-else label="File bài giảng hoặc video">
+          <el-upload ref="lectureUploadRef" drag :auto-upload="false" :on-change="onLectureFileChange" :limit="1" accept=".pdf,.ppt,.pptx,.doc,.docx,.mp4,.webm,.mov">
+            <div class="lecture-upload-copy"><b>Kéo thả hoặc chọn tệp</b><span>PDF, PowerPoint, Word, MP4, WebM hoặc MOV · tối đa 200 MB</span></div>
+          </el-upload>
+          <div class="form-tip">Với video dài, dùng YouTube sẽ xem nhanh và tiết kiệm dung lượng máy chủ hơn.</div>
+        </el-form-item>
+        <el-form-item><el-checkbox v-model="newLecture.isRequired">Bài giảng bắt buộc xem</el-checkbox></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="showLectureAdd = false">Hủy</el-button><el-button type="primary" :loading="uploading" @click="addLecture">Lưu bài giảng</el-button></template>
+    </el-dialog>
 
     <el-dialog v-model="showAdd" title="Thêm tài liệu" width="460px">
       <el-form label-position="top">
@@ -73,9 +100,10 @@
             <el-option label="PDF" value="PDF" /> <el-option label="PPT" value="PPT" />
             <el-option label="Video" value="VIDEO" /> <el-option label="Audio" value="AUDIO" />
             <el-option label="Doc" value="DOC" /> <el-option label="Link" value="LINK" />
+            <el-option label="Bài giảng YouTube" value="LECTURE_YOUTUBE" /> <el-option label="Bài giảng dạng tệp" value="LECTURE_FILE" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="editMat.materialType === 'LINK'" label="URL">
+        <el-form-item v-if="['LINK', 'LECTURE_YOUTUBE'].includes(editMat.materialType)" :label="editMat.materialType === 'LECTURE_YOUTUBE' ? 'Link YouTube' : 'URL'">
           <el-input v-model="editMat.linkUrl" placeholder="https://..." />
         </el-form-item>
         <el-form-item v-else label="Tệp mới (không bắt buộc)">
@@ -100,7 +128,8 @@
 
     <el-dialog v-model="showPreview" :title="previewItem?.title || 'Xem tài liệu'" width="82vw" class="preview-dialog">
       <div v-if="previewItem" class="preview-body">
-        <iframe v-if="previewKind === 'iframe'" :src="previewUrl" class="preview-frame" />
+        <iframe v-if="previewKind === 'youtube'" :src="previewUrl" class="preview-frame youtube-frame" title="Video bài giảng YouTube" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+        <iframe v-else-if="previewKind === 'iframe'" :src="previewUrl" class="preview-frame" />
         <iframe v-else-if="previewKind === 'office'" :src="officePreviewUrl" class="preview-frame" allowfullscreen />
         <video v-else-if="previewKind === 'video'" :src="previewUrl" class="preview-media" controls playsinline />
         <audio v-else-if="previewKind === 'audio'" :src="previewUrl" class="preview-audio" controls />
@@ -131,21 +160,29 @@ const classStore = useClassStore();
 const auth = useAuthStore();
 const canEdit = computed(() => auth.isTeacher || auth.isAdmin);
 const materials = ref([]);
+const activeTab = ref('materials');
 const showAdd = ref(false);
+const showLectureAdd = ref(false);
 const showEdit = ref(false);
 const showPreview = ref(false);
 const previewItem = ref(null);
 const uploading = ref(false);
 const savingEdit = ref(false);
 const newMat = reactive({ title: '', chapter: '', lesson: '', materialType: 'PDF', isRequired: false, linkUrl: '' });
+const newLecture = reactive({ title: '', lesson: '', sourceType: 'YOUTUBE', linkUrl: '', isRequired: false });
 const editMat = reactive({ id: null, title: '', chapter: '', lesson: '', materialType: 'PDF', isRequired: false, linkUrl: '' });
 const file = ref(null);
 const editFile = ref(null);
 const editUploadRef = ref(null);
+const lectureUploadRef = ref(null);
+const lectureFile = ref(null);
+
+const isLecture = (m) => ['LECTURE_YOUTUBE', 'LECTURE_FILE'].includes(materialType(m));
+const visibleMaterials = computed(() => materials.value.filter(m => activeTab.value === 'lectures' ? isLecture(m) : !isLecture(m)));
 
 const grouped = computed(() => {
   const out = {};
-  for (const m of materials.value) {
+  for (const m of visibleMaterials.value) {
     const ch = m.chapter || 'Khác';
     if (!out[ch]) out[ch] = [];
     out[ch].push(m);
@@ -167,6 +204,8 @@ const resolvedMaterialType = (m) => {
   if (['mp4', 'webm', 'mov', 'avi'].includes(ext)) return 'VIDEO';
   if (['zip', 'rar', '7z'].includes(ext)) return 'ZIP';
   const type = materialType(m);
+  if (type === 'LECTURE_YOUTUBE') return 'VIDEO';
+  if (type === 'LECTURE_FILE') return 'FILE';
   if (type === 'DOC') return 'WORD';
   return type || 'FILE';
 };
@@ -177,6 +216,7 @@ const typeIcon = (m) => ({
 
 const previewLabel = (m) => {
   const type = materialType(m);
+  if (type === 'LECTURE_YOUTUBE') return 'Xem bài giảng';
   if (type === 'AUDIO') return 'Nghe';
   if (type === 'VIDEO') return 'Xem video';
   return 'Xem';
@@ -185,6 +225,7 @@ const previewLabel = (m) => {
 const previewKindFor = (m) => {
   const type = materialType(m);
   const ext = fileExt(m);
+  if (type === 'LECTURE_YOUTUBE') return 'youtube';
   if (type === 'AUDIO' || ['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'audio';
   if (type === 'VIDEO' || ['mp4', 'webm', 'mov'].includes(ext)) return 'video';
   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
@@ -193,7 +234,20 @@ const previewKindFor = (m) => {
   return 'fallback';
 };
 
-const previewUrl = computed(() => previewItem.value ? materialUrl(previewItem.value) : '');
+const youtubeEmbedUrl = (url) => {
+  try {
+    const parsed = new URL(url);
+    let id = parsed.hostname.includes('youtu.be') ? parsed.pathname.split('/').filter(Boolean)[0] : parsed.searchParams.get('v');
+    if (!id && parsed.pathname.includes('/embed/')) id = parsed.pathname.split('/embed/')[1]?.split('/')[0];
+    if (!id && parsed.pathname.includes('/shorts/')) id = parsed.pathname.split('/shorts/')[1]?.split('/')[0];
+    return id && /^[\w-]{6,20}$/.test(id) ? `https://www.youtube-nocookie.com/embed/${id}` : '';
+  } catch { return ''; }
+};
+const previewUrl = computed(() => {
+  if (!previewItem.value) return '';
+  const url = materialUrl(previewItem.value);
+  return previewKindFor(previewItem.value) === 'youtube' ? youtubeEmbedUrl(url) : url;
+});
 const previewKind = computed(() => previewItem.value ? previewKindFor(previewItem.value) : 'fallback');
 const officePreviewUrl = computed(() => `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl.value)}`);
 
@@ -204,6 +258,29 @@ const reload = async () => {
 };
 
 const onFileChange = (f) => { file.value = f.raw; };
+const openAdd = () => { if (activeTab.value === 'lectures') showLectureAdd.value = true; else showAdd.value = true; };
+const onLectureFileChange = (f) => { lectureFile.value = f.raw; };
+
+const addLecture = async () => {
+  if (!newLecture.title.trim()) { ElMessage.warning('Nhập tiêu đề bài giảng'); return; }
+  uploading.value = true;
+  try {
+    if (newLecture.sourceType === 'YOUTUBE') {
+      if (!youtubeEmbedUrl(newLecture.linkUrl.trim())) { ElMessage.warning('Link YouTube chưa hợp lệ'); return; }
+      await materialsApi.create({ courseId: classStore.selected.course_id, title: newLecture.title.trim(), chapter: 'Bài giảng', lesson: newLecture.lesson.trim(), materialType: 'LECTURE_YOUTUBE', linkUrl: newLecture.linkUrl.trim(), isRequired: newLecture.isRequired });
+    } else {
+      if (!lectureFile.value) { ElMessage.warning('Chọn file bài giảng'); return; }
+      if (lectureFile.value.size > 200 * 1024 * 1024) { ElMessage.warning('File bài giảng tối đa 200 MB'); return; }
+      const fd = new FormData();
+      fd.append('file', lectureFile.value); fd.append('courseId', classStore.selected.course_id); fd.append('title', newLecture.title.trim()); fd.append('chapter', 'Bài giảng'); fd.append('lesson', newLecture.lesson.trim()); fd.append('materialType', 'LECTURE_FILE'); fd.append('isRequired', String(newLecture.isRequired));
+      await materialsApi.upload(fd);
+    }
+    ElMessage.success('Đã thêm bài giảng');
+    showLectureAdd.value = false; lectureFile.value = null; lectureUploadRef.value?.clearFiles();
+    Object.assign(newLecture, { title: '', lesson: '', sourceType: 'YOUTUBE', linkUrl: '', isRequired: false });
+    await reload();
+  } finally { uploading.value = false; }
+};
 
 const addMat = async () => {
   if (!newMat.title) { ElMessage.warning('Nhập tiêu đề'); return; }
@@ -249,15 +326,16 @@ const onEditFileRemove = () => { editFile.value = null; };
 
 const saveEdit = async () => {
   if (!editMat.title.trim()) { ElMessage.warning('Nhập tiêu đề'); return; }
-  if (editMat.materialType === 'LINK' && !editMat.linkUrl.trim()) { ElMessage.warning('Nhập URL tài liệu'); return; }
+  if (['LINK', 'LECTURE_YOUTUBE'].includes(editMat.materialType) && !editMat.linkUrl.trim()) { ElMessage.warning('Nhập URL tài liệu'); return; }
+  if (editMat.materialType === 'LECTURE_YOUTUBE' && !youtubeEmbedUrl(editMat.linkUrl.trim())) { ElMessage.warning('Link YouTube chưa hợp lệ'); return; }
   savingEdit.value = true;
   try {
     const data = {
       title: editMat.title.trim(), chapter: editMat.chapter.trim(), lesson: editMat.lesson.trim(),
       materialType: editMat.materialType, isRequired: editMat.isRequired,
-      linkUrl: editMat.materialType === 'LINK' ? editMat.linkUrl.trim() : null,
+      linkUrl: ['LINK', 'LECTURE_YOUTUBE'].includes(editMat.materialType) ? editMat.linkUrl.trim() : null,
     };
-    if (editMat.materialType !== 'LINK' && editFile.value) {
+    if (!['LINK', 'LECTURE_YOUTUBE'].includes(editMat.materialType) && editFile.value) {
       const fd = new FormData();
       fd.append('file', editFile.value);
       Object.entries(data).forEach(([key, value]) => fd.append(key, String(value ?? '')));
@@ -292,6 +370,7 @@ const preview = (m) => {
     return;
   }
   previewItem.value = m;
+  if (previewKindFor(m) === 'youtube' && !youtubeEmbedUrl(materialUrl(m))) { ElMessage.warning('Link YouTube không hợp lệ'); return; }
   showPreview.value = true;
 };
 
@@ -306,6 +385,10 @@ onMounted(reload);
 
 <style scoped>
 .header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
+.material-tabs { margin-bottom: 12px; }
+.form-tip { color:var(--el-text-color-secondary); font-size:12px; line-height:1.45; margin-top:6px; }
+.lecture-upload-copy { display:flex; flex-direction:column; gap:6px; padding:12px; }
+.lecture-upload-copy span { color:var(--el-text-color-secondary); font-size:12px; }
 .mb-3 { margin-bottom: 12px; }
 .mat-row { display:flex; align-items:center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f0ee; }
 .mat-row:last-child { border-bottom: none; }
@@ -334,8 +417,10 @@ onMounted(reload);
 .empty { padding: 20px; text-align: center; color: #aaa; }
 .preview-body { min-height: 60vh; display:flex; align-items:center; justify-content:center; background: #fafaf8; border-radius: 8px; overflow: hidden; }
 .preview-frame { width: 100%; height: 68vh; border: 0; background: #fff; }
+.youtube-frame { aspect-ratio:16/9; height:auto; max-height:68vh; }
 .preview-media { width: 100%; max-height: 68vh; background: #000; }
 .preview-audio { width: min(720px, 100%); }
 .preview-image { max-width: 100%; max-height: 68vh; object-fit: contain; }
 .preview-fallback { text-align:center; color: #666; padding: 28px; }
+@media (max-width: 640px) { .header-bar { align-items:flex-start; flex-direction:column; gap:10px; } .header-bar .el-button { width:100%; } .mat-row { align-items:flex-start; flex-wrap:wrap; } .mat-info { min-width:calc(100% - 62px); } .youtube-frame { min-height:220px; } }
 </style>

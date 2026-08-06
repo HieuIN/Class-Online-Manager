@@ -46,7 +46,7 @@ export class AiSuggestionsService {
       `SELECT COUNT(*)::int as total,
               COUNT(*) FILTER (WHERE COALESCE(a.status, 'PRESENT') = 'PRESENT')::int as present,
               COUNT(*) FILTER (WHERE a.status = 'ABSENT')::int as absent,
-              COUNT(*) FILTER (WHERE a.status = 'LATE')::int as late
+              COUNT(*) FILTER (WHERE a.status IN ('LATE', 'LEFT_EARLY'))::int as late
        FROM sessions s
        LEFT JOIN attendance a ON a.session_id = s.id AND a.student_id = $2
        WHERE s.class_id = $1 AND s.status = 'DONE'`,

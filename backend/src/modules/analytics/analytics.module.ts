@@ -47,7 +47,7 @@ export class AnalyticsService {
          SELECT st.id as student_id,
                 COUNT(s.id)::int as total,
                 COUNT(s.id) FILTER (WHERE COALESCE(a.status, 'PRESENT') = 'PRESENT')::int as present,
-                COUNT(s.id) FILTER (WHERE a.status = 'LATE')::int as late,
+                COUNT(s.id) FILTER (WHERE a.status IN ('LATE', 'LEFT_EARLY'))::int as late,
                 COUNT(s.id) FILTER (WHERE a.status = 'ABSENT')::int as absent
          FROM students st
          LEFT JOIN sessions s ON s.class_id = $1 AND s.status = 'DONE'
@@ -144,7 +144,7 @@ export class AnalyticsService {
               s.planned_date as "date",
               COUNT(e.student_id)::int as total,
               COUNT(a.id) FILTER (WHERE a.status = 'ABSENT')::int as absent,
-              COUNT(a.id) FILTER (WHERE a.status = 'LATE')::int as late
+              COUNT(a.id) FILTER (WHERE a.status IN ('LATE', 'LEFT_EARLY'))::int as late
        FROM sessions s
        JOIN enrollments e ON e.class_id = s.class_id AND e.is_active = true
        LEFT JOIN attendance a ON a.session_id = s.id AND a.student_id = e.student_id
@@ -194,7 +194,7 @@ export class AnalyticsService {
       `SELECT COUNT(s.id)::int as total,
               COUNT(s.id) FILTER (WHERE COALESCE(a.status, 'PRESENT') = 'PRESENT')::int as present,
               COUNT(s.id) FILTER (WHERE a.status = 'ABSENT')::int as absent,
-              COUNT(s.id) FILTER (WHERE a.status = 'LATE')::int as late
+              COUNT(s.id) FILTER (WHERE a.status IN ('LATE', 'LEFT_EARLY'))::int as late
        FROM sessions s
        LEFT JOIN attendance a ON a.session_id = s.id AND a.student_id = $2
        WHERE s.class_id = $1 AND s.status = 'DONE'`,

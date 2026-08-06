@@ -1,4 +1,4 @@
-import { Injectable, Module, Controller, Get, Post, Body, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Injectable, Module, Controller, Get, Post, Body, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository, DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -50,9 +50,11 @@ export class AttendanceService {
 
   // Bulk mark for a session
   async bulkMark(sessionId: number, records: Array<{ studentId: number; status: string; isExcused?: boolean; reason?: string }>) {
+    const missingReason = records.find(r => ['LATE', 'LEFT_EARLY'].includes(r.status) && !String(r.reason || '').trim());
+    if (missingReason) throw new BadRequestException('Đi muộn hoặc về sớm bắt buộc phải nhập lý do');
     const results = [];
     for (const r of records) {
-      results.push(await this.upsertOne(sessionId, r.studentId, r.status, { isExcused: r.isExcused, reason: r.reason }));
+      results.push(await this.upsertOne(sessionId, r.studentId, r.status, { isExcused: r.status === 'ABSENT' && Boolean(r.isExcused), reason: String(r.reason || '').trim() || null }));
     }
     return results;
   }
@@ -68,23 +70,25 @@ export class AttendanceService {
     const totalDone = +(await this.dataSource.query(
       `SELECT COUNT(*)::int as c FROM sessions WHERE class_id = $1 AND status = 'DONE'`, [classId]
     ))[0].c;
-    let present = 0, absent = 0, late = 0, excused = 0;
+    let present = 0, absent = 0, late = 0, leftEarly = 0, excused = 0;
     for (const r of rows) {
       if (r.status === 'PRESENT') present++;
       else if (r.status === 'ABSENT') { absent++; if (r.is_excused) excused++; }
       else if (r.status === 'LATE') late++;
+      else if (r.status === 'LEFT_EARLY') leftEarly++;
     }
     // Sessions without record = considered present by default (or you can change)
-    const recorded = present + absent + late;
+    const recorded = present + absent + late + leftEarly;
     if (recorded < totalDone) present += (totalDone - recorded);
 
-    return { total: totalDone, present, absent, late, excusedAbsent: excused, unExcusedAbsent: absent - excused };
+    const attendanceRate = totalDone ? Math.round(((present + (late + leftEarly) * 0.5) / totalDone) * 100) : 100;
+    return { total: totalDone, present, absent, late, leftEarly, attendanceRate, excusedAbsent: excused, unExcusedAbsent: absent - excused };
   }
 
   // For a class: table of all students across all done sessions
   async classMatrix(classId: number) {
     return this.dataSource.query(
-      `SELECT a.session_id as "sessionId", a.student_id as "studentId", a.status, a.is_excused as "isExcused"
+      `SELECT a.session_id as "sessionId", a.student_id as "studentId", a.status, a.is_excused as "isExcused", a.reason
        FROM attendance a JOIN sessions s ON s.id = a.session_id
        WHERE s.class_id = $1`, [classId]
     );

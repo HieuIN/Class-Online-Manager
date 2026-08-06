@@ -137,7 +137,7 @@
     </el-dialog>
 
     <!-- Bulk attendance mark -->
-    <el-dialog v-model="showMark" :title="markTitle" width="640px">
+    <el-dialog v-model="showMark" :title="markTitle" width="min(760px, 95vw)">
       <div v-if="markSession">
         <p style="font-size:13px;color:#666">{{ markSession.topic }} – {{ formatDate(markSession.planned_date) }}{{ sessionTime(markSession) }}</p>
         <div class="mark-toolbar">
@@ -161,9 +161,9 @@
               <el-checkbox v-model="row.isExcused" :disabled="row.status !== 'ABSENT'" />
             </template>
           </el-table-column>
-          <el-table-column label="Ghi chú">
+          <el-table-column label="Lý do" min-width="190">
             <template #default="{ row }">
-              <el-input v-model="row.reason" size="small" placeholder="Lý do (nếu có)" />
+              <el-input v-model="row.reason" size="small" :placeholder="requiresReason(row.status) ? 'Bắt buộc nhập lý do' : 'Lý do (nếu có)'" :class="{ 'reason-required': requiresReason(row.status) && !row.reason.trim() }" />
             </template>
           </el-table-column>
         </el-table>
@@ -215,7 +215,9 @@ const filteredSessionList = computed(() => {
   if (sessionStatusFilter.value === 'ALL') return sessions.value;
   return sessions.value.filter(s => s.status === sessionStatusFilter.value);
 });
-const markTitle = computed(() => markSession.value ? `Điểm danh – Buổi ${markSession.value.session_no}` : '');
+const sessionNo = s => s?.session_no ?? s?.sessionNo ?? '';
+const markTitle = computed(() => markSession.value ? `Điểm danh – Buổi ${sessionNo(markSession.value)}` : '');
+const requiresReason = status => ['LATE', 'LEFT_EARLY'].includes(status);
 
 const getStatus = (studentId, sessionId) => {
   const row = matrix.value.find(m => m.studentId === studentId && m.sessionId === sessionId);
@@ -228,7 +230,7 @@ const percentFor = (studentId) => {
   let p = 0, l = 0;
   for (const s of doneSessions.value) {
     const status = getStatus(studentId, s.id);
-    if (status === 'PRESENT') p++; else if (status === 'LATE') l++;
+    if (status === 'PRESENT') p++; else if (['LATE', 'LEFT_EARLY'].includes(status)) l++;
   }
   return Math.round((p + l * 0.5) / total * 100);
 };
@@ -348,10 +350,12 @@ const openSession = (s) => {
 };
 
 const markAll = (status) => {
-  markRecords.value.forEach(r => r.status = status);
+  markRecords.value.forEach(r => { r.status = status; if (status === 'PRESENT') { r.isExcused = false; r.reason = ''; } });
 };
 
 const saveMark = async () => {
+  const missingReason = markRecords.value.find(r => requiresReason(r.status) && !r.reason.trim());
+  if (missingReason) { ElMessage.warning(`Nhập lý do đi muộn/về sớm cho ${missingReason.fullName}`); return; }
   saving.value = true;
   try {
     if (markSession.value.status === 'PLANNED') {
@@ -401,6 +405,7 @@ onMounted(reload);
 </script>
 
 <style scoped>
+.reason-required :deep(.el-input__wrapper) { box-shadow:0 0 0 1px var(--el-color-danger) inset; }
 .action-bar { display:flex; justify-content:flex-end; gap: 8px; margin-bottom: 14px; flex-wrap:wrap; }
 .search-input { width: 220px; margin-right:auto; }
 .header-line { display:flex; justify-content:space-between; align-items:center; }

@@ -6,11 +6,6 @@
       <el-button v-if="canEdit" type="primary" @click="openAdd">+ {{ activeTab === 'lectures' ? 'Thêm bài giảng' : 'Thêm tài liệu' }}</el-button>
     </div>
 
-    <el-tabs v-model="activeTab" class="material-tabs">
-      <el-tab-pane label="Tài liệu" name="materials" />
-      <el-tab-pane label="Bài giảng" name="lectures" />
-    </el-tabs>
-
     <div v-if="activeTab === 'lectures'" class="lecture-intro">
       <b>Xem lại bài học mọi lúc</b>
       <span>Video chỉ bắt đầu tải khi người dùng mở bài giảng, giúp trang tải nhanh và tiết kiệm dữ liệu.</span>
@@ -393,7 +388,6 @@ onMounted(reload);
 
 <style scoped>
 .header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
-.material-tabs { margin-bottom: 12px; }
 .lecture-intro { align-items:center; background:var(--el-color-primary-light-9); border:1px solid var(--el-color-primary-light-7); border-radius:10px; display:flex; gap:10px 18px; margin:-2px 0 14px; padding:12px 14px; }
 .lecture-intro span { color:var(--el-text-color-secondary); font-size:12px; }
 .form-tip { color:var(--el-text-color-secondary); font-size:12px; line-height:1.45; margin-top:6px; }

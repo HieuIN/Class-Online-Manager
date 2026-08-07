@@ -11,6 +11,7 @@
     <el-card>
       <template #header><span class="section-title">Học phí – {{ classStore.selected?.name }}</span></template>
       <el-table :data="payments" size="small">
+        <el-table-column type="index" label="STT" width="70" align="center" />
         <el-table-column label="Học viên" prop="studentName" min-width="180" />
         <el-table-column label="Số tiền" width="140">
           <template #default="{ row }">{{ fmtMoney(row.amount) }}</template>

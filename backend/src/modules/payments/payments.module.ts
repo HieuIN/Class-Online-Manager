@@ -115,6 +115,45 @@ export class PaymentsService {
     return this.repo.findOne({ where: { id } });
   }
 
+  async editPaid(id: number, paidAmount: number, proof?: { url: string; name: string; mimeType: string; size: number }) {
+    const payment = await this.repo.findOne({ where: { id } });
+    if (!payment) return null;
+    const total = +payment.amount || 0;
+    const previousPaid = +payment.paidAmount || 0;
+    const correctedPaid = +paidAmount || 0;
+    if (correctedPaid <= 0) throw new BadRequestException('Số tiền đã đóng phải lớn hơn 0');
+    if (correctedPaid > total) throw new BadRequestException('Số tiền đã đóng không được vượt quá tổng học phí');
+
+    await this.dataSource.transaction(async manager => {
+      await manager.update(Payment, id, {
+        paidAmount: correctedPaid,
+        status: correctedPaid >= total ? 'PAID' : 'PARTIAL',
+        paidAt: payment.paidAt || new Date(),
+      });
+      const receipts = await manager.query(
+        `SELECT id, amount FROM payment_receipts WHERE payment_id=$1 ORDER BY created_at DESC LIMIT 1`, [id],
+      );
+      if (receipts[0]) {
+        const correctedReceiptAmount = +receipts[0].amount + correctedPaid - previousPaid;
+        if (correctedReceiptAmount <= 0) throw new BadRequestException('Số tiền sửa làm cho lần thanh toán gần nhất không hợp lệ');
+        await manager.query(
+          `UPDATE payment_receipts SET amount=$1,
+             proof_url=COALESCE($2, proof_url), proof_name=COALESCE($3, proof_name),
+             proof_mime_type=COALESCE($4, proof_mime_type), proof_size=COALESCE($5, proof_size)
+           WHERE id=$6`,
+          [correctedReceiptAmount, proof?.url || null, proof?.name || null, proof?.mimeType || null, proof?.size || null, receipts[0].id],
+        );
+      } else {
+        await manager.query(
+          `INSERT INTO payment_receipts (payment_id, amount, proof_url, proof_name, proof_mime_type, proof_size)
+           VALUES ($1,$2,$3,$4,$5,$6)`,
+          [id, correctedPaid, proof?.url || null, proof?.name || null, proof?.mimeType || null, proof?.size || null],
+        );
+      }
+    });
+    return this.repo.findOne({ where: { id } });
+  }
+
   /** Total revenue summary */
   async summary() {
     const rows = await this.dataSource.query(`
@@ -235,6 +274,11 @@ export class PaymentsController {
   pay(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UploadedFile() file: any, @Req() req: any) {
     const proof = file ? { url: `/uploads/payment-proofs/${file.filename}`, name: file.originalname, mimeType: file.mimetype, size: file.size } : undefined;
     return this.service.markPaid(id, body.paidAmount === undefined ? undefined : +body.paidAmount, proof, req.user?.id);
+  }
+  @Patch(':id/payment-details') @Roles('ADMIN','TEACHER') @UseInterceptors(paymentProofUpload)
+  editPayment(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UploadedFile() file: any) {
+    const proof = file ? { url: `/uploads/payment-proofs/${file.filename}`, name: file.originalname, mimeType: file.mimetype, size: file.size } : undefined;
+    return this.service.editPaid(id, +body.paidAmount, proof);
   }
 }
 

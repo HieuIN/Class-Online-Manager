@@ -132,6 +132,7 @@ export const paymentsApi = {
   summary: () => http.get('/payments/summary'),
   revenueReport: (from, to) => http.get('/payments/revenue-report', { params: { from, to } }),
   pay: (id, data) => http.patch(`/payments/${id}/pay`, data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined),
+  updatePayment: (id, data) => http.patch(`/payments/${id}/payment-details`, data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined),
   create: (d) => http.post('/payments', d),
   downloadInvoice: (id) => http.get(`/payments/${id}/invoice`, { responseType: 'blob' }),
   installments: (id) => http.get(`/payments/${id}/installments`),

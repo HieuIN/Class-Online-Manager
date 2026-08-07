@@ -43,22 +43,23 @@
             <el-button size="small" @click="downloadInvoice(row)">PDF</el-button>
           </template>
         </el-table-column>
-        <el-table-column label="Hành động" width="220">
+        <el-table-column label="Hành động" width="280">
           <template #default="{ row }">
             <el-button size="small" @click="openInstallments(row)">Đợt</el-button>
             <el-button size="small" @click="openQr(row)">QR</el-button>
+            <el-button v-if="+row.paid_amount > 0" size="small" @click="openEditPay(row)">Sửa</el-button>
             <el-button v-if="row.status !== 'PAID'" size="small" type="primary" @click="openPay(row)">Ghi nhận</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="showPay" title="Ghi nhận thanh toán" width="min(520px, 94vw)" @closed="clearProof">
+    <el-dialog v-model="showPay" :title="isEditingPay ? 'Sửa thanh toán' : 'Ghi nhận thanh toán'" width="min(520px, 94vw)" @closed="clearProof">
       <el-form v-if="payRow" label-position="top">
         <el-form-item label="Học viên"><b>{{ payRow.studentName }}</b></el-form-item>
         <el-form-item label="Tổng học phí">{{ fmtMoney(payRow.amount) }}</el-form-item>
-        <el-form-item label="Số tiền thu lần này">
-          <el-input-number v-model="payAmount" :min="0" :max="Math.max(0, +payRow.amount - +payRow.paid_amount)" :step="100000" />
+        <el-form-item :label="isEditingPay ? 'Tổng số tiền đã đóng' : 'Số tiền thu lần này'">
+          <el-input-number v-model="payAmount" :min="0" :max="isEditingPay ? +payRow.amount : Math.max(0, +payRow.amount - +payRow.paid_amount)" :step="100000" />
         </el-form-item>
         <el-form-item label="Ảnh / hóa đơn chuyển tiền">
           <div class="proof-dropzone" tabindex="0" @click="proofInput?.click()" @paste="handleProofPaste" @dragover.prevent @drop.prevent="handleProofDrop">
@@ -78,7 +79,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showPay = false">Hủy</el-button>
-        <el-button type="primary" @click="confirmPay">Xác nhận</el-button>
+        <el-button type="primary" @click="confirmPay">{{ isEditingPay ? 'Lưu thay đổi' : 'Xác nhận' }}</el-button>
       </template>
     </el-dialog>
 
@@ -126,6 +127,7 @@ const payments = ref([]);
 const showPay = ref(false);
 const payRow = ref(null);
 const payAmount = ref(0);
+const isEditingPay = ref(false);
 const proofFile = ref(null);
 const proofPreview = ref('');
 const proofInput = ref(null);
@@ -168,15 +170,17 @@ const handleProofPaste = event => {
 };
 const formatFileSize = size => size >= 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(size / 1024)} KB`;
 const openProof = url => window.open(mediaUrl(url), '_blank', 'noopener');
-const openPay = (row) => { clearProof(); payRow.value = row; payAmount.value = Math.max(0, +row.amount - +row.paid_amount); showPay.value = true; };
+const openPay = (row) => { clearProof(); isEditingPay.value = false; payRow.value = row; payAmount.value = Math.max(0, +row.amount - +row.paid_amount); showPay.value = true; };
+const openEditPay = (row) => { clearProof(); isEditingPay.value = true; payRow.value = row; payAmount.value = +row.paid_amount || 0; showPay.value = true; };
 
 const confirmPay = async () => {
   if (!payAmount.value || payAmount.value <= 0) { ElMessage.warning('Vui lòng nhập số tiền lớn hơn 0'); return; }
   const formData = new FormData();
   formData.append('paidAmount', String(payAmount.value));
   if (proofFile.value) formData.append('proof', proofFile.value);
-  await paymentsApi.pay(payRow.value.id, formData);
-  ElMessage.success('Đã ghi nhận thanh toán');
+  if (isEditingPay.value) await paymentsApi.updatePayment(payRow.value.id, formData);
+  else await paymentsApi.pay(payRow.value.id, formData);
+  ElMessage.success(isEditingPay.value ? 'Đã cập nhật thanh toán' : 'Đã ghi nhận thanh toán');
   showPay.value = false;
   clearProof();
   reload();

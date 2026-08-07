@@ -75,14 +75,18 @@ export class PaymentsService {
     return rows[0];
   }
 
-  async markPaid(id: number, paidAmount?: number) {
+  async markPaid(id: number, receivedAmount?: number) {
     const payment = await this.repo.findOne({ where: { id } });
     if (!payment) return null;
-    const fullPaid = !paidAmount || paidAmount >= +payment.amount;
+    const total = +payment.amount || 0;
+    const alreadyPaid = +payment.paidAmount || 0;
+    const received = receivedAmount == null ? total - alreadyPaid : Math.max(0, +receivedAmount || 0);
+    const paidAmount = Math.min(total, alreadyPaid + received);
+    const fullPaid = paidAmount >= total;
     await this.repo.update(id, {
-      paidAmount: paidAmount || payment.amount,
-      status: fullPaid ? 'PAID' : 'PARTIAL',
-      paidAt: new Date(),
+      paidAmount,
+      status: fullPaid ? 'PAID' : paidAmount > 0 ? 'PARTIAL' : 'PENDING',
+      paidAt: paidAmount > 0 ? new Date() : payment.paidAt,
     });
     return this.repo.findOne({ where: { id } });
   }

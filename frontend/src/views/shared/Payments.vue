@@ -16,7 +16,10 @@
           <template #default="{ row }">{{ fmtMoney(row.amount) }}</template>
         </el-table-column>
         <el-table-column label="Đã đóng" width="140">
-          <template #default="{ row }">{{ fmtMoney(row.paid_amount) }}</template>
+          <template #default="{ row }">
+            <span v-if="row.status === 'PARTIAL' && !+row.paid_amount" class="missing-amount">Chưa nhập số tiền</span>
+            <span v-else>{{ fmtMoney(row.paid_amount) }}</span>
+          </template>
         </el-table-column>
         <el-table-column label="Trạng thái" width="130">
           <template #default="{ row }">
@@ -49,7 +52,7 @@
         <el-form-item label="Học viên"><b>{{ payRow.studentName }}</b></el-form-item>
         <el-form-item label="Tổng học phí">{{ fmtMoney(payRow.amount) }}</el-form-item>
         <el-form-item label="Số tiền thu lần này">
-          <el-input-number v-model="payAmount" :min="0" :max="+payRow.amount" :step="100000" />
+          <el-input-number v-model="payAmount" :min="0" :max="Math.max(0, +payRow.amount - +payRow.paid_amount)" :step="100000" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -108,16 +111,16 @@ const installmentPayment = ref(null);
 const installmentForm = ref({ dueDate: '', amount: 0 });
 const qrInfo = ref(null);
 
-const totalPaid = computed(() => payments.value.filter(p => p.status === 'PAID').reduce((s, p) => s + +p.amount, 0));
-const totalUnpaid = computed(() => payments.value.filter(p => p.status !== 'PAID').reduce((s, p) => s + (+p.amount - +p.paid_amount), 0));
-const totalAll = computed(() => totalPaid.value + totalUnpaid.value);
+const totalPaid = computed(() => payments.value.reduce((sum, payment) => sum + (+payment.paid_amount || 0), 0));
+const totalAll = computed(() => payments.value.reduce((sum, payment) => sum + (+payment.amount || 0), 0));
+const totalUnpaid = computed(() => Math.max(0, totalAll.value - totalPaid.value));
 
 const reload = async () => {
   if (!classStore.selectedId) return;
   payments.value = await paymentsApi.list({ classId: classStore.selectedId });
 };
 
-const openPay = (row) => { payRow.value = row; payAmount.value = +row.amount - +row.paid_amount; showPay.value = true; };
+const openPay = (row) => { payRow.value = row; payAmount.value = Math.max(0, +row.amount - +row.paid_amount); showPay.value = true; };
 
 const confirmPay = async () => {
   await paymentsApi.pay(payRow.value.id, payAmount.value);
@@ -181,4 +184,5 @@ onMounted(reload);
 .installment-form { display:flex; gap: 8px; align-items:center; flex-wrap:wrap; }
 .qr-box { display:flex; flex-direction:column; align-items:center; gap: 10px; text-align:center; }
 .qr-box img { width: 280px; max-width: 100%; border: 1px solid #eee; border-radius: 8px; }
+.missing-amount { color:#b7791f; font-size:12px; font-weight:600; }
 </style>

@@ -75,6 +75,9 @@ export class SessionsService {
 
     const displayName = [access[0]?.courseName, access[0]?.className, user.fullName || user.email]
       .filter(Boolean).join(' – ').slice(0, 64) || 'Ctalk Chinese';
+    const plannedDate = String(session.plannedDate).slice(0, 10);
+    const startTime = String(session.startTime || '00:00:00').slice(0, 8);
+    const endTime = session.endTime ? String(session.endTime).slice(0, 8) : null;
     return {
       sdkKey, signature, meetingNumber, role,
       password: parsed.searchParams.get('pwd') || '',
@@ -82,6 +85,9 @@ export class SessionsService {
       userName: displayName,
       meetingUrl: url,
       topic: session.topic || `Buổi ${session.sessionNo}`,
+      startsAt: `${plannedDate}T${startTime}+07:00`,
+      endsAt: endTime ? `${plannedDate}T${endTime}+07:00` : null,
+      canStartInWeb: role === 1,
     };
   }
   private async inviteStudents(session: ClassSession, studentIds: number[], sendEmail: boolean, isUpdate = false) {

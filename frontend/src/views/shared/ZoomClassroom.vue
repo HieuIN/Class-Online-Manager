@@ -1,16 +1,17 @@
 <template>
   <Teleport to="body">
-    <div v-if="clientViewActive" class="ctalk-client-bar">
+    <div v-if="clientViewActive" class="ctalk-client-bar" :class="{ docked: clientViewDocked }">
       <div class="ctalk-client-brand">
         <strong>Ctalk Chinese</strong>
         <span>{{ roomTitle }}</span>
       </div>
       <div class="ctalk-client-actions">
-        <span class="pip-status">Cửa sổ nhỏ tự bật khi chuyển tab</span>
-        <button type="button" @click="toggleClientFullscreen">
+        <span v-if="!clientViewDocked" class="pip-status">PiP tự bật khi chuyển tab Chrome</span>
+        <button v-if="clientViewDocked" type="button" @click="returnToClientView">Trở lại phòng học</button>
+        <button v-else type="button" @click="toggleClientFullscreen">
           {{ clientFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình' }}
         </button>
-        <button type="button" class="secondary" @click="leaveClientView">Về lịch học</button>
+        <button v-if="!clientViewDocked" type="button" class="secondary" @click="dockClientView">Về lịch học</button>
       </div>
     </div>
   </Teleport>
@@ -78,7 +79,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { FullScreen, Loading } from '@element-plus/icons-vue';
 import { sessionsApi } from '@/api';
@@ -87,10 +88,13 @@ import { useAuthStore } from '@/stores/auth';
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
+defineOptions({ name: 'ZoomClassroom' });
+const meetingSessionId = String(route.params.sessionId || '');
 const zoomRoot = ref(null);
 const classroomRoot = ref(null);
 const isFullscreen = ref(false);
 const clientViewActive = ref(false);
+const clientViewDocked = ref(false);
 const clientFullscreen = ref(false);
 const loading = ref(true);
 const errorMessage = ref('');
@@ -104,6 +108,12 @@ const fallbackUrl = ref(String(route.query.fallback || ''));
 let client = null;
 let clientViewZoom = null;
 let countdownTimer = null;
+const handleDockedRootClick = (event) => {
+  if (!clientViewDocked.value) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  returnToClientView();
+};
 
 const scheduledLabel = computed(() => startsAt.value
   ? new Intl.DateTimeFormat('vi-VN', { weekday:'long', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).format(startsAt.value)
@@ -142,18 +152,16 @@ const toggleClientFullscreen = async () => {
     errorMessage.value = 'Trình duyệt không cho phép mở toàn màn hình. Vui lòng kiểm tra quyền của trình duyệt.';
   }
 };
-const leaveClientView = () => {
-  clientViewActive.value = false;
-  try {
-    clientViewZoom?.leaveMeeting?.({
-      confirm: false,
-      success: () => router.push('/calendar'),
-      error: () => router.push('/calendar'),
-    });
-  } catch {
-    router.push('/calendar');
-  }
+const setClientDocked = (docked) => {
+  clientViewDocked.value = docked;
+  document.body.classList.toggle('ctalk-zoom-pip', docked);
 };
+const dockClientView = async () => {
+  if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+  setClientDocked(true);
+  router.push('/calendar');
+};
+const returnToClientView = () => router.push(`/live-class/${meetingSessionId}`);
 const connectZoom = async () => {
   connectingZoom.value = true;
   try {
@@ -173,7 +181,10 @@ const joinWithClientView = async (config) => {
   ZoomMtg.i18n.load('vi-VN');
   ZoomMtg.i18n.reload('vi-VN');
   const root = document.getElementById('zmmtg-root');
-  if (root) root.style.display = 'block';
+  if (root) {
+    root.style.display = 'block';
+    root.addEventListener('click', handleDockedRootClick, true);
+  }
 
   await new Promise((resolve, reject) => {
     ZoomMtg.init({
@@ -239,7 +250,7 @@ const joinOnWeb = async (config) => {
 onMounted(async () => {
   document.addEventListener('fullscreenchange', syncFullscreenState);
   try {
-    const config = await sessionsApi.zoomSignature(route.params.sessionId);
+    const config = await sessionsApi.zoomSignature(meetingSessionId);
     fallbackUrl.value = config.meetingUrl || fallbackUrl.value;
     roomTitle.value = config.topic || roomTitle.value;
     startsAt.value = config.startsAt ? new Date(config.startsAt) : null;
@@ -263,7 +274,17 @@ onMounted(async () => {
   }
 });
 
+onActivated(() => {
+  if (clientViewZoom) setClientDocked(false);
+});
+
+onDeactivated(() => {
+  if (clientViewZoom) setClientDocked(true);
+});
+
 onBeforeUnmount(() => {
+  setClientDocked(false);
+  document.getElementById('zmmtg-root')?.removeEventListener('click', handleDockedRootClick, true);
   clientViewActive.value = false;
   document.removeEventListener('fullscreenchange', syncFullscreenState);
   if (countdownTimer) window.clearInterval(countdownTimer);
@@ -305,6 +326,15 @@ onBeforeUnmount(() => {
   top:0 !important;
   height:100dvh !important;
 }
+:global(body.ctalk-zoom-pip #zmmtg-root) {
+  inset:auto 18px 18px auto !important;
+  width:min(420px, calc(100vw - 24px)) !important;
+  height:min(260px, calc(100dvh - 90px)) !important;
+  border:1px solid rgba(255,255,255,.28) !important;
+  border-radius:14px !important;
+  overflow:hidden !important;
+  box-shadow:0 14px 44px rgba(0,0,0,.45) !important;
+}
 .ctalk-client-bar {
   position:fixed;
   inset:0 0 auto 0;
@@ -338,6 +368,18 @@ onBeforeUnmount(() => {
 }
 .ctalk-client-actions button.secondary { color:#173c32; background:#fff; border-color:#ccdcd6; }
 .pip-status { color:#63736d; font-size:13px; white-space:nowrap; }
+.ctalk-client-bar.docked {
+  inset:auto 26px 286px auto;
+  width:auto;
+  height:44px;
+  padding:3px;
+  border:0;
+  border-radius:10px;
+  background:rgba(8,15,13,.9);
+  box-shadow:0 8px 28px rgba(0,0,0,.3);
+}
+.ctalk-client-bar.docked .ctalk-client-brand { display:none; }
+.ctalk-client-bar.docked .ctalk-client-actions button { min-height:36px; }
 :global(:fullscreen .ctalk-client-bar) {
   inset:8px 10px auto auto;
   width:auto;
@@ -366,5 +408,7 @@ onBeforeUnmount(() => {
   :global(body:has(.ctalk-client-bar) #zmmtg-root) { top:56px !important; height:calc(100dvh - 56px) !important; }
   .ctalk-client-brand span, .pip-status { display:none; }
   .ctalk-client-actions button { min-height:36px; padding:0 10px; font-size:13px; }
+  :global(body.ctalk-zoom-pip #zmmtg-root) { right:8px !important; bottom:8px !important; width:calc(100vw - 16px) !important; height:220px !important; }
+  .ctalk-client-bar.docked { right:14px; bottom:236px; }
 }
 </style>

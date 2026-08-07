@@ -1,4 +1,19 @@
 <template>
+  <Teleport to="body">
+    <div v-if="clientViewActive" class="ctalk-client-bar">
+      <div class="ctalk-client-brand">
+        <strong>Ctalk Chinese</strong>
+        <span>{{ roomTitle }}</span>
+      </div>
+      <div class="ctalk-client-actions">
+        <span class="pip-status">Cửa sổ nhỏ tự bật khi chuyển tab</span>
+        <button type="button" @click="toggleClientFullscreen">
+          {{ clientFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình' }}
+        </button>
+        <button type="button" class="secondary" @click="leaveClientView">Về lịch học</button>
+      </div>
+    </div>
+  </Teleport>
   <section ref="classroomRoot" class="zoom-classroom" :class="{ 'is-fullscreen': isFullscreen }">
     <header class="classroom-header">
       <div>
@@ -75,6 +90,8 @@ const auth = useAuthStore();
 const zoomRoot = ref(null);
 const classroomRoot = ref(null);
 const isFullscreen = ref(false);
+const clientViewActive = ref(false);
+const clientFullscreen = ref(false);
 const loading = ref(true);
 const errorMessage = ref('');
 const waitingForStart = ref(false);
@@ -107,6 +124,7 @@ const openZoom = () => {
 const retryOnWeb = () => window.location.reload();
 const syncFullscreenState = () => {
   isFullscreen.value = document.fullscreenElement === classroomRoot.value;
+  clientFullscreen.value = Boolean(document.fullscreenElement) && clientViewActive.value;
 };
 const toggleFullscreen = async () => {
   try {
@@ -114,6 +132,26 @@ const toggleFullscreen = async () => {
     else await classroomRoot.value?.requestFullscreen();
   } catch {
     errorMessage.value = 'Trình duyệt không cho phép mở toàn màn hình. Vui lòng kiểm tra quyền của trình duyệt.';
+  }
+};
+const toggleClientFullscreen = async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
+  } catch {
+    errorMessage.value = 'Trình duyệt không cho phép mở toàn màn hình. Vui lòng kiểm tra quyền của trình duyệt.';
+  }
+};
+const leaveClientView = () => {
+  clientViewActive.value = false;
+  try {
+    clientViewZoom?.leaveMeeting?.({
+      confirm: false,
+      success: () => router.push('/calendar'),
+      error: () => router.push('/calendar'),
+    });
+  } catch {
+    router.push('/calendar');
   }
 };
 const connectZoom = async () => {
@@ -145,6 +183,7 @@ const joinWithClientView = async (config) => {
       sharingMode: 'fit',
       showPureSharingContent: true,
       defaultView: 'speaker',
+      disablePictureInPicture: false,
       success: resolve,
       error: reject,
     });
@@ -162,6 +201,7 @@ const joinWithClientView = async (config) => {
     });
   });
   loading.value = false;
+  clientViewActive.value = true;
 };
 
 const joinOnWeb = async (config) => {
@@ -224,6 +264,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  clientViewActive.value = false;
   document.removeEventListener('fullscreenchange', syncFullscreenState);
   if (countdownTimer) window.clearInterval(countdownTimer);
   try { clientViewZoom?.leaveMeeting?.({ confirm: false }); } catch {}
@@ -254,6 +295,62 @@ onBeforeUnmount(() => {
 .waiting-badge { padding:7px 12px; border-radius:999px; background:#fff3d6; color:#956400; font-size:12px; font-weight:800; letter-spacing:.06em; }
 .countdown { color:#147d68; font-size:clamp(28px, 5vw, 48px); font-variant-numeric:tabular-nums; }
 .host-connect-row { display:flex; align-items:center; justify-content:space-between; gap:16px; width:100%; }
+:global(body:has(.ctalk-client-bar)) { overflow:hidden; }
+:global(body:has(.ctalk-client-bar) #zmmtg-root) {
+  top:64px !important;
+  height:calc(100dvh - 64px) !important;
+  z-index:1000 !important;
+}
+:global(:fullscreen body:has(.ctalk-client-bar) #zmmtg-root) {
+  top:0 !important;
+  height:100dvh !important;
+}
+.ctalk-client-bar {
+  position:fixed;
+  inset:0 0 auto 0;
+  z-index:2147483646;
+  height:64px;
+  padding:8px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  box-sizing:border-box;
+  color:#17251f;
+  background:rgba(255,255,255,.97);
+  border-bottom:1px solid #dce8e3;
+  box-shadow:0 2px 12px rgba(17,53,43,.12);
+}
+.ctalk-client-brand { min-width:0; display:flex; align-items:center; gap:12px; }
+.ctalk-client-brand strong { color:#147d68; white-space:nowrap; }
+.ctalk-client-brand span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; }
+.ctalk-client-actions { display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+.ctalk-client-actions button {
+  min-height:38px;
+  padding:0 15px;
+  border:1px solid #147d68;
+  border-radius:8px;
+  color:#fff;
+  background:#147d68;
+  font:inherit;
+  font-weight:700;
+  cursor:pointer;
+}
+.ctalk-client-actions button.secondary { color:#173c32; background:#fff; border-color:#ccdcd6; }
+.pip-status { color:#63736d; font-size:13px; white-space:nowrap; }
+:global(:fullscreen .ctalk-client-bar) {
+  inset:8px 10px auto auto;
+  width:auto;
+  height:46px;
+  padding:4px;
+  border:0;
+  border-radius:10px;
+  color:#fff;
+  background:rgba(8,15,13,.78);
+  box-shadow:none;
+}
+:global(:fullscreen .ctalk-client-brand),
+:global(:fullscreen .pip-status) { display:none; }
 @media (max-width: 700px) {
   .zoom-classroom { min-height:calc(100dvh - 94px); gap:8px; }
   .classroom-header { align-items:flex-start; flex-direction:column; gap:8px; }
@@ -265,5 +362,9 @@ onBeforeUnmount(() => {
   .zoom-classroom:fullscreen .classroom-header > div:first-child, .zoom-classroom.is-fullscreen .classroom-header > div:first-child { display:none; }
   .zoom-classroom:fullscreen .header-actions, .zoom-classroom.is-fullscreen .header-actions { margin-left:auto; width:auto; }
   .zoom-classroom:fullscreen .header-actions .el-button:not(:first-child), .zoom-classroom.is-fullscreen .header-actions .el-button:not(:first-child) { display:none; }
+  .ctalk-client-bar { height:56px; padding:6px 8px; }
+  :global(body:has(.ctalk-client-bar) #zmmtg-root) { top:56px !important; height:calc(100dvh - 56px) !important; }
+  .ctalk-client-brand span, .pip-status { display:none; }
+  .ctalk-client-actions button { min-height:36px; padding:0 10px; font-size:13px; }
 }
 </style>

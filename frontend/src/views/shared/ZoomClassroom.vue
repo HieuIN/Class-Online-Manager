@@ -1,11 +1,15 @@
 <template>
-  <section class="zoom-classroom">
+  <section ref="classroomRoot" class="zoom-classroom" :class="{ 'is-fullscreen': isFullscreen }">
     <header class="classroom-header">
       <div>
         <span class="eyebrow">PHÒNG HỌC TRỰC TUYẾN</span>
         <h1>{{ roomTitle }}</h1>
       </div>
       <div class="header-actions">
+        <el-button v-if="!waitingForStart && !errorMessage" type="primary" @click="toggleFullscreen">
+          <el-icon><FullScreen /></el-icon>
+          {{ isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình' }}
+        </el-button>
         <el-button @click="router.push('/calendar')">Về lịch học</el-button>
         <el-button v-if="!auth.isStudent" type="primary" plain @click="openZoom">Mở bằng ứng dụng Zoom</el-button>
       </div>
@@ -61,7 +65,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Loading } from '@element-plus/icons-vue';
+import { FullScreen, Loading } from '@element-plus/icons-vue';
 import { sessionsApi } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 
@@ -69,6 +73,8 @@ const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 const zoomRoot = ref(null);
+const classroomRoot = ref(null);
+const isFullscreen = ref(false);
 const loading = ref(true);
 const errorMessage = ref('');
 const waitingForStart = ref(false);
@@ -98,6 +104,15 @@ const openZoom = () => {
   if (fallbackUrl.value) window.open(fallbackUrl.value, '_blank', 'noopener');
 };
 const retryOnWeb = () => window.location.reload();
+const syncFullscreenState = () => { isFullscreen.value = document.fullscreenElement === classroomRoot.value; };
+const toggleFullscreen = async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await classroomRoot.value?.requestFullscreen();
+  } catch {
+    errorMessage.value = 'Trình duyệt không cho phép mở toàn màn hình. Vui lòng kiểm tra quyền của trình duyệt.';
+  }
+};
 const connectZoom = async () => {
   connectingZoom.value = true;
   try {
@@ -138,6 +153,7 @@ const joinOnWeb = async (config) => {
 };
 
 onMounted(async () => {
+  document.addEventListener('fullscreenchange', syncFullscreenState);
   try {
     const config = await sessionsApi.zoomSignature(route.params.sessionId);
     fallbackUrl.value = config.meetingUrl || fallbackUrl.value;
@@ -164,20 +180,26 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', syncFullscreenState);
   if (countdownTimer) window.clearInterval(countdownTimer);
   try { client?.leaveMeeting?.(); } catch {}
 });
 </script>
 
 <style scoped>
-.zoom-classroom { min-height: calc(100vh - 120px); display:flex; flex-direction:column; gap:16px; }
+.zoom-classroom { min-height:calc(100dvh - 126px); display:flex; flex-direction:column; gap:12px; }
 .classroom-header { display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .classroom-header h1 { margin:3px 0 0; font-size:24px; }
 .eyebrow { color:#147d68; font-size:12px; font-weight:700; letter-spacing:.08em; }
 .header-actions { display:flex; flex-wrap:wrap; gap:8px; }
 .room-alert { flex:0 0 auto; }
-.zoom-root { width:100%; height:clamp(560px, calc(100vh - 210px), 900px); min-height:560px; border-radius:14px; overflow:hidden; background:#111; }
+.zoom-root { width:100%; height:calc(100dvh - 182px); min-height:620px; flex:1 1 auto; border-radius:14px; overflow:hidden; background:#111; }
 .zoom-root.hidden { display:none; }
+.zoom-classroom:fullscreen, .zoom-classroom.is-fullscreen { width:100vw; height:100dvh; min-height:100dvh; padding:10px; gap:8px; background:#0d0f0f; box-sizing:border-box; }
+.zoom-classroom:fullscreen .classroom-header, .zoom-classroom.is-fullscreen .classroom-header { flex:0 0 auto; color:#fff; }
+.zoom-classroom:fullscreen .eyebrow, .zoom-classroom.is-fullscreen .eyebrow { display:none; }
+.zoom-classroom:fullscreen .classroom-header h1, .zoom-classroom.is-fullscreen .classroom-header h1 { margin:0; font-size:18px; }
+.zoom-classroom:fullscreen .zoom-root, .zoom-classroom.is-fullscreen .zoom-root { height:auto; min-height:0; flex:1 1 0; border-radius:8px; }
 .room-loading, .fallback-card, .waiting-card { min-height:360px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; border:1px solid #dce8e3; border-radius:14px; background:#fff; }
 .room-loading span, .fallback-card p { color:#66766f; }
 .fallback-card p { max-width:560px; margin:0 16px 8px; }
@@ -187,9 +209,15 @@ onBeforeUnmount(() => {
 .countdown { color:#147d68; font-size:clamp(28px, 5vw, 48px); font-variant-numeric:tabular-nums; }
 .host-connect-row { display:flex; align-items:center; justify-content:space-between; gap:16px; width:100%; }
 @media (max-width: 700px) {
-  .classroom-header { align-items:flex-start; flex-direction:column; }
+  .zoom-classroom { min-height:calc(100dvh - 94px); gap:8px; }
+  .classroom-header { align-items:flex-start; flex-direction:column; gap:8px; }
+  .classroom-header h1 { font-size:18px; }
   .header-actions { width:100%; }
   .header-actions .el-button { flex:1; margin-left:0; }
-  .zoom-root { height:calc(100dvh - 245px); min-height:480px; border-radius:8px; }
+  .zoom-root { height:calc(100dvh - 210px); min-height:520px; border-radius:8px; }
+  .zoom-classroom:fullscreen .classroom-header, .zoom-classroom.is-fullscreen .classroom-header { flex-direction:row; align-items:center; }
+  .zoom-classroom:fullscreen .classroom-header > div:first-child, .zoom-classroom.is-fullscreen .classroom-header > div:first-child { display:none; }
+  .zoom-classroom:fullscreen .header-actions, .zoom-classroom.is-fullscreen .header-actions { margin-left:auto; width:auto; }
+  .zoom-classroom:fullscreen .header-actions .el-button:not(:first-child), .zoom-classroom.is-fullscreen .header-actions .el-button:not(:first-child) { display:none; }
 }
 </style>

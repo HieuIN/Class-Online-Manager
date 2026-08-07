@@ -11,7 +11,7 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   const uploadDir = ensureUploadDir();
-  for (const folder of ['materials', 'assignments', 'submissions', 'forum', 'gallery', 'avatars', 'flashcards', 'pronunciation']) {
+  for (const folder of ['materials', 'assignments', 'submissions', 'forum', 'gallery', 'avatars', 'flashcards', 'pronunciation', 'payment-proofs']) {
     ensureUploadDir(folder);
   }
 

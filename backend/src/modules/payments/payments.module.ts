@@ -1,4 +1,6 @@
-import { Injectable, Module, Controller, Get, Post, Patch, Body, Param, ParseIntPipe, Query, UseGuards, Res } from '@nestjs/common';
+import { BadRequestException, Injectable, Module, Controller, Get, Post, Patch, Body, Param, ParseIntPipe, Query, UseGuards, Res, UploadedFile, UseInterceptors, Req } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository, DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -6,6 +8,8 @@ import { Roles, RolesGuard } from '../../common/roles.guard';
 import { Response } from 'express';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { extname } from 'path';
+import { ensureUploadDir } from '../../common/upload-dir.util';
 import PDFDocument = require('pdfkit');
 
 const findUnicodeFont = () => {
@@ -21,6 +25,18 @@ const findUnicodeFont = () => {
   ].filter(Boolean) as string[];
   return candidates.find((path) => existsSync(path));
 };
+
+const paymentProofUpload = FileInterceptor('proof', {
+  storage: diskStorage({
+    destination: (_req, _file, cb) => cb(null, ensureUploadDir('payment-proofs')),
+    filename: (_req, file, cb) => cb(null, `payment-${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname).toLowerCase()}`),
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (/^(image\/(jpeg|png|webp|gif)|application\/pdf)$/i.test(file.mimetype)) return cb(null, true);
+    cb(new BadRequestException('Bằng chứng chỉ hỗ trợ ảnh hoặc PDF'), false);
+  },
+});
 
 @Entity('payments')
 export class Payment {
@@ -46,7 +62,9 @@ export class PaymentsService {
 
   async findByClass(classId: number) {
     return this.dataSource.query(
-      `SELECT p.*, u.full_name as "studentName", u.email as "studentEmail"
+      `SELECT p.*, u.full_name as "studentName", u.email as "studentEmail",
+              (SELECT proof_url FROM payment_receipts pr WHERE pr.payment_id=p.id AND pr.proof_url IS NOT NULL ORDER BY pr.created_at DESC LIMIT 1) as "latestProofUrl",
+              (SELECT COUNT(*)::int FROM payment_receipts pr WHERE pr.payment_id=p.id AND pr.proof_url IS NOT NULL) as "proofCount"
        FROM payments p JOIN users u ON u.id = p.student_id
        WHERE p.class_id = $1 ORDER BY u.full_name`, [classId]
     );
@@ -75,12 +93,13 @@ export class PaymentsService {
     return rows[0];
   }
 
-  async markPaid(id: number, receivedAmount?: number) {
+  async markPaid(id: number, receivedAmount?: number, proof?: { url: string; name: string; mimeType: string; size: number }, createdBy?: number) {
     const payment = await this.repo.findOne({ where: { id } });
     if (!payment) return null;
     const total = +payment.amount || 0;
     const alreadyPaid = +payment.paidAmount || 0;
     const received = receivedAmount == null ? total - alreadyPaid : Math.max(0, +receivedAmount || 0);
+    if (received <= 0) throw new BadRequestException('Số tiền thanh toán phải lớn hơn 0');
     const paidAmount = Math.min(total, alreadyPaid + received);
     const fullPaid = paidAmount >= total;
     await this.repo.update(id, {
@@ -88,6 +107,11 @@ export class PaymentsService {
       status: fullPaid ? 'PAID' : paidAmount > 0 ? 'PARTIAL' : 'PENDING',
       paidAt: paidAmount > 0 ? new Date() : payment.paidAt,
     });
+    await this.dataSource.query(
+      `INSERT INTO payment_receipts (payment_id, amount, proof_url, proof_name, proof_mime_type, proof_size, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, received, proof?.url || null, proof?.name || null, proof?.mimeType || null, proof?.size || null, createdBy || null],
+    );
     return this.repo.findOne({ where: { id } });
   }
 
@@ -207,8 +231,10 @@ export class PaymentsController {
     return [];
   }
   @Post() @Roles('ADMIN','TEACHER') create(@Body() body: any) { return this.service.create(body); }
-  @Patch(':id/pay') @Roles('ADMIN','TEACHER') pay(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
-    return this.service.markPaid(id, body.paidAmount);
+  @Patch(':id/pay') @Roles('ADMIN','TEACHER') @UseInterceptors(paymentProofUpload)
+  pay(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UploadedFile() file: any, @Req() req: any) {
+    const proof = file ? { url: `/uploads/payment-proofs/${file.filename}`, name: file.originalname, mimeType: file.mimetype, size: file.size } : undefined;
+    return this.service.markPaid(id, body.paidAmount === undefined ? undefined : +body.paidAmount, proof, req.user?.id);
   }
 }
 

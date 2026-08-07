@@ -32,6 +32,12 @@
         <el-table-column label="Ngày đóng" width="120">
           <template #default="{ row }">{{ row.paid_at ? fmtDate(row.paid_at) : '—' }}</template>
         </el-table-column>
+        <el-table-column label="Bằng chứng" width="120">
+          <template #default="{ row }">
+            <el-button v-if="row.latestProofUrl" link type="primary" @click="openProof(row.latestProofUrl)">Xem{{ +row.proofCount > 1 ? ` (${row.proofCount})` : '' }}</el-button>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
         <el-table-column label="Hóa đơn" width="110">
           <template #default="{ row }">
             <el-button size="small" @click="downloadInvoice(row)">PDF</el-button>
@@ -47,12 +53,27 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="showPay" title="Ghi nhận thanh toán" width="380px">
+    <el-dialog v-model="showPay" title="Ghi nhận thanh toán" width="min(520px, 94vw)" @closed="clearProof">
       <el-form v-if="payRow" label-position="top">
         <el-form-item label="Học viên"><b>{{ payRow.studentName }}</b></el-form-item>
         <el-form-item label="Tổng học phí">{{ fmtMoney(payRow.amount) }}</el-form-item>
         <el-form-item label="Số tiền thu lần này">
           <el-input-number v-model="payAmount" :min="0" :max="Math.max(0, +payRow.amount - +payRow.paid_amount)" :step="100000" />
+        </el-form-item>
+        <el-form-item label="Ảnh / hóa đơn chuyển tiền">
+          <div class="proof-dropzone" tabindex="0" @click="proofInput?.click()" @paste="handleProofPaste" @dragover.prevent @drop.prevent="handleProofDrop">
+            <input ref="proofInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" hidden @change="handleProofInput" />
+            <template v-if="!proofFile">
+              <b>Chọn file, kéo thả hoặc dán ảnh tại đây</b>
+              <span>Ảnh/PDF, tối đa 10 MB · Có thể Ctrl+V ảnh chụp hóa đơn</span>
+            </template>
+            <template v-else>
+              <img v-if="proofPreview" :src="proofPreview" alt="Bằng chứng thanh toán" />
+              <b>{{ proofFile.name }}</b>
+              <span>{{ formatFileSize(proofFile.size) }}</span>
+              <el-button link type="danger" @click.stop="clearProof">Xóa</el-button>
+            </template>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -98,12 +119,16 @@ import { ElMessage } from 'element-plus';
 import ClassPicker from '@/components/ClassPicker.vue';
 import { paymentsApi } from '@/api';
 import { fmtMoney, fmtDate, paymentBadge } from '@/utils/format';
+import { mediaUrl } from '@/utils/media';
 
 const classStore = useClassStore();
 const payments = ref([]);
 const showPay = ref(false);
 const payRow = ref(null);
 const payAmount = ref(0);
+const proofFile = ref(null);
+const proofPreview = ref('');
+const proofInput = ref(null);
 const showInstallments = ref(false);
 const showQr = ref(false);
 const installments = ref([]);
@@ -120,12 +145,40 @@ const reload = async () => {
   payments.value = await paymentsApi.list({ classId: classStore.selectedId });
 };
 
-const openPay = (row) => { payRow.value = row; payAmount.value = Math.max(0, +row.amount - +row.paid_amount); showPay.value = true; };
+const clearProof = () => {
+  if (proofPreview.value) URL.revokeObjectURL(proofPreview.value);
+  proofFile.value = null;
+  proofPreview.value = '';
+  if (proofInput.value) proofInput.value.value = '';
+};
+const setProof = (file) => {
+  if (!file) return;
+  if (!/^(image\/(jpeg|png|webp|gif)|application\/pdf)$/i.test(file.type)) { ElMessage.warning('Chỉ hỗ trợ ảnh hoặc PDF'); return; }
+  if (file.size > 10 * 1024 * 1024) { ElMessage.warning('File bằng chứng tối đa 10 MB'); return; }
+  clearProof();
+  proofFile.value = file;
+  if (file.type.startsWith('image/')) proofPreview.value = URL.createObjectURL(file);
+};
+const handleProofInput = event => setProof(event.target.files?.[0]);
+const handleProofDrop = event => setProof(event.dataTransfer?.files?.[0]);
+const handleProofPaste = event => {
+  const item = [...(event.clipboardData?.items || [])].find(entry => entry.type.startsWith('image/'));
+  const file = item?.getAsFile();
+  if (file) { event.preventDefault(); setProof(new File([file], `hoa-don-${Date.now()}.${file.type.split('/')[1] || 'png'}`, { type:file.type })); }
+};
+const formatFileSize = size => size >= 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(size / 1024)} KB`;
+const openProof = url => window.open(mediaUrl(url), '_blank', 'noopener');
+const openPay = (row) => { clearProof(); payRow.value = row; payAmount.value = Math.max(0, +row.amount - +row.paid_amount); showPay.value = true; };
 
 const confirmPay = async () => {
-  await paymentsApi.pay(payRow.value.id, payAmount.value);
+  if (!payAmount.value || payAmount.value <= 0) { ElMessage.warning('Vui lòng nhập số tiền lớn hơn 0'); return; }
+  const formData = new FormData();
+  formData.append('paidAmount', String(payAmount.value));
+  if (proofFile.value) formData.append('proof', proofFile.value);
+  await paymentsApi.pay(payRow.value.id, formData);
   ElMessage.success('Đã ghi nhận thanh toán');
   showPay.value = false;
+  clearProof();
   reload();
 };
 
@@ -185,4 +238,8 @@ onMounted(reload);
 .qr-box { display:flex; flex-direction:column; align-items:center; gap: 10px; text-align:center; }
 .qr-box img { width: 280px; max-width: 100%; border: 1px solid #eee; border-radius: 8px; }
 .missing-amount { color:#b7791f; font-size:12px; font-weight:600; }
+.proof-dropzone { width:100%; min-height:145px; padding:16px; border:1.5px dashed #b9cec6; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; text-align:center; cursor:pointer; background:#f8fbfa; }
+.proof-dropzone:focus, .proof-dropzone:hover { border-color:#15816b; background:#f0faf7; outline:none; }
+.proof-dropzone span { color:#73827c; font-size:12px; }
+.proof-dropzone img { max-width:100%; max-height:190px; object-fit:contain; border-radius:8px; }
 </style>

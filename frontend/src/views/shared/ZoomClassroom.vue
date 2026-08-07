@@ -10,6 +10,9 @@
           <el-icon><FullScreen /></el-icon>
           {{ isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình' }}
         </el-button>
+        <el-button v-if="!waitingForStart && !errorMessage" @click="toggleCompactLayout">
+          {{ compactLayout ? 'Bố cục mặc định' : 'Thu gọn người tham gia' }}
+        </el-button>
         <el-button @click="router.push('/calendar')">Về lịch học</el-button>
         <el-button v-if="!auth.isStudent" type="primary" plain @click="openZoom">Mở bằng ứng dụng Zoom</el-button>
       </div>
@@ -63,7 +66,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { FullScreen, Loading } from '@element-plus/icons-vue';
 import { sessionsApi } from '@/api';
@@ -75,6 +78,7 @@ const auth = useAuthStore();
 const zoomRoot = ref(null);
 const classroomRoot = ref(null);
 const isFullscreen = ref(false);
+const compactLayout = ref(false);
 const loading = ref(true);
 const errorMessage = ref('');
 const waitingForStart = ref(false);
@@ -104,7 +108,28 @@ const openZoom = () => {
   if (fallbackUrl.value) window.open(fallbackUrl.value, '_blank', 'noopener');
 };
 const retryOnWeb = () => window.location.reload();
-const syncFullscreenState = () => { isFullscreen.value = document.fullscreenElement === classroomRoot.value; };
+const zoomViewSize = () => {
+  const rect = zoomRoot.value?.getBoundingClientRect();
+  return { width: Math.max(320, Math.round(rect?.width || window.innerWidth)), height: Math.max(360, Math.round(rect?.height || window.innerHeight)) };
+};
+const applyZoomLayout = async (compact = compactLayout.value) => {
+  if (!client || loading.value) return;
+  await nextTick();
+  window.requestAnimationFrame(() => {
+    const size = zoomViewSize();
+    client.updateVideoOptions?.({ isResizable: false, viewSizes: { default: size, ribbon: size } });
+    client.setViewType?.(compact ? 'ribbon' : 'speaker');
+  });
+};
+const toggleCompactLayout = () => {
+  compactLayout.value = !compactLayout.value;
+  applyZoomLayout();
+};
+const syncFullscreenState = () => {
+  isFullscreen.value = document.fullscreenElement === classroomRoot.value;
+  if (isFullscreen.value) compactLayout.value = true;
+  window.setTimeout(() => applyZoomLayout(), 180);
+};
 const toggleFullscreen = async () => {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
@@ -146,6 +171,7 @@ const joinOnWeb = async (config) => {
       ...(config.zak ? { zak: config.zak } : {}),
     });
     loading.value = false;
+    window.setTimeout(() => applyZoomLayout(false), 150);
   } catch (error) {
     loading.value = false;
     errorMessage.value = error?.response?.data?.message || 'Không thể mở Zoom ngay trong trang lúc này.';
@@ -154,6 +180,7 @@ const joinOnWeb = async (config) => {
 
 onMounted(async () => {
   document.addEventListener('fullscreenchange', syncFullscreenState);
+  window.addEventListener('resize', applyZoomLayout);
   try {
     const config = await sessionsApi.zoomSignature(route.params.sessionId);
     fallbackUrl.value = config.meetingUrl || fallbackUrl.value;
@@ -181,6 +208,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', syncFullscreenState);
+  window.removeEventListener('resize', applyZoomLayout);
   if (countdownTimer) window.clearInterval(countdownTimer);
   try { client?.leaveMeeting?.(); } catch {}
 });
@@ -195,11 +223,12 @@ onBeforeUnmount(() => {
 .room-alert { flex:0 0 auto; }
 .zoom-root { width:100%; height:calc(100dvh - 182px); min-height:620px; flex:1 1 auto; border-radius:14px; overflow:hidden; background:#111; }
 .zoom-root.hidden { display:none; }
-.zoom-classroom:fullscreen, .zoom-classroom.is-fullscreen { width:100vw; height:100dvh; min-height:100dvh; padding:10px; gap:8px; background:#0d0f0f; box-sizing:border-box; }
-.zoom-classroom:fullscreen .classroom-header, .zoom-classroom.is-fullscreen .classroom-header { flex:0 0 auto; color:#fff; }
+.zoom-classroom:fullscreen, .zoom-classroom.is-fullscreen { position:relative; width:100vw; height:100dvh; min-height:100dvh; padding:0; gap:0; background:#0d0f0f; overflow:hidden; box-sizing:border-box; }
+.zoom-classroom:fullscreen .classroom-header, .zoom-classroom.is-fullscreen .classroom-header { position:absolute; inset:8px 10px auto 10px; z-index:20; pointer-events:none; color:#fff; }
+.zoom-classroom:fullscreen .classroom-header > *, .zoom-classroom.is-fullscreen .classroom-header > * { pointer-events:auto; }
 .zoom-classroom:fullscreen .eyebrow, .zoom-classroom.is-fullscreen .eyebrow { display:none; }
 .zoom-classroom:fullscreen .classroom-header h1, .zoom-classroom.is-fullscreen .classroom-header h1 { margin:0; font-size:18px; }
-.zoom-classroom:fullscreen .zoom-root, .zoom-classroom.is-fullscreen .zoom-root { height:auto; min-height:0; flex:1 1 0; border-radius:8px; }
+.zoom-classroom:fullscreen .zoom-root, .zoom-classroom.is-fullscreen .zoom-root { position:absolute; inset:0; width:100vw; height:100dvh; min-height:0; border-radius:0; }
 .room-loading, .fallback-card, .waiting-card { min-height:360px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; border:1px solid #dce8e3; border-radius:14px; background:#fff; }
 .room-loading span, .fallback-card p { color:#66766f; }
 .fallback-card p { max-width:560px; margin:0 16px 8px; }
@@ -218,6 +247,6 @@ onBeforeUnmount(() => {
   .zoom-classroom:fullscreen .classroom-header, .zoom-classroom.is-fullscreen .classroom-header { flex-direction:row; align-items:center; }
   .zoom-classroom:fullscreen .classroom-header > div:first-child, .zoom-classroom.is-fullscreen .classroom-header > div:first-child { display:none; }
   .zoom-classroom:fullscreen .header-actions, .zoom-classroom.is-fullscreen .header-actions { margin-left:auto; width:auto; }
-  .zoom-classroom:fullscreen .header-actions .el-button:not(:first-child), .zoom-classroom.is-fullscreen .header-actions .el-button:not(:first-child) { display:none; }
+  .zoom-classroom:fullscreen .header-actions .el-button:nth-child(n+3), .zoom-classroom.is-fullscreen .header-actions .el-button:nth-child(n+3) { display:none; }
 }
 </style>

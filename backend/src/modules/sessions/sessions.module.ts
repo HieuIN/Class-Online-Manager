@@ -56,14 +56,6 @@ export class SessionsService {
     const meetingNumber = parsed.pathname.match(/\/(?:j|s|wc)\/(\d+)/i)?.[1];
     if (!meetingNumber) throw new BadRequestException('Không tìm thấy mã cuộc họp trong đường dẫn Zoom');
 
-    if (session.zoomRequireAuth && user.role === 'STUDENT') {
-      return {
-        requiresZoomLogin: true,
-        meetingUrl: url,
-        topic: session.topic || `Buổi ${session.sessionNo}`,
-      };
-    }
-
     const sdkKey = this.config.get<string>('ZOOM_MEETING_SDK_KEY');
     const sdkSecret = this.config.get<string>('ZOOM_MEETING_SDK_SECRET');
     if (!sdkKey || !sdkSecret) throw new ServiceUnavailableException('Phòng học trực tiếp chưa được cấu hình. Vui lòng mở bằng Zoom.');
@@ -88,7 +80,6 @@ export class SessionsService {
       password: parsed.searchParams.get('pwd') || '',
       zak: role === 1 ? hostZak : '',
       userName: displayName,
-      requiresZoomLogin: false,
       meetingUrl: url,
       topic: session.topic || `Buổi ${session.sessionNo}`,
     };

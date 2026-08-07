@@ -7,7 +7,7 @@
       </div>
       <div class="header-actions">
         <el-button @click="router.push('/calendar')">Về lịch học</el-button>
-        <el-button type="primary" plain @click="openZoom">Mở bằng ứng dụng Zoom</el-button>
+        <el-button v-if="!auth.isStudent" type="primary" plain @click="openZoom">Mở bằng ứng dụng Zoom</el-button>
       </div>
     </header>
 
@@ -24,17 +24,13 @@
       <b>Đang chuẩn bị phòng học Zoom…</b>
       <span>Vui lòng cho phép sử dụng camera và micro khi trình duyệt hỏi.</span>
     </div>
-    <div ref="zoomRoot" class="zoom-root" :class="{ hidden: loading || errorMessage || requiresZoomLogin }"></div>
+    <div ref="zoomRoot" class="zoom-root" :class="{ hidden: loading || errorMessage }"></div>
 
     <div v-if="errorMessage" class="fallback-card">
-      <h3>Bạn vẫn có thể vào lớp bình thường</h3>
-      <p>Zoom nhúng chưa sẵn sàng trên thiết bị này. Hãy dùng đường dẫn dự phòng bên dưới.</p>
-      <el-button type="primary" size="large" @click="openZoom">Mở lớp bằng Zoom</el-button>
-    </div>
-    <div v-else-if="requiresZoomLogin" class="fallback-card">
-      <h3>Buổi học yêu cầu đăng nhập Zoom</h3>
-      <p>Người tạo phòng yêu cầu xác thực. Hãy mở Zoom và đăng nhập bằng tài khoản được phép tham gia.</p>
-      <el-button type="primary" size="large" @click="openZoom">Đăng nhập và vào lớp bằng Zoom</el-button>
+      <h3>Chưa thể kết nối phòng học trên web</h3>
+      <p>{{ auth.isStudent ? 'Bạn không cần mở ứng dụng Zoom. Hãy thử kết nối lại ngay trên website.' : 'Có thể thử lại trên web hoặc mở Zoom để kiểm tra phòng.' }}</p>
+      <el-button type="primary" size="large" @click="retryOnWeb">Thử lại trên web</el-button>
+      <el-button v-if="!auth.isStudent" size="large" @click="openZoom">Mở bằng Zoom</el-button>
     </div>
   </section>
 </template>
@@ -44,13 +40,14 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Loading } from '@element-plus/icons-vue';
 import { sessionsApi } from '@/api';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
 const router = useRouter();
+const auth = useAuthStore();
 const zoomRoot = ref(null);
 const loading = ref(true);
 const errorMessage = ref('');
-const requiresZoomLogin = ref(false);
 const roomTitle = ref('Lớp học Zoom');
 const fallbackUrl = ref(String(route.query.fallback || ''));
 let client = null;
@@ -58,17 +55,13 @@ let client = null;
 const openZoom = () => {
   if (fallbackUrl.value) window.open(fallbackUrl.value, '_blank', 'noopener');
 };
+const retryOnWeb = () => window.location.reload();
 
 onMounted(async () => {
   try {
     const config = await sessionsApi.zoomSignature(route.params.sessionId);
     fallbackUrl.value = config.meetingUrl || fallbackUrl.value;
     roomTitle.value = config.topic || roomTitle.value;
-    if (config.requiresZoomLogin) {
-      requiresZoomLogin.value = true;
-      loading.value = false;
-      return;
-    }
     const { default: ZoomMtgEmbedded } = await import('@zoom/meetingsdk/embedded');
     client = ZoomMtgEmbedded.createClient();
     await client.init({

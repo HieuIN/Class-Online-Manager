@@ -115,13 +115,9 @@
           </el-input>
           <div class="form-tip">Mở trang tạo phòng, sau đó dán đường dẫn mời vào đây.</div>
         </el-form-item>
-        <el-form-item v-if="sessionForm.platform === 'ZOOM'" label="Cách học viên tham gia Zoom">
-          <el-radio-group v-model="sessionForm.zoomRequireAuth" class="zoom-auth-options">
-            <el-radio :value="false"><b>Vào ẩn danh</b><span>Không cần tài khoản Zoom; tên lấy tự động từ tài khoản học viên.</span></el-radio>
-            <el-radio :value="true"><b>Yêu cầu đăng nhập Zoom</b><span>Mở Zoom bên ngoài và áp dụng yêu cầu xác thực của phòng.</span></el-radio>
-          </el-radio-group>
-          <div class="form-tip">Tên học viên ẩn danh: Khóa – Lớp – Tên học viên. Nếu yêu cầu đăng nhập, hãy bật “Only authenticated users can join” trong Zoom.</div>
-        </el-form-item>
+        <el-alert v-if="sessionForm.platform === 'ZOOM'" type="success" :closable="false" show-icon class="zoom-guest-note" title="Học viên vào lớp ngay trên website, không cần tài khoản Zoom.">
+          <template #default>Tên trong phòng được đặt tự động theo mẫu: Khóa – Lớp – Tên học viên.</template>
+        </el-alert>
         <el-form-item label="Mời học viên">
           <el-select v-model="sessionForm.inviteStudentIds" multiple collapse-tags collapse-tags-tooltip placeholder="Chọn học viên" style="width:100%">
             <el-option v-for="student in classStudents" :key="student.id" :label="`${student.fullName} (${student.email})`" :value="student.id" />
@@ -166,7 +162,7 @@ const classStore = useClassStore();
 const auth = useAuthStore();
 const router = useRouter();
 const canManage = computed(() => auth.isTeacher || auth.isAdmin);
-const sessionForm = reactive({ topic: '', plannedDate: '', startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', zoomRequireAuth: false, note: '', inviteStudentIds: [], sendEmailInvites: true });
+const sessionForm = reactive({ topic: '', plannedDate: '', startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', note: '', inviteStudentIds: [], sendEmailInvites: true });
 const viewOptions = [{ label: 'Tuần', value: 'week' }, { label: 'Tháng', value: 'month' }];
 const hours = Array.from({ length: 16 }, (_, i) => i + 7);
 
@@ -280,7 +276,7 @@ const selectAllStudents = () => { sessionForm.inviteStudentIds = classStudents.v
 const openCreateSession = async () => {
   editingSessionId.value = null;
   await loadClassStudents();
-  Object.assign(sessionForm, { topic: '', plannedDate: dayjs().format('YYYY-MM-DD'), startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', zoomRequireAuth: false, note: '', inviteStudentIds: classStudents.value.map(student => student.id), sendEmailInvites: true });
+  Object.assign(sessionForm, { topic: '', plannedDate: dayjs().format('YYYY-MM-DD'), startTime: '19:00', endTime: '21:00', platform: 'GOOGLE_MEET', meetingUrl: '', note: '', inviteStudentIds: classStudents.value.map(student => student.id), sendEmailInvites: true });
   showCreate.value = true;
 };
 const platformFromUrl = (url) => {
@@ -298,7 +294,7 @@ const openEditSession = async (e) => {
   Object.assign(sessionForm, {
     topic: e.title || '', plannedDate: start.format('YYYY-MM-DD'), startTime: start.format('HH:mm'),
     endTime: end?.format('HH:mm') || start.add(2, 'hour').format('HH:mm'),
-    platform: platformFromUrl(meetingUrl), meetingUrl, zoomRequireAuth: Boolean(e.zoomRequireAuth ?? e.zoom_require_auth), note: '', inviteStudentIds: classStudents.value.map(student => student.id), sendEmailInvites: true,
+    platform: platformFromUrl(meetingUrl), meetingUrl, note: '', inviteStudentIds: classStudents.value.map(student => student.id), sendEmailInvites: true,
   });
   showEvent.value = false;
   showCreate.value = true;
@@ -324,7 +320,7 @@ const saveSession = async () => {
   if (!validMeetingUrl()) { ElMessage.warning('Đường dẫn không đúng với nền tảng đã chọn'); return; }
   saving.value = true;
   try {
-    const data = { plannedDate: sessionForm.plannedDate, startTime: sessionForm.startTime, endTime: sessionForm.endTime, topic: sessionForm.topic.trim(), meetingUrl: sessionForm.meetingUrl.trim() || null, zoomRequireAuth: sessionForm.platform === 'ZOOM' && sessionForm.zoomRequireAuth, inviteStudentIds: sessionForm.inviteStudentIds, sendEmailInvites: sessionForm.sendEmailInvites };
+    const data = { plannedDate: sessionForm.plannedDate, startTime: sessionForm.startTime, endTime: sessionForm.endTime, topic: sessionForm.topic.trim(), meetingUrl: sessionForm.meetingUrl.trim() || null, zoomRequireAuth: false, inviteStudentIds: sessionForm.inviteStudentIds, sendEmailInvites: sessionForm.sendEmailInvites };
     if (editingSessionId.value) {
       try {
         await sessionsApi.update(editingSessionId.value, data, { suppressErrorMessage: true });
@@ -393,9 +389,7 @@ onMounted(load);
 .detail-row { display:flex; justify-content:space-between; gap: 16px; font-size: 13px; }
 .detail-row span { color: #888; }
 .meeting-box { margin-top: 6px; padding: 12px; background: #E1F5EE; border-radius: 8px; display:flex; align-items:center; justify-content:space-between; gap: 12px; }
-.zoom-auth-options { align-items:flex-start; display:flex; flex-direction:column; gap:10px; }
-.zoom-auth-options .el-radio { height:auto; margin-right:0; white-space:normal; }
-.zoom-auth-options .el-radio span { color:var(--el-text-color-secondary); display:block; font-size:12px; line-height:1.45; margin-top:3px; }
+.zoom-guest-note { margin:-2px 0 16px; }
 .meeting-url { min-width: 0; color: #0F6E56; font-size: 12px; word-break: break-all; }
 @media (max-width: 768px) {
   .header-bar { align-items:flex-start; flex-direction:column; gap: 10px; }

@@ -27,6 +27,7 @@ const routes = [
       { path: 'hanzi-practice', component: () => import('@/views/shared/HanziPractice.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
       { path: 'class-extras', component: () => import('@/views/shared/ClassExtras.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
       { path: 'calendar', component: () => import('@/views/shared/Calendar.vue') },
+      { path: 'live-class/:sessionId', component: () => import('@/views/shared/ZoomClassroom.vue'), meta: { roles: ['TEACHER','STUDENT','ADMIN'] } },
       { path: 'analytics', component: () => import('@/views/teacher/Analytics.vue'), meta: { roles: ['TEACHER','ADMIN'] } },
       { path: 'payments', component: () => import('@/views/shared/Payments.vue'), meta: { roles: ['TEACHER','ADMIN'] } },
       { path: 'notifications', component: () => import('@/views/shared/Notifications.vue') },

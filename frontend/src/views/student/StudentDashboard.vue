@@ -213,6 +213,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { joinMeeting } from '@/utils/meeting';
 import { ArrowLeft, ArrowRight, Bell, Calendar, EditPen, Microphone, Reading, VideoPause, VideoPlay } from '@element-plus/icons-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useClassStore } from '@/stores/class';
@@ -258,7 +259,7 @@ const canJoinSession = (s) => {
   const diffHours = sessionStart(s).diff(dayjs(), 'hour', true);
   return diffHours >= 0 && diffHours <= 24;
 };
-const joinSession = (s) => window.open(getMeetingUrl(s), '_blank');
+const joinSession = (s) => joinMeeting(router, s);
 
 const heroSlides = computed(() => {
   const slides = [

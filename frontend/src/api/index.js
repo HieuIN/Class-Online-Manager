@@ -53,6 +53,7 @@ export const sessionsApi = {
   create: (d) => http.post('/sessions', d),
   update: (id, d, config = {}) => http.patch(`/sessions/${id}`, d, config),
   delete: (id) => http.delete(`/sessions/${id}`),
+  zoomSignature: (id) => http.post(`/sessions/${id}/zoom-signature`),
 };
 
 export const attendanceApi = {

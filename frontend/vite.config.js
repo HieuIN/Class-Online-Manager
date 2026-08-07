@@ -14,6 +14,9 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         navigateFallbackDenylist: [/^\/assets\//],
+        // Zoom's SDK chunk is loaded only when entering a live class. Keeping
+        // it out of the PWA precache avoids adding ~3 MB to every app update.
+        globIgnores: ['**/embedded-*.js'],
       },
       manifest: {
         name: 'Ctalk Chinese',

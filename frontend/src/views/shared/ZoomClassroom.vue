@@ -30,12 +30,18 @@
     <el-alert
       v-else-if="hostMustStart"
       title="Phòng Zoom đang chờ giáo viên bắt đầu"
-      description="Giáo viên cần bắt đầu cuộc họp bằng quyền host. Sau khi host bắt đầu, học viên sẽ được kết nối ngay trên website."
       type="info"
       :closable="false"
       show-icon
       class="room-alert"
-    />
+    >
+      <template #default>
+        <div class="host-connect-row">
+          <span>Kết nối tài khoản Zoom một lần để bắt đầu và điều hành phòng ngay trong Ctalk.</span>
+          <el-button type="primary" :loading="connectingZoom" @click="connectZoom">Kết nối Zoom</el-button>
+        </div>
+      </template>
+    </el-alert>
     <div v-if="loading && !waitingForStart" class="room-loading">
       <el-icon class="is-loading" :size="34"><Loading /></el-icon>
       <b>Đang chuẩn bị phòng học Zoom…</b>
@@ -69,6 +75,7 @@ const waitingForStart = ref(false);
 const remainingSeconds = ref(0);
 const startsAt = ref(null);
 const hostMustStart = ref(false);
+const connectingZoom = ref(false);
 const roomTitle = ref('Lớp học Zoom');
 const fallbackUrl = ref(String(route.query.fallback || ''));
 let client = null;
@@ -91,6 +98,16 @@ const openZoom = () => {
   if (fallbackUrl.value) window.open(fallbackUrl.value, '_blank', 'noopener');
 };
 const retryOnWeb = () => window.location.reload();
+const connectZoom = async () => {
+  connectingZoom.value = true;
+  try {
+    const result = await sessionsApi.zoomOauthUrl();
+    window.location.assign(result.url);
+  } catch (error) {
+    connectingZoom.value = false;
+    errorMessage.value = error?.response?.data?.message || 'Không thể bắt đầu kết nối Zoom.';
+  }
+};
 
 const joinOnWeb = async (config) => {
   try {
@@ -168,6 +185,7 @@ onBeforeUnmount(() => {
 .waiting-card > span:last-of-type, .countdown-label { color:#66766f; margin:0; }
 .waiting-badge { padding:7px 12px; border-radius:999px; background:#fff3d6; color:#956400; font-size:12px; font-weight:800; letter-spacing:.06em; }
 .countdown { color:#147d68; font-size:clamp(28px, 5vw, 48px); font-variant-numeric:tabular-nums; }
+.host-connect-row { display:flex; align-items:center; justify-content:space-between; gap:16px; width:100%; }
 @media (max-width: 700px) {
   .classroom-header { align-items:flex-start; flex-direction:column; }
   .header-actions { width:100%; }

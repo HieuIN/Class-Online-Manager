@@ -1,11 +1,11 @@
 import { Injectable, Module, Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, UseGuards, Req, ForbiddenException, ServiceUnavailableException, BadRequestException } from '@nestjs/common';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository, DataSource } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Repository, DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles, RolesGuard } from '../../common/roles.guard';
 import { NotificationsModule, NotificationsService } from '../notifications/notifications.module';
-import { createHmac } from 'crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 @Entity('sessions')
 export class ClassSession {
@@ -24,10 +24,22 @@ export class ClassSession {
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
 }
 
+@Entity('zoom_connections')
+export class ZoomConnection {
+  @PrimaryGeneratedColumn() id: number;
+  @Column({ name: 'user_id', unique: true }) userId: number;
+  @Column({ name: 'access_token', type: 'text' }) accessToken: string;
+  @Column({ name: 'refresh_token', type: 'text' }) refreshToken: string;
+  @Column({ name: 'expires_at', type: 'timestamptz' }) expiresAt: Date;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+  @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
+}
+
 @Injectable()
 export class SessionsService {
   constructor(
     @InjectRepository(ClassSession) private repo: Repository<ClassSession>,
+    @InjectRepository(ZoomConnection) private zoomConnections: Repository<ZoomConnection>,
     private notificationsService: NotificationsService,
     private dataSource: DataSource,
     private config: ConfigService,
@@ -36,6 +48,85 @@ export class SessionsService {
     return this.repo.find({ where: { classId }, order: { sessionNo: 'ASC' } });
   }
   findOne(id: number) { return this.repo.findOne({ where: { id } }); }
+  private zoomRedirectUri() {
+    return this.config.get<string>('ZOOM_OAUTH_REDIRECT_URI') || 'https://api.ctalkchinese.com/api/zoom-oauth/callback';
+  }
+  private tokenKey() {
+    return createHash('sha256').update(this.config.get<string>('JWT_SECRET') || 'ctalk-zoom-token-key').digest();
+  }
+  private encryptToken(value: string) {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', this.tokenKey(), iv);
+    const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+    return `${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${encrypted.toString('base64url')}`;
+  }
+  private decryptToken(value: string) {
+    const [iv, tag, encrypted] = value.split('.').map(part => Buffer.from(part, 'base64url'));
+    const decipher = createDecipheriv('aes-256-gcm', this.tokenKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+  }
+  private oauthState(userId: number) {
+    const payload = Buffer.from(JSON.stringify({ userId, exp: Date.now() + 10 * 60 * 1000 })).toString('base64url');
+    const signature = createHmac('sha256', this.tokenKey()).update(payload).digest('base64url');
+    return `${payload}.${signature}`;
+  }
+  private verifyOauthState(state: string) {
+    const [payload, signature] = String(state || '').split('.');
+    if (!payload || !signature) throw new BadRequestException('OAuth state không hợp lệ');
+    const expected = createHmac('sha256', this.tokenKey()).update(payload).digest();
+    const actual = Buffer.from(signature, 'base64url');
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw new BadRequestException('OAuth state không hợp lệ');
+    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!parsed.userId || parsed.exp < Date.now()) throw new BadRequestException('Yêu cầu kết nối Zoom đã hết hạn');
+    return Number(parsed.userId);
+  }
+  zoomOauthUrl(user: any) {
+    if (!['TEACHER', 'ADMIN'].includes(user.role)) throw new ForbiddenException('Chỉ giáo viên hoặc quản trị viên được kết nối Zoom');
+    const clientId = this.config.get<string>('ZOOM_MEETING_SDK_KEY');
+    if (!clientId) throw new ServiceUnavailableException('Zoom OAuth chưa được cấu hình');
+    const params = new URLSearchParams({ response_type: 'code', client_id: clientId, redirect_uri: this.zoomRedirectUri(), state: this.oauthState(user.id) });
+    return { url: `https://zoom.us/oauth/authorize?${params.toString()}` };
+  }
+  async zoomOauthCallback(code: string, state: string) {
+    const userId = this.verifyOauthState(state);
+    const tokens = await this.exchangeZoomToken({ grant_type: 'authorization_code', code, redirect_uri: this.zoomRedirectUri() });
+    const existing = await this.zoomConnections.findOne({ where: { userId } });
+    await this.zoomConnections.save(this.zoomConnections.create({
+      ...(existing || {}), userId,
+      accessToken: this.encryptToken(tokens.access_token),
+      refreshToken: this.encryptToken(tokens.refresh_token),
+      expiresAt: new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000),
+    }));
+    return this.config.get<string>('FRONTEND_URL') || 'https://ctalkchinese.com';
+  }
+  private async exchangeZoomToken(params: Record<string, string>) {
+    const clientId = this.config.get<string>('ZOOM_MEETING_SDK_KEY') || '';
+    const clientSecret = this.config.get<string>('ZOOM_MEETING_SDK_SECRET') || '';
+    const response = await fetch(`https://zoom.us/oauth/token?${new URLSearchParams(params)}`, {
+      method: 'POST', headers: { Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}` },
+    });
+    const data: any = await response.json();
+    if (!response.ok) throw new BadRequestException(data?.reason || data?.message || 'Không thể kết nối tài khoản Zoom');
+    return data;
+  }
+  private async getTeacherZak(userId: number) {
+    const connection = await this.zoomConnections.findOne({ where: { userId } });
+    if (!connection) return '';
+    let accessToken = this.decryptToken(connection.accessToken);
+    if (new Date(connection.expiresAt).getTime() <= Date.now() + 60_000) {
+      const tokens = await this.exchangeZoomToken({ grant_type: 'refresh_token', refresh_token: this.decryptToken(connection.refreshToken) });
+      accessToken = tokens.access_token;
+      connection.accessToken = this.encryptToken(tokens.access_token);
+      if (tokens.refresh_token) connection.refreshToken = this.encryptToken(tokens.refresh_token);
+      connection.expiresAt = new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000);
+      await this.zoomConnections.save(connection);
+    }
+    const response = await fetch('https://api.zoom.us/v2/users/me/token?type=zak', { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!response.ok) return '';
+    const data: any = await response.json();
+    return String(data.token || '');
+  }
   async zoomJoinConfig(id: number, user: any) {
     const session = await this.findOne(id);
     if (!session) throw new BadRequestException('Buổi học không tồn tại');
@@ -62,8 +153,8 @@ export class SessionsService {
 
     // Starting a meeting as host additionally requires a host ZAK. Without it,
     // teachers join safely as participants and can use the external Zoom fallback to host.
-    const hostZak = this.config.get<string>('ZOOM_HOST_ZAK') || '';
     const isClassTeacher = Number(access[0]?.teacherId) === Number(user.id);
+    const hostZak = isClassTeacher ? (await this.getTeacherZak(user.id) || this.config.get<string>('ZOOM_HOST_ZAK') || '') : '';
     const role = isClassTeacher && hostZak ? 1 : 0;
     const now = Math.floor(Date.now() / 1000) - 30;
     const expires = now + 60 * 60 * 2;
@@ -208,9 +299,19 @@ export class SessionsController {
   @Delete(':id') @Roles('ADMIN','TEACHER') remove(@Param('id', ParseIntPipe) id: number) { return this.service.remove(id); }
 }
 
+@Controller('zoom-oauth')
+export class ZoomOAuthController {
+  constructor(private readonly service: SessionsService) {}
+  @Get('url') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('ADMIN','TEACHER') url(@Req() req: any) { return this.service.zoomOauthUrl(req.user); }
+  @Get('callback') async callback(@Query('code') code: string, @Query('state') state: string, @Req() req: any) {
+    const frontend = await this.service.zoomOauthCallback(code, state);
+    req.res.redirect(`${frontend.replace(/\/$/, '')}/calendar?zoom=connected`);
+  }
+}
+
 @Module({
-  imports: [TypeOrmModule.forFeature([ClassSession]), NotificationsModule],
-  controllers: [SessionsController],
+  imports: [TypeOrmModule.forFeature([ClassSession, ZoomConnection]), NotificationsModule],
+  controllers: [SessionsController, ZoomOAuthController],
   providers: [SessionsService],
   exports: [SessionsService, TypeOrmModule],
 })

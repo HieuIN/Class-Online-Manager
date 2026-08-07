@@ -1,10 +1,11 @@
-import { Injectable, Module, Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
+import { Injectable, Module, Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, UseGuards, Req, ForbiddenException, ServiceUnavailableException, BadRequestException } from '@nestjs/common';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Repository, DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles, RolesGuard } from '../../common/roles.guard';
 import { NotificationsModule, NotificationsService } from '../notifications/notifications.module';
+import { createHmac } from 'crypto';
 
 @Entity('sessions')
 export class ClassSession {
@@ -19,6 +20,7 @@ export class ClassSession {
   @Column({ default: 'PLANNED' }) status: string;
   @Column({ type: 'text', nullable: true }) note: string;
   @Column({ name: 'meeting_url', type: 'text', nullable: true }) meetingUrl: string;
+  @Column({ name: 'zoom_require_auth', default: false }) zoomRequireAuth: boolean;
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
 }
 
@@ -34,6 +36,63 @@ export class SessionsService {
     return this.repo.find({ where: { classId }, order: { sessionNo: 'ASC' } });
   }
   findOne(id: number) { return this.repo.findOne({ where: { id } }); }
+  async zoomJoinConfig(id: number, user: any) {
+    const session = await this.findOne(id);
+    if (!session) throw new BadRequestException('Buổi học không tồn tại');
+
+    const access = await this.dataSource.query(
+      `SELECT c.teacher_id AS "teacherId", c.name AS "className", co.name AS "courseName",
+              EXISTS(SELECT 1 FROM enrollments e WHERE e.class_id = c.id AND e.student_id = $2 AND e.is_active = true) AS enrolled
+       FROM classes c LEFT JOIN courses co ON co.id = c.course_id WHERE c.id = $1`,
+      [session.classId, user.id],
+    );
+    const allowed = user.role === 'ADMIN' || Number(access[0]?.teacherId) === Number(user.id) || access[0]?.enrolled === true;
+    if (!allowed) throw new ForbiddenException('Bạn không thuộc lớp học này');
+
+    const url = String(session.meetingUrl || '');
+    let parsed: URL;
+    try { parsed = new URL(url); } catch { throw new BadRequestException('Đường dẫn Zoom không hợp lệ'); }
+    if (!/(^|\.)zoom\.us$/i.test(parsed.hostname)) throw new BadRequestException('Buổi học này không sử dụng Zoom');
+    const meetingNumber = parsed.pathname.match(/\/(?:j|s|wc)\/(\d+)/i)?.[1];
+    if (!meetingNumber) throw new BadRequestException('Không tìm thấy mã cuộc họp trong đường dẫn Zoom');
+
+    if (session.zoomRequireAuth && user.role === 'STUDENT') {
+      return {
+        requiresZoomLogin: true,
+        meetingUrl: url,
+        topic: session.topic || `Buổi ${session.sessionNo}`,
+      };
+    }
+
+    const sdkKey = this.config.get<string>('ZOOM_MEETING_SDK_KEY');
+    const sdkSecret = this.config.get<string>('ZOOM_MEETING_SDK_SECRET');
+    if (!sdkKey || !sdkSecret) throw new ServiceUnavailableException('Phòng học trực tiếp chưa được cấu hình. Vui lòng mở bằng Zoom.');
+
+    // Starting a meeting as host additionally requires a host ZAK. Without it,
+    // teachers join safely as participants and can use the external Zoom fallback to host.
+    const hostZak = this.config.get<string>('ZOOM_HOST_ZAK') || '';
+    const isClassTeacher = Number(access[0]?.teacherId) === Number(user.id);
+    const role = isClassTeacher && hostZak ? 1 : 0;
+    const now = Math.floor(Date.now() / 1000) - 30;
+    const expires = now + 60 * 60 * 2;
+    const header = { alg: 'HS256', typ: 'JWT' };
+    const payload = { sdkKey, appKey: sdkKey, mn: meetingNumber, role, iat: now, exp: expires, tokenExp: expires };
+    const encode = (value: any) => Buffer.from(JSON.stringify(value)).toString('base64url');
+    const unsigned = `${encode(header)}.${encode(payload)}`;
+    const signature = `${unsigned}.${createHmac('sha256', sdkSecret).update(unsigned).digest('base64url')}`;
+
+    const displayName = [access[0]?.courseName, access[0]?.className, user.fullName || user.email]
+      .filter(Boolean).join(' – ').slice(0, 64) || 'Ctalk Chinese';
+    return {
+      sdkKey, signature, meetingNumber, role,
+      password: parsed.searchParams.get('pwd') || '',
+      zak: role === 1 ? hostZak : '',
+      userName: displayName,
+      requiresZoomLogin: false,
+      meetingUrl: url,
+      topic: session.topic || `Buổi ${session.sessionNo}`,
+    };
+  }
   private async inviteStudents(session: ClassSession, studentIds: number[], sendEmail: boolean, isUpdate = false) {
     const ids = [...new Set((studentIds || []).map(Number).filter(Boolean))];
     if (!ids.length) return { selected: 0, notified: 0, emailed: 0, emailConfigured: false };
@@ -141,6 +200,9 @@ export class SessionsController {
   }
   @Get('progress/:classId') progress(@Param('classId', ParseIntPipe) classId: number) {
     return this.service.getProgress(classId);
+  }
+  @Post(':id/zoom-signature') zoomSignature(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.service.zoomJoinConfig(id, req.user);
   }
   @Post('generate') @Roles('ADMIN','TEACHER') generate(@Body() body: any) { return this.service.generate(body); }
   @Get(':id') findOne(@Param('id', ParseIntPipe) id: number) { return this.service.findOne(id); }

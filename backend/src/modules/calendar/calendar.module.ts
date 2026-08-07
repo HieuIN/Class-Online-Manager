@@ -50,6 +50,7 @@ export class CalendarService {
               CASE WHEN s.end_time IS NULL THEN NULL ELSE (s.planned_date + s.end_time) END as "endTime",
               s.topic as title,
               s.meeting_url as "meetingUrl",
+              s.zoom_require_auth as "zoomRequireAuth",
               s.session_no as "sessionNo",
               c.name as "className",
               'SESSION' as "eventType",

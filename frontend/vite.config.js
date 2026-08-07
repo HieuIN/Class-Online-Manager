@@ -16,7 +16,7 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/assets\//],
         // Zoom's SDK chunk is loaded only when entering a live class. Keeping
         // it out of the PWA precache avoids adding ~3 MB to every app update.
-        globIgnores: ['**/embedded-*.js'],
+        globIgnores: ['**/embedded-*.js', '**/zoom-sdk-*.js'],
       },
       manifest: {
         name: 'Ctalk Chinese',
@@ -47,6 +47,15 @@ export default defineConfig({
     }),
   ],
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/@zoom/meetingsdk')) return 'zoom-sdk';
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

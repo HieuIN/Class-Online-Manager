@@ -85,6 +85,7 @@ const connectingZoom = ref(false);
 const roomTitle = ref('Lớp học Zoom');
 const fallbackUrl = ref(String(route.query.fallback || ''));
 let client = null;
+let clientViewZoom = null;
 let countdownTimer = null;
 
 const scheduledLabel = computed(() => startsAt.value
@@ -126,11 +127,52 @@ const connectZoom = async () => {
   }
 };
 
+const joinWithClientView = async (config) => {
+  const { ZoomMtg } = await import('@zoom/meetingsdk');
+  clientViewZoom = ZoomMtg;
+  ZoomMtg.preLoadWasm();
+  ZoomMtg.prepareWebSDK();
+  ZoomMtg.i18n.load('vi-VN');
+  ZoomMtg.i18n.reload('vi-VN');
+  const root = document.getElementById('zmmtg-root');
+  if (root) root.style.display = 'block';
+
+  await new Promise((resolve, reject) => {
+    ZoomMtg.init({
+      leaveUrl: `${window.location.origin}/calendar`,
+      patchJsMedia: true,
+      leaveOnPageUnload: true,
+      sharingMode: 'fit',
+      showPureSharingContent: true,
+      defaultView: 'speaker',
+      success: resolve,
+      error: reject,
+    });
+  });
+  await new Promise((resolve, reject) => {
+    ZoomMtg.join({
+      signature: config.signature,
+      meetingNumber: config.meetingNumber,
+      passWord: config.password || '',
+      userName: config.userName,
+      userEmail: '',
+      ...(config.zak ? { zak: config.zak } : {}),
+      success: resolve,
+      error: reject,
+    });
+  });
+  loading.value = false;
+};
+
 const joinOnWeb = async (config) => {
   try {
     waitingForStart.value = false;
     loading.value = true;
     hostMustStart.value = auth.isTeacher && !config.canStartInWeb;
+    if (auth.isStudent) {
+      await joinWithClientView(config);
+      return;
+    }
     const { default: ZoomMtgEmbedded } = await import('@zoom/meetingsdk/embedded');
     client = ZoomMtgEmbedded.createClient();
     await client.init({
@@ -184,6 +226,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', syncFullscreenState);
   if (countdownTimer) window.clearInterval(countdownTimer);
+  try { clientViewZoom?.leaveMeeting?.({ confirm: false }); } catch {}
   try { client?.leaveMeeting?.(); } catch {}
 });
 </script>

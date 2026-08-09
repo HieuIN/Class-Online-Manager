@@ -94,7 +94,7 @@ import { useClassStore } from '@/stores/class';
 import { submissionBadge, fmtDateTime } from '@/utils/format';
 import { mediaUrl } from '@/utils/media';
 
-const acceptedTypes = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.ogg,.m4a,.mp4,.webm,.mov,.zip,.rar,.7z';
+const acceptedTypes = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.ogg,.m4a,.aac,.flac,.wma,.amr,.caf,.mp4,.webm,.mov,.m4v,.3gp,.3gpp,.mpeg,.mpg,.avi,.mkv,.zip,.rar,.7z,audio/*,video/*';
 const acceptedExtensions = new Set(acceptedTypes.split(',').map(type => type.slice(1)));
 const classStore = useClassStore();
 const assignments = ref([]), matrix = ref([]), activeId = ref(null), templates = ref([]), selectedTemplateId = ref(null), classStudents = ref([]);

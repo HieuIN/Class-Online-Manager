@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { extname } from 'path';
 
-export const attachmentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.ogg,.m4a,.mp4,.webm,.mov,.zip,.rar,.7z';
+export const attachmentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.ogg,.m4a,.aac,.flac,.wma,.amr,.caf,.mp4,.webm,.mov,.m4v,.3gp,.3gpp,.mpeg,.mpg,.avi,.mkv,.zip,.rar,.7z';
 export const maxAttachmentSize = 100 * 1024 * 1024;
 
 const allowedExtensions = new Set(attachmentAccept.split(',').map(value => value.slice(1)));

@@ -4,11 +4,11 @@
 
     <div class="page-heading">
       <div>
-        <p class="eyebrow">HOC TAP</p>
-        <h2>Bai tap cua lop</h2>
-        <p class="subtle">Xem yeu cau, tieu chi cham va toan bo phan hoi truoc khi nop bai.</p>
+        <p class="eyebrow">HỌC TẬP</p>
+        <h2>Bài tập của lớp</h2>
+        <p class="subtle">Xem yêu cầu, tiêu chí chấm và toàn bộ phản hồi trước khi nộp bài.</p>
       </div>
-      <span v-if="assignments.length" class="assignment-count">{{ assignments.length }} bai tap</span>
+      <span v-if="assignments.length" class="assignment-count">{{ assignments.length }} bài tập</span>
     </div>
 
     <el-card v-for="assignment in assignments" :key="assignment.id" class="assignment-card">
@@ -16,46 +16,46 @@
         <div class="title-group">
           <div class="title-line">
             <h3>{{ assignment.title }}</h3>
-            <span v-if="isGroupAssignment(assignment)" class="badge badge-purple">Bai tap nhom</span>
+            <span v-if="isGroupAssignment(assignment)" class="badge badge-purple">Bài tập nhóm</span>
           </div>
           <p v-if="assignment.description">{{ assignment.description }}</p>
-          <p v-else class="subtle">Giao vien chua them huong dan chi tiet.</p>
+          <p v-else class="subtle">Giáo viên chưa thêm hướng dẫn chi tiết.</p>
         </div>
         <div class="due-group">
-          <span :class="['badge', isRequired(assignment) ? 'badge-red' : 'badge-gray']">{{ isRequired(assignment) ? 'Bat buoc' : 'Tu chon' }}</span>
-          <span class="due">Han nop: {{ fmtDateTime(dueDate(assignment)) }}</span>
+          <span :class="['badge', isRequired(assignment) ? 'badge-red' : 'badge-gray']">{{ isRequired(assignment) ? 'Bắt buộc' : 'Tự chọn' }}</span>
+          <span class="due">Hạn nộp: {{ fmtDateTime(dueDate(assignment)) }}</span>
         </div>
       </div>
 
       <div class="requirement-strip">
-        <span>Thang diem <b>{{ maxScore(assignment) }}</b></span>
-        <span>Hinh thuc <b>{{ submissionTypeLabel(assignment) }}</b></span>
-        <span v-if="estimatedMinutes(assignment)">Du kien <b>{{ estimatedMinutes(assignment) }} phut</b></span>
-        <span :class="allowLate(assignment) ? 'late-allowed' : 'late-locked'">{{ allowLate(assignment) ? 'Co the nop tre' : 'Khong nhan nop tre' }}</span>
+        <span>Thang điểm <b>{{ maxScore(assignment) }}</b></span>
+        <span>Hình thức <b>{{ submissionTypeLabel(assignment) }}</b></span>
+        <span v-if="estimatedMinutes(assignment)">Dự kiến <b>{{ estimatedMinutes(assignment) }} phút</b></span>
+        <span :class="allowLate(assignment) ? 'late-allowed' : 'late-locked'">{{ allowLate(assignment) ? 'Có thể nộp trễ' : 'Không nhận nộp trễ' }}</span>
       </div>
 
       <el-alert v-if="isGroupAssignment(assignment)" :type="assignment.myGroup ? 'info' : 'warning'" :closable="false" show-icon class="group-alert">
         <template #title>
-          <b v-if="assignment.myGroup">Nhom cua ban: {{ assignment.myGroup.name }}</b>
-          <b v-else>Ban chua duoc phan nhom</b>
-          <span v-if="assignment.myGroup">. Moi thanh vien deu co the nop, bai nop se duoc dung chung cho ca nhom.</span>
-          <span v-else>. Hay lien he giao vien de duoc phan nhom truoc khi nop bai.</span>
+          <b v-if="assignment.myGroup">Nhóm của bạn: {{ assignment.myGroup.name }}</b>
+          <b v-else>Bạn chưa được phân nhóm</b>
+          <span v-if="assignment.myGroup">. Mỗi thành viên đều có thể nộp, bài nộp sẽ được dùng chung cho cả nhóm.</span>
+          <span v-else>. Hãy liên hệ giáo viên để được phân nhóm trước khi nộp bài.</span>
         </template>
       </el-alert>
 
       <div v-if="rubrics(assignment).length" class="rubric-panel">
-        <p>Tieu chi cham diem</p>
+        <p>Tiêu chí chấm điểm</p>
         <div v-for="rubric in rubrics(assignment)" :key="rubric.id" class="rubric-row">
           <div><b>{{ rubric.criterion }}</b><span v-if="rubric.description">{{ rubric.description }}</span></div>
-          <strong>{{ rubricMax(rubric) }} diem</strong>
+          <strong>{{ rubricMax(rubric) }} điểm</strong>
         </div>
       </div>
 
       <div v-if="attachments(assignment).length" class="attachments">
-        <p>Tai lieu cua giao vien</p>
+        <p>Tài liệu của giáo viên</p>
         <div v-for="file in attachments(assignment)" :key="file.id" class="attachment-row">
           <span class="file-name">{{ file.fileName }}</span>
-          <div><el-button link type="primary" @click="openFile(file.fileUrl)">Xem truc tiep</el-button><el-button link @click="downloadFile(file.fileUrl, file.fileName)">Tai</el-button></div>
+          <div><el-button link type="primary" @click="openFile(file.fileUrl)">Xem trực tiếp</el-button><el-button link @click="downloadFile(file.fileUrl, file.fileName)">Tải</el-button></div>
         </div>
       </div>
 
@@ -63,21 +63,21 @@
 
       <div class="submission-summary">
         <div>
-          <span>Trang thai</span>
+          <span>Trạng thái</span>
           <span :class="['badge', submissionBadge(submissionFor(assignment)?.status || 'NOT_SUBMITTED').cls]">{{ submissionBadge(submissionFor(assignment)?.status || 'NOT_SUBMITTED').label }}</span>
         </div>
-        <div v-if="submissionFor(assignment)?.score != null" class="score"><span>Diem</span><b>{{ submissionFor(assignment).score }}/{{ maxScore(assignment) }}</b></div>
+        <div v-if="submissionFor(assignment)?.score != null" class="score"><span>Điểm</span><b>{{ submissionFor(assignment).score }}/{{ maxScore(assignment) }}</b></div>
         <el-button plain @click="openDiscussion(assignment)">Thảo luận</el-button>
-        <el-button v-if="canSubmit(assignment)" type="primary" :disabled="isGroupAssignment(assignment) && !assignment.myGroup" @click="openSubmit(assignment)">{{ submissionFor(assignment)?.status === 'REVISION_REQUIRED' ? 'Sua va nop lai' : 'Nop bai' }}</el-button>
-        <span v-else-if="submissionFor(assignment)?.status === 'GRADED'" class="completed">Da hoan thanh</span>
+        <el-button v-if="canSubmit(assignment)" type="primary" :disabled="isGroupAssignment(assignment) && !assignment.myGroup" @click="openSubmit(assignment)">{{ submissionFor(assignment)?.status === 'REVISION_REQUIRED' ? 'Sửa và nộp lại' : 'Nộp bài' }}</el-button>
+        <span v-else-if="submissionFor(assignment)?.status === 'GRADED'" class="completed">Đã hoàn thành</span>
       </div>
 
       <div v-if="submissionFor(assignment)" class="submission-detail">
         <div class="submitted-heading">
-          <p class="submitted-label">{{ submissionFor(assignment).groupName ? `Bai nop cua ${submissionFor(assignment).groupName}` : 'Bai da nop' }}</p>
+          <p class="submitted-label">{{ submissionFor(assignment).groupName ? `Bài nộp của ${submissionFor(assignment).groupName}` : 'Bài đã nộp' }}</p>
           <div class="submission-actions">
-            <el-button v-if="submissionFor(assignment).versionCount" link @click="openHistory(submissionFor(assignment))">Lich su nop ({{ submissionFor(assignment).versionCount }})</el-button>
-            <el-button v-if="submissionAttachments(submissionFor(assignment)).length" link type="primary" @click="openAnnotations(submissionFor(assignment))">Nhan xet tren tep</el-button>
+            <el-button v-if="submissionFor(assignment).versionCount" link @click="openHistory(submissionFor(assignment))">Lịch sử nộp ({{ submissionFor(assignment).versionCount }})</el-button>
+            <el-button v-if="submissionAttachments(submissionFor(assignment)).length" link type="primary" @click="openAnnotations(submissionFor(assignment))">Nhận xét trên tệp</el-button>
           </div>
         </div>
 
@@ -85,12 +85,12 @@
         <div v-if="submissionAttachments(submissionFor(assignment)).length">
           <div v-for="file in submissionAttachments(submissionFor(assignment))" :key="file.id" class="attachment-row">
             <span class="file-name">{{ file.fileName }}</span>
-            <div><el-button link type="primary" @click="openFile(file.fileUrl)">Xem</el-button><el-button link @click="downloadFile(file.fileUrl, file.fileName)">Tai</el-button></div>
+            <div><el-button link type="primary" @click="openFile(file.fileUrl)">Xem</el-button><el-button link @click="downloadFile(file.fileUrl, file.fileName)">Tải</el-button></div>
           </div>
         </div>
 
         <div v-if="rubricScores(submissionFor(assignment)).length" class="rubric-results">
-          <p>Ket qua theo tieu chi</p>
+          <p>Kết quả theo tiêu chí</p>
           <div v-for="item in rubricScores(submissionFor(assignment))" :key="item.rubricId || item.rubric_id" class="rubric-score-row">
             <div><b>{{ item.criterion }}</b><span v-if="item.feedback">{{ item.feedback }}</span></div>
             <strong>{{ item.score }}/{{ item.maxPoints }}</strong>
@@ -98,29 +98,29 @@
         </div>
 
         <el-alert v-if="submissionFor(assignment)?.teacherComment || submissionFor(assignment)?.teacher_comment" type="success" :closable="false" show-icon class="feedback">
-          <template #title><b>Nhan xet cua giao vien</b><p>{{ submissionFor(assignment).teacherComment || submissionFor(assignment).teacher_comment }}</p></template>
+          <template #title><b>Nhận xét của giáo viên</b><p>{{ submissionFor(assignment).teacherComment || submissionFor(assignment).teacher_comment }}</p></template>
         </el-alert>
-        <el-alert v-if="submissionFor(assignment)?.status === 'REVISION_REQUIRED'" type="warning" :closable="false" show-icon title="Giao vien yeu cau chinh sua va nop lai bai." class="feedback" />
+        <el-alert v-if="submissionFor(assignment)?.status === 'REVISION_REQUIRED'" type="warning" :closable="false" show-icon title="Giáo viên yêu cầu chỉnh sửa và nộp lại bài." class="feedback" />
       </div>
     </el-card>
 
-    <el-card v-if="!assignments.length" class="empty-card"><el-empty description="Lop nay chua co bai tap dang phat hanh" /></el-card>
+    <el-card v-if="!assignments.length" class="empty-card"><el-empty description="Lớp này chưa có bài tập đang phát hành" /></el-card>
 
-    <el-dialog v-model="showSubmit" title="Nop bai tap" width="min(680px, 94vw)" destroy-on-close>
+    <el-dialog v-model="showSubmit" title="Nộp bài tập" width="min(680px, 94vw)" destroy-on-close>
       <template v-if="submitAssignment">
         <div class="submit-heading"><h3>{{ submitAssignment.title }}</h3><p v-if="submitAssignment.description">{{ submitAssignment.description }}</p></div>
-        <el-alert v-if="isGroupAssignment(submitAssignment)" type="info" :closable="false" show-icon :title="`Ban dang nop bai cho ${submitAssignment.myGroup?.name || 'nhom'}; cac thanh vien cung xem duoc bai nop nay.`" />
-        <el-alert v-if="submissionFor(submitAssignment)?.status === 'REVISION_REQUIRED'" type="warning" :closable="false" title="Hay xem nhan xet cua giao vien, chinh sua bai va nop lai phien ban moi." show-icon />
+        <el-alert v-if="isGroupAssignment(submitAssignment)" type="info" :closable="false" show-icon :title="`Bạn đang nộp bài cho ${submitAssignment.myGroup?.name || 'nhóm'}; các thành viên cùng xem được bài nộp này.`" />
+        <el-alert v-if="submissionFor(submitAssignment)?.status === 'REVISION_REQUIRED'" type="warning" :closable="false" title="Hãy xem nhận xét của giáo viên, chỉnh sửa bài và nộp lại phiên bản mới." show-icon />
         <el-form label-position="top" class="submit-form">
-          <el-form-item v-if="allowsText(submitAssignment)" :label="allowsFiles(submitAssignment) ? 'Noi dung bai lam (khong bat buoc neu co tep)' : 'Noi dung bai lam *'"><el-input v-model="submitContent" type="textarea" :rows="6" placeholder="Viet cau tra loi, duong dan tham khao hoac phan giai thich cua ban." /></el-form-item>
-          <el-form-item v-if="allowsFiles(submitAssignment)" :label="allowsText(submitAssignment) ? 'Tep bai lam (khong bat buoc neu da nhap noi dung)' : 'Tep bai lam *'">
+          <el-form-item v-if="allowsText(submitAssignment)" :label="allowsFiles(submitAssignment) ? 'Nội dung bài làm (không bắt buộc nếu có tệp)' : 'Nội dung bài làm *'"><el-input v-model="submitContent" type="textarea" :rows="6" placeholder="Viết câu trả lời, đường dẫn tham khảo hoặc phần giải thích của bạn." /></el-form-item>
+          <el-form-item v-if="allowsFiles(submitAssignment)" :label="allowsText(submitAssignment) ? 'Tệp bài làm (không bắt buộc nếu đã nhập nội dung)' : 'Tệp bài làm *'">
             <el-upload v-model:file-list="submissionFiles" drag multiple :auto-upload="false" :limit="5" :accept="acceptedTypes" :on-change="validateSubmissionFile" :on-exceed="onSubmissionFileExceed">
-              <div class="upload-copy"><b>Keo tha hoac chon toi da 5 tep</b><span>PDF, Office, anh, am thanh, video, van ban hoac tep nen. Moi tep toi da 100 MB.</span></div>
+              <div class="upload-copy"><b>Kéo thả hoặc chọn tối đa 5 tệp</b><span>Hỗ trợ tài liệu, ảnh, tệp âm thanh và video từ máy tính, Android, iPhone hoặc iPad. Mỗi tệp tối đa 100 MB.</span></div>
             </el-upload>
           </el-form-item>
         </el-form>
       </template>
-      <template #footer><el-button @click="showSubmit = false">Huy</el-button><el-button type="primary" :loading="submitting" @click="doSubmit">Nop bai</el-button></template>
+      <template #footer><el-button @click="showSubmit = false">Hủy</el-button><el-button type="primary" :loading="submitting" @click="doSubmit">Nộp bài</el-button></template>
     </el-dialog>
 
     <el-dialog v-model="showDiscussion" :title="`Thảo luận: ${discussionAssignment?.title || 'Bài tập'}`" width="min(720px, 94vw)">
@@ -136,26 +136,26 @@
       <template #footer><el-button @click="showDiscussion = false">Đóng</el-button><el-button type="primary" @click="addDiscussionComment">Gửi</el-button></template>
     </el-dialog>
 
-    <el-dialog v-model="showHistory" title="Lich su nop bai" width="min(720px, 94vw)">
-      <el-empty v-if="!versions.length" description="Chua co phien ban cu" />
+    <el-dialog v-model="showHistory" title="Lịch sử nộp bài" width="min(720px, 94vw)">
+      <el-empty v-if="!versions.length" description="Chưa có phiên bản cũ" />
       <div v-for="version in versions" :key="version.id" class="history-row">
-        <div><b>Phien ban {{ version.versionNo }}</b><span>{{ fmtDateTime(version.createdAt) }}</span></div>
-        <div v-if="version.score != null" class="history-score">Diem cu: {{ version.score }}</div>
+        <div><b>Phiên bản {{ version.versionNo }}</b><span>{{ fmtDateTime(version.createdAt) }}</span></div>
+        <div v-if="version.score != null" class="history-score">Điểm cũ: {{ version.score }}</div>
         <p v-if="version.contentText">{{ version.contentText }}</p>
         <div v-if="version.attachments?.length" class="history-files"><el-button v-for="file in version.attachments" :key="file.fileUrl" link type="primary" @click="openFile(file.fileUrl)">{{ file.fileName }}</el-button></div>
       </div>
     </el-dialog>
 
-    <el-dialog v-model="showAnnotation" title="Nhan xet tren bai nop" width="min(900px, 96vw)" destroy-on-close>
+    <el-dialog v-model="showAnnotation" title="Nhận xét trên bài nộp" width="min(900px, 96vw)" destroy-on-close>
       <div v-if="annotationFile" class="annotation-layout">
         <div class="annotation-preview">
           <img v-if="isImage(annotationFile.fileUrl)" :src="mediaUrl(annotationFile.fileUrl)" :alt="annotationFile.fileName" />
           <iframe v-else-if="isPdf(annotationFile.fileUrl)" :src="mediaUrl(annotationFile.fileUrl)" :title="annotationFile.fileName" />
-          <div v-else class="no-inline-preview">Tep nay khong ho tro xem truc tiep. Hay mo tep de xem noi dung.</div>
+          <div v-else class="no-inline-preview">Tệp này không hỗ trợ xem trực tiếp. Hãy mở tệp để xem nội dung.</div>
         </div>
         <div class="annotation-list">
-          <p>Nhan xet cua giao vien</p>
-          <el-empty v-if="!annotations.length" description="Chua co nhan xet tren tep nay" :image-size="72" />
+          <p>Nhận xét của giáo viên</p>
+          <el-empty v-if="!annotations.length" description="Chưa có nhận xét trên tệp này" :image-size="72" />
           <div v-for="annotation in annotations" :key="annotation.id" class="annotation-item">
             <b>{{ annotation.authorName }}</b><span v-if="annotation.pageNo">Trang {{ annotation.pageNo }}</span><p>{{ annotation.content }}</p>
           </div>
@@ -175,7 +175,7 @@ import { useClassStore } from '@/stores/class';
 import { submissionBadge, fmtDateTime } from '@/utils/format';
 import { mediaUrl } from '@/utils/media';
 
-const acceptedTypes = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.ogg,.m4a,.mp4,.webm,.mov,.zip,.rar,.7z';
+const acceptedTypes = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.ogg,.m4a,.aac,.flac,.wma,.amr,.caf,.mp4,.webm,.mov,.m4v,.3gp,.3gpp,.mpeg,.mpg,.avi,.mkv,.zip,.rar,.7z,audio/*,video/*';
 const acceptedExtensions = new Set(acceptedTypes.split(',').map(type => type.slice(1)));
 const auth = useAuthStore();
 const classStore = useClassStore();
@@ -208,10 +208,10 @@ const isGroupAssignment = assignment => Boolean(assignment.isGroupAssignment ?? 
 const typeOf = assignment => String(assignment.submissionType ?? assignment.submission_type ?? 'BOTH').toUpperCase();
 const allowsFiles = assignment => ['FILE', 'BOTH'].includes(typeOf(assignment));
 const allowsText = assignment => ['TEXT', 'BOTH'].includes(typeOf(assignment));
-const submissionTypeLabel = assignment => ({ FILE: 'Tep dinh kem', TEXT: 'Noi dung viet', BOTH: 'Tep hoac noi dung viet' })[typeOf(assignment)];
+const submissionTypeLabel = assignment => ({ FILE: 'Tệp đính kèm', TEXT: 'Nội dung viết', BOTH: 'Tệp hoặc nội dung viết' })[typeOf(assignment)];
 const submissionFor = assignment => submissions.value.find(item => Number(item.assignmentId ?? item.assignment_id) === Number(assignment.id));
 const submissionContent = submission => submission?.contentText ?? submission?.content_text;
-const submissionAttachments = submission => submission?.attachments || (submission?.fileUrl || submission?.file_url ? [{ id: `legacy-${submission.id}`, fileUrl: submission.fileUrl ?? submission.file_url, fileName: submission.fileName ?? submission.file_name ?? 'Tep dinh kem' }] : []);
+const submissionAttachments = submission => submission?.attachments || (submission?.fileUrl || submission?.file_url ? [{ id: `legacy-${submission.id}`, fileUrl: submission.fileUrl ?? submission.file_url, fileName: submission.fileName ?? submission.file_name ?? 'Tệp đính kèm' }] : []);
 const rubricScores = submission => submission?.rubricScores || submission?.rubric_scores || [];
 const canSubmit = assignment => { const status = submissionFor(assignment)?.status; return !status || status === 'NOT_SUBMITTED' || status === 'REVISION_REQUIRED'; };
 const isImage = url => /\.(jpg|jpeg|png|gif|webp)(?:$|\?)/i.test(url || '');
@@ -227,7 +227,7 @@ async function reload() {
   } catch (error) {
     assignments.value = [];
     submissions.value = [];
-    ElMessage.error(error?.response?.data?.message || 'Khong the tai bai tap');
+    ElMessage.error(error?.response?.data?.message || 'Không thể tải bài tập');
   }
 }
 
@@ -255,29 +255,29 @@ async function addDiscussionComment() {
 function validateSubmissionFile(file) {
   const extension = String(file.name || '').split('.').pop().toLowerCase();
   if (!acceptedExtensions.has(extension)) {
-    ElMessage.error('Dinh dang tep nay chua duoc ho tro');
+    ElMessage.error('Định dạng tệp này chưa được hỗ trợ');
     submissionFiles.value = submissionFiles.value.filter(item => item.uid !== file.uid);
     return false;
   }
   if (file.size > 100 * 1024 * 1024) {
-    ElMessage.error('Moi tep toi da 100 MB');
+    ElMessage.error('Mỗi tệp tối đa 100 MB');
     submissionFiles.value = submissionFiles.value.filter(item => item.uid !== file.uid);
     return false;
   }
   return true;
 }
 
-function onSubmissionFileExceed() { ElMessage.warning('Moi bai nop chi gui toi da 5 tep'); }
+function onSubmissionFileExceed() { ElMessage.warning('Mỗi bài nộp chỉ gửi tối đa 5 tệp'); }
 
 async function doSubmit() {
   const hasText = submitContent.value.trim().length > 0;
   const hasFiles = submissionFiles.value.some(file => file.raw);
   if (!submitAssignment.value || (!hasText && !hasFiles)) {
-    ElMessage.warning('Nhap noi dung hoac chon it nhat mot tep');
+    ElMessage.warning('Nhập nội dung hoặc chọn ít nhất một tệp');
     return;
   }
-  if (!allowsText(submitAssignment.value) && hasText) { ElMessage.warning('Bai tap nay chi nhan tep dinh kem'); return; }
-  if (!allowsFiles(submitAssignment.value) && hasFiles) { ElMessage.warning('Bai tap nay chi nhan noi dung viet'); return; }
+  if (!allowsText(submitAssignment.value) && hasText) { ElMessage.warning('Bài tập này chỉ nhận tệp đính kèm'); return; }
+  if (!allowsFiles(submitAssignment.value) && hasFiles) { ElMessage.warning('Bài tập này chỉ nhận nội dung viết'); return; }
   submitting.value = true;
   try {
     const formData = new FormData();
@@ -285,11 +285,11 @@ async function doSubmit() {
     if (hasText) formData.append('contentText', submitContent.value.trim());
     submissionFiles.value.forEach(file => { if (file.raw) formData.append('files', file.raw); });
     await submissionsApi.submit(formData);
-    ElMessage.success('Da nop bai thanh cong');
+    ElMessage.success('Đã nộp bài thành công');
     showSubmit.value = false;
     await reload();
   } catch (error) {
-    ElMessage.error(error?.response?.data?.message || 'Khong the nop bai');
+    ElMessage.error(error?.response?.data?.message || 'Không thể nộp bài');
   } finally {
     submitting.value = false;
   }
@@ -300,7 +300,7 @@ async function openHistory(submission) {
     versions.value = await submissionsApi.versions(submission.id);
     showHistory.value = true;
   } catch (error) {
-    ElMessage.error(error?.response?.data?.message || 'Khong the tai lich su nop bai');
+    ElMessage.error(error?.response?.data?.message || 'Không thể tải lịch sử nộp bài');
   }
 }
 
@@ -312,7 +312,7 @@ async function openAnnotations(submission) {
     annotations.value = await submissionsApi.annotations(submission.id, file.id);
     showAnnotation.value = true;
   } catch (error) {
-    ElMessage.error(error?.response?.data?.message || 'Khong the tai nhan xet tren tep');
+    ElMessage.error(error?.response?.data?.message || 'Không thể tải nhận xét trên tệp');
   }
 }
 

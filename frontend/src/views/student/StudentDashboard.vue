@@ -64,7 +64,7 @@
         <button type="button" class="learning-quick-card quiz" @click="$router.push('/student/quizzes')">
           <span class="quick-icon"><el-icon><EditPen /></el-icon></span>
           <span class="quick-content">
-            <strong>Quiz</strong>
+            <strong>Bài kiểm tra</strong>
             <small>Ôn lại kiến thức bằng câu hỏi ngắn</small>
           </span>
           <span class="quick-action">Làm quiz</span>

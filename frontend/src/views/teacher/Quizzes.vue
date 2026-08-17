@@ -2,7 +2,7 @@
   <div class="quiz-page">
     <div class="topbar">
       <ClassPicker @change="reload" />
-      <el-button type="primary" @click="openCreate">+ Tạo quiz</el-button>
+      <el-button type="primary" @click="openCreate">+ Tạo bài kiểm tra</el-button>
     </div>
 
     <el-row :gutter="16">
@@ -10,11 +10,11 @@
         <el-card class="panel">
           <template #header>
             <div class="panel-head">
-              <span>Danh sách quiz</span>
+              <span>Danh sách bài kiểm tra</span>
               <el-tag size="small">{{ quizzes.length }}</el-tag>
             </div>
           </template>
-          <div v-if="!quizzes.length" class="empty">Chưa có quiz nào cho lớp này</div>
+          <div v-if="!quizzes.length" class="empty">Chưa có bài kiểm tra nào cho lớp này</div>
           <div
             v-for="q in quizzes"
             :key="q.id"
@@ -81,11 +81,11 @@
             </el-tab-pane>
           </el-tabs>
         </el-card>
-        <el-card v-else class="panel"><div class="empty">Chọn một quiz để xem chi tiết</div></el-card>
+        <el-card v-else class="panel"><div class="empty">Chọn một bài kiểm tra để xem chi tiết</div></el-card>
       </el-col>
     </el-row>
 
-    <el-dialog v-model="showEditor" :title="editingId ? 'Sửa quiz' : 'Tạo quiz mới'" fullscreen>
+    <el-dialog v-model="showEditor" :title="editingId ? 'Sửa bài kiểm tra' : 'Tạo bài kiểm tra mới'" fullscreen>
       <div class="editor">
         <el-card>
           <el-form label-position="top">

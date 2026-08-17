@@ -4,17 +4,17 @@
       <div class="quiz-page-heading">
         <div>
           <span class="eyebrow">Ôn tập chủ động</span>
-          <h1>Quiz của lớp</h1>
+          <h1>Bài kiểm tra của lớp</h1>
           <p>Chọn một bài ngắn, tập trung trả lời và xem lại kiến thức ngay sau khi nộp bài.</p>
         </div>
         <ClassPicker @change="reload" />
       </div>
 
       <div class="quiz-overview-grid">
-        <section class="quiz-collection" aria-label="Danh sách quiz">
+        <section class="quiz-collection" aria-label="Danh sách bài kiểm tra">
           <div v-if="!quizzes.length" class="quiz-empty-state">
             <span class="empty-icon"><el-icon><EditPen /></el-icon></span>
-            <strong>Lớp này chưa có quiz</strong>
+            <strong>Lớp này chưa có bài kiểm tra</strong>
             <p>Giáo viên sẽ thêm bài ôn tập tại đây khi sẵn sàng.</p>
           </div>
           <article v-for="q in quizzes" :key="q.id" class="quiz-card">
